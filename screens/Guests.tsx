@@ -1,0 +1,364 @@
+
+import React, { useState, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { InvitationData, Guest, GuestAllotment, GuestCompanionNames } from '../types';
+
+interface GuestsScreenProps {
+  invitations: InvitationData[];
+  onSaveGuest: (eventId: string, guest: Guest) => void;
+  onDeleteGuest: (eventId: string, guestId: string) => void;
+}
+
+type GuestFilter = 'all' | 'confirmed' | 'declined' | 'pending';
+
+const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, onDeleteGuest }) => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const invitation = invitations.find(inv => inv.id === id);
+
+  const [filter, setFilter] = useState<GuestFilter>('all');
+  const [showModal, setShowModal] = useState<'add' | 'edit' | null>(null);
+  const [currentGuest, setCurrentGuest] = useState<Partial<Guest>>({
+    name: '',
+    allotted: { adults: 1, teens: 0, kids: 0, infants: 0 },
+    companionNames: { adults: [], teens: [], kids: [], infants: [] }
+  });
+  const [editingId, setEditingId] = useState<string | number | null>(null);
+
+  if (!invitation) return <div className="p-10 text-center font-bold">Evento no encontrado</div>;
+
+  const stats = useMemo(() => {
+    let total = 0, si = 0, no = 0, pend = 0;
+
+    invitation.guests.forEach(g => {
+      const gAllottedTotal = g.allotted.adults + g.allotted.teens + g.allotted.kids + g.allotted.infants;
+      const gConfirmedTotal = g.confirmed.adults + g.confirmed.teens + g.confirmed.kids + g.confirmed.infants;
+
+      total += gAllottedTotal;
+
+      if (g.status === 'confirmed') {
+        si += gConfirmedTotal;
+        no += (gAllottedTotal - gConfirmedTotal);
+      } else if (g.status === 'declined') {
+        no += gAllottedTotal;
+      } else {
+        pend += gAllottedTotal;
+      }
+    });
+
+    return { total, si, no, pend };
+  }, [invitation.guests]);
+
+  const handleSendWhatsApp = (guest: Guest) => {
+    const url = `${window.location.origin}${window.location.pathname}#/rsvp/${id}?guest=${encodeURIComponent(guest.name)}`;
+    const message = `¡Hola ${guest.name}! Estás invitado a ${invitation.eventName}. Confirma aquí: ${url}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const handleSaveGuest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentGuest.name) return;
+
+    if (showModal === 'add') {
+      const newGuest: Guest = {
+        id: Date.now(),
+        name: currentGuest.name,
+        status: 'pending',
+        allotted: currentGuest.allotted as GuestAllotment,
+        confirmed: { adults: 0, teens: 0, kids: 0, infants: 0 },
+        companionNames: currentGuest.companionNames as GuestCompanionNames,
+        sent: false
+      };
+      onSaveGuest(invitation.id, newGuest);
+    } else {
+      onSaveGuest(invitation.id, { ...currentGuest, id: editingId } as Guest);
+    }
+    setShowModal(null);
+  };
+
+  const handleDelete = (guestId: string | number) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar este invitado?')) {
+      onDeleteGuest(invitation.id, guestId.toString());
+    }
+  };
+
+  const renderList = () => {
+    return invitation.guests.filter(g => {
+      if (filter === 'all') return true;
+
+      if (filter === 'declined') {
+        const hasAbsences = (g.allotted.adults + g.allotted.teens + g.allotted.kids + g.allotted.infants) >
+          (g.confirmed.adults + g.confirmed.teens + g.confirmed.kids + g.confirmed.infants);
+        return g.status === 'declined' || (g.status === 'confirmed' && hasAbsences);
+      }
+
+      return g.status === filter;
+    }).map(g => {
+      const isSent = g.sent || g.status === 'confirmed' || g.status === 'declined';
+      const gAllottedTotal = g.allotted.adults + g.allotted.teens + g.allotted.kids + g.allotted.infants;
+      const gConfirmedTotal = g.confirmed.adults + g.confirmed.teens + g.confirmed.kids + g.confirmed.infants;
+      const diffTotal = gAllottedTotal - gConfirmedTotal;
+
+      return (
+        <div key={g.id} className="relative bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden mb-4 animate-in slide-in-from-bottom-2 duration-300">
+          <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${g.status === 'confirmed' ? 'bg-green-500' : g.status === 'declined' ? 'bg-red-500' : 'bg-slate-300'}`}></div>
+          <div className="p-4 space-y-3">
+            <div className="flex justify-between items-start">
+              <div className="flex gap-3">
+                <div className={`size-10 rounded-full flex items-center justify-center text-white font-black shadow-inner ${g.status === 'confirmed' ? 'bg-green-500' : g.status === 'declined' ? 'bg-red-500' : 'bg-slate-400'}`}>{g.name[0]}</div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold text-sm">{g.name}</p>
+                    {isSent && <span className="text-[8px] bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded font-black border border-blue-100 uppercase">Enviada</span>}
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">Cupo total: {gAllottedTotal}</p>
+                </div>
+              </div>
+              <div className="flex gap-1">
+                <button onClick={() => {
+                  setEditingId(g.id);
+                  setCurrentGuest({
+                    ...g,
+                    companionNames: g.companionNames || { adults: [], teens: [], kids: [], infants: [] }
+                  });
+                  setShowModal('edit');
+                }} className="p-1.5 text-slate-300 hover:text-primary transition-colors"><span className="material-symbols-outlined text-lg">edit</span></button>
+                <button onClick={() => handleDelete(g.id)} className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"><span className="material-symbols-outlined text-lg">delete</span></button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2 text-[10px] font-bold">
+                <div className="bg-slate-50 dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-700">
+                  <p className="text-slate-400 uppercase mb-1">Cupo Asignado</p>
+                  <p>Ad: {g.allotted.adults} | Adol: {g.allotted.teens} | Ni: {g.allotted.kids} | Be: {g.allotted.infants}</p>
+                </div>
+                {g.status === 'confirmed' ? (
+                  <div className="bg-green-50 dark:bg-green-900/20 p-2 rounded-xl border border-green-100 dark:border-green-800/50">
+                    <p className="text-green-600 dark:text-green-400 uppercase mb-1">Confirmados</p>
+                    <p>Ad: {g.confirmed.adults} | Adol: {g.confirmed.teens} | Ni: {g.confirmed.kids} | Be: {g.confirmed.infants}</p>
+                  </div>
+                ) : (
+                  <div className={`bg-slate-50 dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-700 italic flex items-center justify-center ${g.status === 'declined' ? 'text-red-500 font-bold bg-red-50/50 border-red-100' : 'text-slate-400'}`}>
+                    {g.status === 'declined' ? 'Informó que NO asiste' : 'Pendiente'}
+                  </div>
+                )}
+              </div>
+
+              {/* Ausentes dentro del mismo cuadrante */}
+              {(g.status === 'confirmed' && diffTotal > 0) || (g.status === 'declined' && gAllottedTotal > 0) ? (
+                <div className="p-2.5 bg-red-50/30 dark:bg-red-900/10 rounded-xl border border-red-50 dark:border-red-900/20">
+                  <p className="text-[9px] font-black text-red-500 uppercase flex items-center gap-1.5 mb-1">
+                    <span className="material-symbols-outlined text-[14px]">person_off</span>
+                    {g.status === 'declined' ? `Todo el grupo ausente: ${gAllottedTotal}` : `Ausencias en el grupo: ${diffTotal}`}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {g.allotted.adults - g.confirmed.adults > 0 && <span className="text-[8px] font-bold bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-red-100/50 text-red-400">-{g.allotted.adults - g.confirmed.adults} Adultos</span>}
+                    {g.allotted.teens - g.confirmed.teens > 0 && <span className="text-[8px] font-bold bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-red-100/50 text-red-400">-{g.allotted.teens - g.confirmed.teens} Adol.</span>}
+                    {g.allotted.kids - g.confirmed.kids > 0 && <span className="text-[8px] font-bold bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-red-100/50 text-red-400">-{g.allotted.kids - g.confirmed.kids} Niños</span>}
+                    {g.allotted.infants - g.confirmed.infants > 0 && <span className="text-[8px] font-bold bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-red-100/50 text-red-400">-{g.allotted.infants - g.confirmed.infants} Bebés</span>}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Lista de invitados que asisten */}
+              {g.status === 'confirmed' && (
+                <div className="pt-2 border-t border-slate-50 dark:border-slate-700">
+                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1.5 font-sans">Invitados que asisten:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {/* Invitado Principal */}
+                    {g.confirmed.adults > 0 && (
+                      <span className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-1.5">
+                        <span className="size-1.5 bg-green-500 rounded-full"></span>
+                        {g.name}
+                      </span>
+                    )}
+
+                    {/* Acompañantes */}
+                    {g.companionNames && [
+                      ...g.companionNames.adults,
+                      ...g.companionNames.teens,
+                      ...g.companionNames.kids,
+                      ...g.companionNames.infants
+                    ].filter(n => n.trim() !== "" && n.toLowerCase() !== g.name.toLowerCase()).map((name, idx) => (
+                      <span key={idx} className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-1.5">
+                        <span className="size-1.5 bg-green-500 rounded-full"></span>
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t border-slate-50 dark:border-slate-700">
+              <button onClick={() => handleSendWhatsApp(g)} className="flex-1 py-3 rounded-xl bg-green-50 text-green-600 font-bold text-[10px] flex items-center justify-center gap-1.5 shadow-sm hover:bg-green-100 transition-colors">
+                <span className="material-symbols-outlined text-base">chat</span> ENVIAR INVITACIÓN
+              </button>
+              <button onClick={() => navigate(`/rsvp/${id}?guest=${encodeURIComponent(g.name)}`)} className="px-5 py-3 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-[10px] shadow-sm hover:bg-slate-200 transition-colors flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-base">visibility</span> VISTA
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    });
+  };
+
+  const updateAllotted = (key: keyof GuestAllotment, delta: number) => {
+    setCurrentGuest(prev => {
+      const newVal = Math.max(0, (prev.allotted![key] || 0) + delta);
+      const newAllotted = { ...prev.allotted!, [key]: newVal };
+
+      const newCompanionNames = { ...(prev.companionNames || { adults: [], teens: [], kids: [], infants: [] }) };
+      const targetLen = key === 'adults' ? Math.max(0, newVal - 1) : newVal;
+
+      const currentArr = [...(newCompanionNames[key] || [])];
+      if (currentArr.length < targetLen) {
+        while (currentArr.length < targetLen) currentArr.push('');
+      } else if (currentArr.length > targetLen) {
+        currentArr.splice(targetLen);
+      }
+      newCompanionNames[key] = currentArr;
+
+      return {
+        ...prev,
+        allotted: newAllotted,
+        companionNames: newCompanionNames
+      };
+    });
+  };
+
+  const updateCompanionName = (key: keyof GuestCompanionNames, index: number, name: string) => {
+    setCurrentGuest(prev => {
+      const newCompanionNames = { ...prev.companionNames! };
+      const currentArr = [...(newCompanionNames[key] || [])];
+      currentArr[index] = name;
+      newCompanionNames[key] = currentArr;
+      return { ...prev, companionNames: newCompanionNames };
+    });
+  };
+
+  return (
+    <div className="bg-background-light dark:bg-background-dark min-h-screen pb-24 max-w-[480px] mx-auto text-slate-900 dark:text-white font-display">
+      <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+          <span className="material-symbols-outlined">arrow_back</span>
+        </button>
+        <h1 className="text-base font-bold">Invitados & Confirmaciones</h1>
+        <button onClick={() => {
+          setEditingId(null);
+          setCurrentGuest({
+            name: '',
+            allotted: { adults: 1, teens: 0, kids: 0, infants: 0 },
+            companionNames: { adults: [], teens: [], kids: [], infants: [] }
+          });
+          setShowModal('add');
+        }} className="text-primary font-bold text-xs uppercase bg-primary/5 px-3 py-1.5 rounded-lg border border-primary/10">NUEVO</button>
+      </header>
+
+      <div className="p-4 space-y-6">
+        <div className="grid grid-cols-4 gap-2">
+          <StatBtn label="TOTAL" val={stats.total} active={filter === 'all'} onClick={() => setFilter('all')} color="primary" />
+          <StatBtn label="SI" val={stats.si} active={filter === 'confirmed'} onClick={() => setFilter('confirmed')} color="green-500" />
+          <StatBtn label="NO" val={stats.no} active={filter === 'declined'} onClick={() => setFilter('declined')} color="red-500" />
+          <StatBtn label="PEND." val={stats.pend} active={filter === 'pending'} onClick={() => setFilter('pending')} color="slate-400" />
+        </div>
+
+        <div>
+          {renderList().length > 0 ? renderList() : (
+            <div className="py-20 text-center space-y-3 opacity-50">
+              <span className="material-symbols-outlined text-5xl">group_off</span>
+              <p className="text-sm font-bold uppercase tracking-widest">No hay invitados en esta lista</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-5 animate-in zoom-in duration-200 max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex justify-between items-center shrink-0">
+              <h3 className="text-lg font-bold">{showModal === 'add' ? 'Nuevo Invitado' : 'Editar Cupos'}</h3>
+              <button onClick={() => setShowModal(null)} className="size-10 flex items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-full"><span className="material-symbols-outlined">close</span></button>
+            </div>
+            <div className="space-y-4 overflow-y-auto no-scrollbar pb-2">
+              <input required type="text" value={currentGuest.name} onChange={e => setCurrentGuest({ ...currentGuest, name: e.target.value })} className="w-full h-14 rounded-2xl border-slate-200 dark:border-slate-700 dark:bg-slate-900 px-4 font-bold outline-none focus:ring-2 focus:ring-primary/20" placeholder="Nombre del invitado principal" />
+
+              <div className="grid grid-cols-2 gap-4">
+                <AllotmentInput label="Adultos (18+)" val={currentGuest.allotted!.adults} onDelta={d => updateAllotted('adults', d)} />
+                <AllotmentInput label="Adolesc. (11-17)" val={currentGuest.allotted!.teens} onDelta={d => updateAllotted('teens', d)} />
+                <AllotmentInput label="Niños (3-11)" val={currentGuest.allotted!.kids} onDelta={d => updateAllotted('kids', d)} />
+                <AllotmentInput label="Bebés (0-3)" val={currentGuest.allotted!.infants} onDelta={d => updateAllotted('infants', d)} />
+              </div>
+
+              {(currentGuest.companionNames?.adults.length! > 0 ||
+                currentGuest.companionNames?.teens.length! > 0 ||
+                currentGuest.companionNames?.kids.length! > 0 ||
+                currentGuest.companionNames?.infants.length! > 0) && (
+                  <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-700">
+                    <p className="text-[10px] font-black text-slate-400 uppercase">Nombres de acompañantes (opcional)</p>
+
+                    {currentGuest.companionNames?.adults.map((name, i) => (
+                      <CompanionNameInput key={`a-${i}`} label={`Adulto ${i + 1}`} value={name} onChange={val => updateCompanionName('adults', i, val)} />
+                    ))}
+                    {currentGuest.companionNames?.teens.map((name, i) => (
+                      <CompanionNameInput key={`t-${i}`} label={`Adolescente ${i + 1}`} value={name} onChange={val => updateCompanionName('teens', i, val)} />
+                    ))}
+                    {currentGuest.companionNames?.kids.map((name, i) => (
+                      <CompanionNameInput key={`k-${i}`} label={`Niño ${i + 1}`} value={name} onChange={val => updateCompanionName('kids', i, val)} />
+                    ))}
+                    {currentGuest.companionNames?.infants.map((name, i) => (
+                      <CompanionNameInput key={`i-${i}`} label={`Bebé ${i + 1}`} value={name} onChange={val => updateCompanionName('infants', i, val)} />
+                    ))}
+                  </div>
+                )}
+            </div>
+            <button onClick={handleSaveGuest} className="w-full h-14 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/20 active:scale-[0.98] transition-all shrink-0">Guardar Cambios</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface CompanionNameInputProps {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  key?: string;
+}
+
+const CompanionNameInput = ({ label, value, onChange }: CompanionNameInputProps) => (
+  <div className="relative">
+    <label className="absolute -top-2 left-3 px-1 bg-white dark:bg-slate-800 text-[9px] font-black text-slate-400 uppercase">{label}</label>
+    <input
+      type="text"
+      value={value || ""}
+      onChange={e => onChange(e.target.value)}
+      className="w-full h-12 rounded-xl border border-slate-100 dark:border-slate-700 dark:bg-slate-900 px-4 text-sm font-bold outline-none focus:border-primary/50"
+      placeholder="Ingrese nombre..."
+    />
+  </div>
+);
+
+
+const StatBtn = ({ label, val, active, onClick, color }: any) => (
+  <button onClick={onClick} className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all ${active ? `bg-${color === 'primary' ? 'primary' : color} text-white shadow-lg` : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800'}`}>
+    <span className="text-xl font-black leading-none mb-1">{val}</span>
+    <span className="text-[8px] font-bold uppercase tracking-widest">{label}</span>
+  </button>
+);
+
+const AllotmentInput = ({ label, val, onDelta }: any) => (
+  <div className="space-y-1">
+    <p className="text-[9px] font-black text-slate-400 uppercase ml-2">{label}</p>
+    <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-700">
+      <button type="button" onClick={() => onDelta(-1)} className="size-9 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-slate-500">-</button>
+      <span className="flex-1 text-center font-bold">{val}</span>
+      <button type="button" onClick={() => onDelta(1)} className="size-9 rounded-xl bg-primary text-white flex items-center justify-center shadow-sm">+</button>
+    </div>
+  </div>
+);
+
+export default GuestsScreen;

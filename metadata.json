@@ -1,0 +1,9 @@
+
+{
+  "name": "APPXV - Event & Invitation Designer",
+  "description": "A comprehensive event planning platform that allows users to create, customize, and manage event invitations with AI-powered image generation and editing features.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}

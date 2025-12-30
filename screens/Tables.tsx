@@ -1,0 +1,300 @@
+
+import React, { useState, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { InvitationData, Table, SeatedGuest, Guest } from '../types';
+
+interface TablesScreenProps {
+  invitations: InvitationData[];
+  onAddTable: (eventId: string, name: string, capacity: number) => void;
+  onUpdateSeating: (eventId: string, tableId: string, assignments: { guestId: string | number, companionId?: string, companionIndex: number, companionName: string }[]) => void;
+  onDeleteTable: (eventId: string, tableId: string) => void;
+}
+
+const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, onUpdateSeating, onDeleteTable }) => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const invitation = invitations.find(inv => inv.id === id);
+
+  const [showAddTableModal, setShowAddTableModal] = useState(false);
+  const [newTableName, setNewTableName] = useState('');
+  const [newTableCapacity, setNewTableCapacity] = useState(10);
+  const [showAssignModal, setShowAssignModal] = useState<string | null>(null); // Table ID
+
+  if (!invitation) return <div className="p-10 text-center font-bold">Evento no encontrado</div>;
+
+  const tables = invitation.tables || [];
+
+  // Lista de invitados disponibles (no declinados y que no estén ya sentados)
+  const availablePool = useMemo(() => {
+    // Generate a set of unique keys for already seated guests/companions
+    const seatedSet = new Set(tables.flatMap(t => t.guests.map(sg => `${sg.guestId}-${sg.companionIndex ?? -1}-${sg.name}`)));
+
+    const getCategoryLabel = (type: string) => {
+      switch (type) {
+        case 'adult': return 'Adulto';
+        case 'teen': return 'Adolescente';
+        case 'kid': return 'Niño';
+        case 'infant': return 'Bebé';
+        default: return 'Invitado';
+      }
+    };
+
+    // Use a Map to track unique pool entries and prevent overall duplication
+    const poolMap = new Map<string, any>();
+    const pool: { guestId: string | number; companionId?: string; name: string; status: 'confirmed' | 'pending'; companionIndex?: number }[] = [];
+
+    invitation.guests.forEach(g => {
+      if (g.status === 'declined') return;
+
+      // Invitado principal
+      const mainKey = `${g.id}--1-${g.name}`;
+      if (!seatedSet.has(mainKey) && !poolMap.has(mainKey)) {
+        const entry = {
+          guestId: g.id,
+          name: g.name,
+          status: (g.status === 'confirmed' ? 'confirmed' : 'pending') as 'confirmed' | 'pending',
+          companionIndex: -1
+        };
+        poolMap.set(mainKey, entry);
+        pool.push(entry);
+      }
+
+      // Acompañantes (ahora se muestran aunque no estén confirmados)
+      if (g.companions) {
+        g.companions.forEach((c) => {
+          // Fallback name logic: "Tipo X - Invitado Principal"
+          const fallbackName = `${getCategoryLabel(c.type)} ${c.index + 1} - ${g.name}`;
+          const displayName = c.name.trim() || fallbackName;
+
+          const compKey = `${g.id}-${c.index}-${displayName}`;
+
+          // Avoid duplicating the main guest
+          if (displayName.trim().toLowerCase() === g.name.trim().toLowerCase()) return;
+
+          if (!seatedSet.has(compKey) && !poolMap.has(compKey)) {
+            const entry = {
+              guestId: g.id,
+              companionId: c.id,
+              name: displayName,
+              status: (g.status === 'confirmed' ? 'confirmed' : 'pending') as 'confirmed' | 'pending',
+              companionIndex: c.index
+            };
+            poolMap.set(compKey, entry);
+            pool.push(entry);
+          }
+        });
+      }
+    });
+
+    return pool.sort((a, b) => a.name.localeCompare(b.name));
+  }, [invitation.guests, tables]);
+
+  const handleAddTable = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTableName.trim()) return;
+
+    onAddTable(invitation.id, newTableName, newTableCapacity);
+    setNewTableName('');
+    setShowAddTableModal(false);
+  };
+
+  const handleRemoveTable = (tableId: string) => {
+    if (window.confirm('¿Eliminar esta mesa permanentemente?')) {
+      onDeleteTable(invitation.id, tableId);
+    }
+  };
+
+  const assignToTable = (tableId: string, guest: typeof availablePool[0]) => {
+    const table = tables.find(t => t.id === tableId);
+    if (!table) return;
+
+    if (table.guests.length >= table.capacity) {
+      alert('Esta mesa ya está completa.');
+      return;
+    }
+
+    const currentAssignments = table.guests.map(g => ({
+      guestId: g.guestId,
+      companionId: g.companionId,
+      companionIndex: g.companionIndex ?? -1,
+      companionName: g.name
+    }));
+
+    const newAssignments = [
+      ...currentAssignments,
+      { guestId: guest.guestId, companionId: guest.companionId, companionIndex: guest.companionIndex ?? -1, companionName: guest.name }
+    ];
+
+    onUpdateSeating(invitation.id, tableId, newAssignments);
+  };
+
+  const removeFromTable = (tableId: string, guestId: string | number, name: string, companionIndex: number = -1) => {
+    const table = tables.find(t => t.id === tableId);
+    if (!table) return;
+
+    const newAssignments = table.guests
+      .filter(g => {
+        const isSameGuest = g.guestId.toString() === guestId.toString();
+        const isSameName = g.name === name;
+        const isSameIndex = (g.companionIndex ?? -1) === companionIndex;
+        return !(isSameGuest && isSameName && isSameIndex);
+      })
+      .map(g => ({
+        guestId: g.guestId,
+        companionId: g.companionId,
+        companionIndex: g.companionIndex ?? -1,
+        companionName: g.name
+      }));
+
+    onUpdateSeating(invitation.id, tableId, newAssignments);
+  };
+
+  return (
+    <div className="bg-background-light dark:bg-background-dark min-h-screen pb-24 max-w-[480px] mx-auto text-slate-900 dark:text-white font-display">
+      <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+          <span className="material-symbols-outlined">arrow_back</span>
+        </button>
+        <h1 className="text-base font-bold">Armado de Mesas</h1>
+        <button onClick={() => setShowAddTableModal(true)} className="flex items-center gap-1 text-primary font-bold text-xs uppercase bg-primary/5 px-3 py-1.5 rounded-lg border border-primary/10">
+          <span className="material-symbols-outlined text-sm">add_circle</span> MESA
+        </button>
+      </header>
+
+      <div className="p-4 space-y-6">
+        <div className="bg-primary/5 border border-primary/10 p-4 rounded-3xl flex items-center gap-4">
+          <div className="size-12 bg-primary rounded-2xl flex items-center justify-center text-white shadow-lg">
+            <span className="material-symbols-outlined text-2xl">table_restaurant</span>
+          </div>
+          <div>
+            <p className="text-xs font-bold text-primary uppercase tracking-widest">Plan de Salón</p>
+            <p className="text-sm text-slate-500 font-medium">{tables.length} mesas configuradas</p>
+          </div>
+        </div>
+
+        {/* Mesa Grid */}
+        <div className="space-y-4">
+          {tables.length > 0 ? (
+            tables.map(table => (
+              <div key={table.id} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-slate-50 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/30">
+                  <div>
+                    <h3 className="font-bold text-sm">{table.name}</h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase">Capacidad: {table.guests.length}/{table.capacity}</p>
+                  </div>
+                  <div className="flex gap-1">
+                    <button onClick={() => setShowAssignModal(table.id)} className="p-2 text-primary bg-primary/5 rounded-xl"><span className="material-symbols-outlined text-lg">person_add</span></button>
+                    <button onClick={() => handleRemoveTable(table.id)} className="p-2 text-slate-300 hover:text-red-500"><span className="material-symbols-outlined text-lg">delete</span></button>
+                  </div>
+                </div>
+
+                <div className="p-4">
+                  {table.guests.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {table.guests.map((g, idx) => (
+                        <div key={`${g.guestId}-${idx}`} className="group relative bg-slate-50 dark:bg-slate-900 pl-2 pr-8 py-1.5 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center gap-2">
+                          <div className={`size-2 rounded-full ${g.status === 'confirmed' ? 'bg-green-500 shadow-green-500/30 shadow' : 'bg-slate-300'}`}></div>
+                          <span className="text-[10px] font-bold truncate max-w-[80px]">{g.name}</span>
+                          <button
+                            onClick={() => removeFromTable(table.id, g.guestId, g.name, g.companionIndex)}
+                            className="absolute right-1 size-5 flex items-center justify-center text-slate-300 hover:text-red-500 transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-sm">close</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-4 text-center border-2 border-dashed border-slate-50 dark:border-slate-700 rounded-2xl">
+                      <p className="text-[10px] font-bold text-slate-300 uppercase">Mesa Vacía</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="py-12 text-center bg-white dark:bg-slate-800 rounded-3xl border-2 border-dashed border-slate-100 dark:border-slate-700">
+              <span className="material-symbols-outlined text-4xl text-slate-200 mb-2">grid_view</span>
+              <p className="text-slate-400 text-sm font-medium">No has creado mesas todavía</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal Añadir Mesa */}
+      {showAddTableModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl p-6 shadow-2xl animate-in zoom-in duration-200 space-y-5">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold">Añadir Mesa</h3>
+              <button onClick={() => setShowAddTableModal(false)}><span className="material-symbols-outlined">close</span></button>
+            </div>
+            <form onSubmit={handleAddTable} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre o Número</label>
+                {/* Fixed comment: changed value={newEventName} to value={newTableName} as per the error fix */}
+                <input required autoFocus value={newTableName} onChange={e => setNewTableName(e.target.value)} className="w-full rounded-2xl border-slate-200 dark:border-slate-700 dark:bg-slate-900 p-4" placeholder="Ej: Mesa 1, Mesa de Amigos..." />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Capacidad Máxima</label>
+                <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-900 p-2 rounded-2xl border border-slate-100 dark:border-slate-700">
+                  <button type="button" onClick={() => setNewTableCapacity(Math.max(1, newTableCapacity - 1))} className="size-10 bg-white dark:bg-slate-800 rounded-xl shadow-sm flex items-center justify-center">-</button>
+                  <span className="flex-1 text-center font-black text-lg">{newTableCapacity}</span>
+                  <button type="button" onClick={() => setNewTableCapacity(newTableCapacity + 1)} className="size-10 bg-primary text-white rounded-xl shadow-lg flex items-center justify-center">+</button>
+                </div>
+              </div>
+              <button type="submit" className="w-full h-14 bg-primary text-white font-bold rounded-2xl shadow-lg">Crear Mesa</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Asignar Invitados */}
+      {showAssignModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-lg font-bold">Asignar a {tables.find(t => t.id === showAssignModal)?.name}</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Invitados Disponibles</p>
+              </div>
+              <button onClick={() => setShowAssignModal(null)} className="size-10 flex items-center justify-center bg-slate-100 dark:bg-slate-700 rounded-full"><span className="material-symbols-outlined">close</span></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto no-scrollbar space-y-2 pr-1">
+              {availablePool.length > 0 ? (
+                availablePool.map((guest, idx) => (
+                  <button
+                    key={`${guest.guestId}-${guest.name}-${idx}`}
+                    onClick={() => assignToTable(showAssignModal, guest)}
+                    className="w-full flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 hover:border-primary/30 transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`size-8 rounded-full flex items-center justify-center text-white font-bold text-xs ${guest.status === 'confirmed' ? 'bg-green-500' : 'bg-slate-400'}`}>
+                        {guest.name[0]}
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-bold">{guest.name}</p>
+                        <p className={`text-[9px] font-bold uppercase ${guest.status === 'confirmed' ? 'text-green-500' : 'text-slate-400'}`}>
+                          {guest.status === 'confirmed' ? 'Asistencia Confirmada' : 'Respuesta Pendiente'}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="material-symbols-outlined text-slate-300 group-hover:text-primary group-hover:translate-x-1 transition-all">chevron_right</span>
+                  </button>
+                ))
+              ) : (
+                <div className="py-10 text-center text-slate-400">
+                  <span className="material-symbols-outlined text-4xl mb-2">person_check</span>
+                  <p className="text-xs font-bold uppercase">Todos los invitados están sentados</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default TablesScreen;
