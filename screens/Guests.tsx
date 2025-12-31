@@ -32,13 +32,23 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
 
     invitation.guests.forEach(g => {
       const gAllottedTotal = g.allotted.adults + g.allotted.teens + g.allotted.kids + g.allotted.infants;
-      const gConfirmedTotal = g.confirmed.adults + g.confirmed.teens + g.confirmed.kids + g.confirmed.infants;
+
+      // Count actual confirmed attendees from companionNames to ensure consistency
+      let actualConfirmed = 0;
+      if (g.status === 'confirmed' && g.companionNames) {
+        actualConfirmed = [
+          ...g.companionNames.adults,
+          ...g.companionNames.teens,
+          ...g.companionNames.kids,
+          ...g.companionNames.infants
+        ].filter(n => n && n.trim() !== "").length;
+      }
 
       total += gAllottedTotal;
 
       if (g.status === 'confirmed') {
-        si += gConfirmedTotal;
-        no += (gAllottedTotal - gConfirmedTotal);
+        si += actualConfirmed;
+        no += (gAllottedTotal - actualConfirmed);
       } else if (g.status === 'declined') {
         no += gAllottedTotal;
       } else {
@@ -48,6 +58,7 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
 
     return { total, si, no, pend };
   }, [invitation.guests]);
+
 
   const handleSendWhatsApp = (guest: Guest) => {
     const url = `${window.location.origin}${window.location.pathname}#/rsvp/${id}?guest=${encodeURIComponent(guest.name)}`;
@@ -71,7 +82,19 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
       };
       onSaveGuest(invitation.id, newGuest);
     } else {
-      onSaveGuest(invitation.id, { ...currentGuest, id: editingId } as Guest);
+      // For editing existing guests, sync confirmed counts with companionNames if status is confirmed
+      let syncedConfirmed = currentGuest.confirmed || { adults: 0, teens: 0, kids: 0, infants: 0 };
+
+      if (currentGuest.status === 'confirmed' && currentGuest.companionNames) {
+        syncedConfirmed = {
+          adults: currentGuest.companionNames.adults?.filter(n => n && n.trim() !== "").length || 0,
+          teens: currentGuest.companionNames.teens?.filter(n => n && n.trim() !== "").length || 0,
+          kids: currentGuest.companionNames.kids?.filter(n => n && n.trim() !== "").length || 0,
+          infants: currentGuest.companionNames.infants?.filter(n => n && n.trim() !== "").length || 0
+        };
+      }
+
+      onSaveGuest(invitation.id, { ...currentGuest, id: editingId, confirmed: syncedConfirmed } as Guest);
     }
     setShowModal(null);
   };

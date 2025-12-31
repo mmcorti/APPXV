@@ -275,40 +275,47 @@ const App: React.FC = () => {
           path="/location/:id"
           element={user ? <LocationScreen invitations={invitations} /> : <Navigate to="/login" />}
         />
-        <Route path="/rsvp/:id" element={<GuestRSVPScreen invitations={invitations} onRsvpSubmit={(invId, guestData) => {
+        <Route path="/rsvp/:id" element={<GuestRSVPScreen invitations={invitations} onRsvpSubmit={async (invId, guestData) => {
           const inv = invitations.find(i => i.id === invId);
           if (inv) {
             const guest = inv.guests.find(g => g.name.toLowerCase() === guestData.name?.toLowerCase());
 
             if (guest) {
               // UPDATE EXISTING GUEST
-              notionService.updateRSVP(
+              await notionService.updateRSVP(
                 guest.id as string,
                 guestData.status as string,
                 guestData.confirmed as any,
                 guestData.companionNames as any
-              ).then(() => {
-                refreshEventData(invId);
-              }).catch(console.error);
+              );
+
+              await refreshEventData(invId);
 
               const updatedGuests = inv.guests.map(g => g.name === guestData.name ? { ...g, ...guestData as Guest } : g);
               updateGuests(invId, updatedGuests);
             } else {
               // CREATE NEW GUEST (from Public Link)
+              const confirmedData = guestData.confirmed || { adults: 1, teens: 0, kids: 0, infants: 0 };
+
               const newGuest: Guest = {
                 id: Date.now(), // Temporary ID
                 name: guestData.name || 'Invitado',
                 email: '',
                 status: guestData.status || 'confirmed',
-                allotted: { adults: guestData.confirmed?.adults || 1, teens: 0, kids: 0, infants: 0 }, // Assume allotted matches confirmed for new guests
-                confirmed: guestData.confirmed || { adults: 1, teens: 0, kids: 0, infants: 0 },
+                // Use confirmed values for allotted since this is a new guest confirming attendance
+                allotted: {
+                  adults: confirmedData.adults || 0,
+                  teens: confirmedData.teens || 0,
+                  kids: confirmedData.kids || 0,
+                  infants: confirmedData.infants || 0
+                },
+                confirmed: confirmedData,
                 companionNames: guestData.companionNames,
                 sent: false
               };
 
-              notionService.saveGuest(invId, newGuest).then(() => {
-                refreshEventData(invId);
-              }).catch(console.error);
+              await notionService.saveGuest(invId, newGuest);
+              await refreshEventData(invId);
 
               updateGuests(invId, [...inv.guests, newGuest]);
             }

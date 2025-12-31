@@ -218,7 +218,11 @@ app.post('/api/guests', async (req, res) => {
                 "Adults Allotted": { number: guest.allotted.adults || 0 },
                 "Teens Allotted": { number: guest.allotted.teens || 0 },
                 "Kids Allotted": { number: guest.allotted.kids || 0 },
-                "Infants Allotted": { number: guest.allotted.infants || 0 }
+                "Infants Allotted": { number: guest.allotted.infants || 0 },
+                "Adults Confirmed": { number: guest.confirmed?.adults || 0 },
+                "Teens Confirmed": { number: guest.confirmed?.teens || 0 },
+                "Kids Confirmed": { number: guest.confirmed?.kids || 0 },
+                "Infants Confirmed": { number: guest.confirmed?.infants || 0 }
             }
         });
 

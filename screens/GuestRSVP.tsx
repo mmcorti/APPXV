@@ -5,7 +5,7 @@ import { InvitationData, Guest, GuestAllotment, GuestCompanionNames } from '../t
 
 interface GuestRSVPScreenProps {
   invitations: InvitationData[];
-  onRsvpSubmit: (invId: string, guestData: Partial<Guest>) => void;
+  onRsvpSubmit: (invId: string, guestData: Partial<Guest>) => Promise<void>;
 }
 
 const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSubmit }) => {
@@ -19,6 +19,7 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
   const [showNameInput, setShowNameInput] = useState(!guestNameParam);
   const [guestNameInput, setGuestNameInput] = useState('');
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   // Initial loading timer to prevent flash of error
   useEffect(() => {
@@ -82,18 +83,26 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (attending === null) return;
+    if (attending === null || submitting) return;
 
-    onRsvpSubmit(invitation.id, {
-      name: name,
-      status: attending ? 'confirmed' : 'declined',
-      confirmed: attending ? confirmedAllotment : { adults: 0, teens: 0, kids: 0, infants: 0 },
-      companionNames: attending ? companionNames : undefined
-    });
+    setSubmitting(true);
+    try {
+      await onRsvpSubmit(invitation.id, {
+        name: name,
+        status: attending ? 'confirmed' : 'declined',
+        confirmed: attending ? confirmedAllotment : { adults: 0, teens: 0, kids: 0, infants: 0 },
+        companionNames: attending ? companionNames : undefined
+      });
 
-    setSubmitted(true);
+      setSubmitted(true);
+    } catch (error) {
+      console.error('Error submitting RSVP:', error);
+      alert('Hubo un error al guardar tu respuesta. Por favor intenta de nuevo.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const updateConfirmed = (key: keyof GuestAllotment, delta: number) => {
@@ -250,7 +259,9 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
               </div>
             )}
 
-            <button type="submit" disabled={attending === null} className="w-full h-14 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/20 disabled:opacity-50 hover:scale-[1.01] active:scale-[0.99] transition-all">Confirmar Respuesta</button>
+            <button type="submit" disabled={attending === null || submitting} className="w-full h-14 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/20 disabled:opacity-50 hover:scale-[1.01] active:scale-[0.99] transition-all">
+              {submitting ? 'Guardando...' : 'Confirmar Respuesta'}
+            </button>
           </div>
 
           <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm text-center">
