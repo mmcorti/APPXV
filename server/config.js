@@ -1,5 +1,5 @@
 export const NOTION_CONFIG = {
-    API_KEY: "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",
+    API_KEY: "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",
     USERS_DB_ID: "1c083095-aa69-4166-8f4e-563bda239072",
 
     // Data Source IDs (used for query)
