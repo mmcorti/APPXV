@@ -254,7 +254,8 @@ async function syncCompanions(guestId, mainGuestName, companionNames, allotted) 
             const targetCount = cat === 'adults' ? Math.max(0, count - 1) : count;
 
             for (let i = 0; i < targetCount; i++) {
-                const name = names[i]?.trim() || `${labels[cat]} ${i + 1} - ${mainGuestName}`;
+                const nameSourceIndex = cat === 'adults' ? i + 1 : i;
+                const name = names[nameSourceIndex]?.trim() || `${labels[cat]} ${i + 1} - ${mainGuestName}`;
                 await notion.pages.create({
                     parent: {
                         type: 'data_source_id',

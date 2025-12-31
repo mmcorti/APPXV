@@ -9,9 +9,10 @@ interface DashboardProps {
   onAddEvent: (event: InvitationData) => Promise<InvitationData>;
   onLogout: () => void;
   onRefresh: () => void;
+  loading?: boolean;
 }
 
-const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEvent, onLogout, onRefresh }) => {
+const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEvent, onLogout, onRefresh, loading }) => {
   const navigate = useNavigate();
   const [showAddModal, setShowAddModal] = useState(false);
   const [newEventName, setNewEventName] = useState('');
@@ -39,7 +40,6 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
 
     try {
       const createdEvent = await onAddEvent(tempEvent);
-      setInvitations(prev => [...prev, createdEvent]); // Add new event to local state
       setNewEventName('');
       setShowAddModal(false);
       navigate(`/edit/${createdEvent.id}`);
@@ -98,7 +98,12 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
       </div>
 
       <div className="flex flex-col gap-6 px-4 mt-4">
-        {invitations.length > 0 ? (
+        {loading ? (
+          <div className="py-20 flex flex-col items-center justify-center gap-4 text-slate-400">
+            <div className="size-12 rounded-full border-4 border-slate-200 border-t-primary animate-spin"></div>
+            <p className="font-bold text-xs uppercase tracking-widest">Cargando eventos...</p>
+          </div>
+        ) : invitations.length > 0 ? (
           <div>
             <h2 className="text-slate-900 dark:text-white text-lg font-bold mb-4 px-1">Tus Eventos</h2>
             <div className="flex flex-col gap-4">

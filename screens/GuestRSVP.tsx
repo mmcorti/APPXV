@@ -15,6 +15,7 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
   const invitation = invitations.find(inv => inv.id === id);
 
   /* New logic for Public Invitation */
+  const guestNameParam = searchParams.get('guest');
   const [showNameInput, setShowNameInput] = useState(!guestNameParam);
   const [guestNameInput, setGuestNameInput] = useState('');
   const [loading, setLoading] = useState(true);
@@ -34,6 +35,10 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
     adults: [], teens: [], kids: [], infants: []
   });
   const [submitted, setSubmitted] = useState(false);
+
+  const foundGuest = invitation?.guests.find(g => g.name.toLowerCase() === name.toLowerCase());
+
+
 
   useEffect(() => {
     // If we have a name (either from param or input) and invitation is loaded, try to find the guest
@@ -210,7 +215,7 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
               <button type="button" onClick={() => setAttending(false)} className={`flex-1 py-4 rounded-2xl font-bold border transition-all ${attending === false ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20' : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-700'}`}>No puedo</button>
             </div>
 
-            {attending === true && foundGuest && (
+            {attending === true && (
               <div className="space-y-6 animate-in slide-in-from-top-4 duration-300">
                 <p className="text-center text-xs font-bold text-slate-400 uppercase tracking-widest">Confirma los cupos</p>
                 <div className="grid grid-cols-2 gap-4">

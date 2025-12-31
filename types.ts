@@ -23,6 +23,7 @@ export interface CompanionData {
 export interface Guest {
   id: string | number;
   name: string;
+  email?: string;
   status: 'confirmed' | 'pending' | 'declined';
   allotted: GuestAllotment;
   confirmed: GuestAllotment;

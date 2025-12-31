@@ -18,3 +18,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1qR4WznhqXw-1vq2ATRRFf3
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Acceso desde Celular / Vercel
+Para que la app funcione correctamente en dispositivos móviles o desplegada en Vercel:
+1. **Localmente**: Asegúrate de que el celular esté en la misma red WiFi y usa la IP de tu PC (ej: `http://192.168.1.10:5173`).
+2. **Backend**: El backend debe estar corriendo. Si despliegas en Vercel, debes configurar la variable de entorno `VITE_API_URL` apuntando a la URL pública de tu backend.

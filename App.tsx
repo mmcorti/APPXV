@@ -10,7 +10,7 @@ import GuestsScreen from './screens/Guests';
 import LocationScreen from './screens/Location';
 import GuestRSVPScreen from './screens/GuestRSVP';
 import TablesScreen from './screens/Tables';
-import { InvitationData, User, Guest, Table } from './types';
+import { InvitationData, User, Guest, Table, SeatedGuest } from './types';
 import { notionService } from './services/notion';
 
 const INITIAL_INVITATION: InvitationData = {
@@ -49,8 +49,10 @@ const INITIAL_INVITATION: InvitationData = {
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [invitations, setInvitations] = useState<InvitationData[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const loadAllData = async (userEmail: string) => {
+    setLoading(true);
     try {
       const events = await notionService.getEvents(userEmail);
       const detailedEvents = await Promise.all(events.map(async (event) => {
@@ -61,6 +63,8 @@ const App: React.FC = () => {
       setInvitations(detailedEvents);
     } catch (err) {
       console.error("Failed to fetch data:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -99,20 +103,38 @@ const App: React.FC = () => {
   };
 
   const handleSaveGuest = async (eventId: string, guest: Guest) => {
+    // OPTIMISTIC UPDATE
+    setInvitations(prev => prev.map(inv => {
+      if (inv.id !== eventId) return inv;
+      const exists = inv.guests.some(g => g.id === guest.id);
+      const newGuests = exists
+        ? inv.guests.map(g => g.id === guest.id ? guest : g)
+        : [...inv.guests, guest];
+      return { ...inv, guests: newGuests };
+    }));
+
     try {
       await notionService.saveGuest(eventId, guest);
       await refreshEventData(eventId);
     } catch (e) {
       console.error("Guest save failed:", e);
+      await refreshEventData(eventId);
     }
   };
 
   const handleDeleteGuest = async (eventId: string, guestId: string) => {
+    // OPTIMISTIC UPDATE
+    setInvitations(prev => prev.map(inv => {
+      if (inv.id !== eventId) return inv;
+      return { ...inv, guests: inv.guests.filter(g => g.id.toString() !== guestId) };
+    }));
+
     try {
       await notionService.deleteGuest(guestId);
       await refreshEventData(eventId);
     } catch (e) {
       console.error("Guest delete failed:", e);
+      await refreshEventData(eventId);
     }
   };
 
@@ -130,11 +152,32 @@ const App: React.FC = () => {
   };
 
   const handleUpdateTableGuests = async (eventId: string, tableId: string, assignments: { guestId: string | number, companionId?: string, companionIndex: number, companionName: string }[]) => {
+    // OPTIMISTIC UPDATE
+    setInvitations(prev => prev.map(inv => {
+      if (inv.id !== eventId) return inv;
+      const updatedTables = (inv.tables || []).map(t => {
+        if (t.id !== tableId) return t;
+        const newSeatedGuests: SeatedGuest[] = assignments.map(a => {
+          const guest = inv.guests.find(g => g.id.toString() === a.guestId.toString());
+          return {
+            guestId: a.guestId,
+            companionId: a.companionId,
+            companionIndex: a.companionIndex,
+            name: a.companionName,
+            status: guest ? (guest.status === 'confirmed' ? 'confirmed' : 'pending') : 'pending'
+          };
+        });
+        return { ...t, guests: newSeatedGuests };
+      });
+      return { ...inv, tables: updatedTables };
+    }));
+
     try {
       await notionService.updateTableGuests(tableId, assignments);
       await refreshEventData(eventId);
     } catch (e) {
       console.error("Table assignment failed:", e);
+      refreshEventData(eventId); // Sync back on error
     }
   };
 
@@ -214,7 +257,7 @@ const App: React.FC = () => {
         />
         <Route
           path="/dashboard"
-          element={user ? <DashboardScreen user={user} invitations={invitations} onAddEvent={addInvitation} onLogout={handleLogout} onRefresh={() => loadAllData(user.email)} /> : <Navigate to="/login" />}
+          element={user ? <DashboardScreen user={user} invitations={invitations} loading={loading} onAddEvent={addInvitation} onLogout={handleLogout} onRefresh={() => loadAllData(user.email)} /> : <Navigate to="/login" />}
         />
         <Route
           path="/edit/:id"
