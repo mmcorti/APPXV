@@ -1,7 +1,8 @@
 /// <reference types="vite/client" />
 import { InvitationData, Guest, Table } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_URL
+if (!API_URL) throw new Error('API_URL is not defined');
 
 export const notionService = {
     async login(email: string, passwordHash: string) {
