@@ -22,5 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-server/config.js
 
+# Environment files with secrets
+.env
+server/config.local.js
