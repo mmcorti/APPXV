@@ -14,8 +14,16 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
   const navigate = useNavigate();
   const invitation = invitations.find(inv => inv.id === id);
 
-  const guestNameParam = searchParams.get('guest');
-  const foundGuest = invitation?.guests.find(g => g.name === guestNameParam);
+  /* New logic for Public Invitation */
+  const [showNameInput, setShowNameInput] = useState(!guestNameParam);
+  const [guestNameInput, setGuestNameInput] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  // Initial loading timer to prevent flash of error
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const [name, setName] = useState(guestNameParam || '');
   const [attending, setAttending] = useState<boolean | null>(null);
@@ -28,34 +36,46 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    if (foundGuest) {
-      if (foundGuest.status !== 'pending') {
-        // Si ya respondió, cargamos su estado para mostrarlo "tal cual fue respondida"
-        setAttending(foundGuest.status === 'confirmed');
-        setConfirmedAllotment(foundGuest.confirmed);
-        setCompanionNames(foundGuest.companionNames || {
-          adults: [], teens: [], kids: [], infants: []
-        });
-        setSubmitted(true);
+    // If we have a name (either from param or input) and invitation is loaded, try to find the guest
+    if (invitation && name) {
+      const existingGuest = invitation.guests.find(g => g.name.toLowerCase() === name.toLowerCase());
+
+      if (existingGuest) {
+        if (existingGuest.status !== 'pending') {
+          setAttending(existingGuest.status === 'confirmed');
+          setConfirmedAllotment(existingGuest.confirmed);
+          setCompanionNames(existingGuest.companionNames || { adults: [], teens: [], kids: [], infants: [] });
+          setSubmitted(true);
+        } else {
+          // Default for pending existing guest
+          setConfirmedAllotment({ adults: existingGuest.allotted.adults || 1, teens: existingGuest.allotted.teens, kids: existingGuest.allotted.kids, infants: existingGuest.allotted.infants });
+          setCompanionNames({ adults: [existingGuest.name], teens: [], kids: [], infants: [] });
+        }
       } else {
-        // Inicialización por defecto para nuevos
-        setConfirmedAllotment({
-          adults: 1,
-          teens: 0,
-          kids: 0,
-          infants: 0
-        });
-        setCompanionNames({
-          adults: [foundGuest.name],
-          teens: [],
-          kids: [],
-          infants: []
-        });
+        // New guest (not in list) -> Default values
+        setConfirmedAllotment({ adults: 1, teens: 0, kids: 0, infants: 0 });
+        setCompanionNames({ adults: [name], teens: [], kids: [], infants: [] });
       }
     }
-  }, [foundGuest]);
+  }, [invitation, name]);
 
-  if (!invitation) return <div className="p-10 text-center font-bold text-red-500">Invitación no válida</div>;
+  if (!invitation) {
+    return loading ? (
+      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    ) : (
+      <div className="p-10 text-center font-bold text-red-500">Invitación no válida o no encontrada.</div>
+    );
+  }
+
+  const handleNameSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (guestNameInput.trim()) {
+      setName(guestNameInput.trim());
+      setShowNameInput(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,8 +92,9 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
   };
 
   const updateConfirmed = (key: keyof GuestAllotment, delta: number) => {
-    if (!foundGuest) return;
-    const newVal = Math.min(foundGuest.allotted[key], Math.max(0, confirmedAllotment[key] + delta));
+    // if (!foundGuest) return; // Allow even if new guest
+    const maxVal = foundGuest?.allotted[key] ?? 10; // Default max for new guests
+    const newVal = Math.min(maxVal, Math.max(0, confirmedAllotment[key] + delta));
 
     setConfirmedAllotment(prev => ({
       ...prev,
@@ -162,62 +183,81 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="px-6 space-y-6 -mt-4 relative z-10">
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700 space-y-6">
-          <h2 className="text-xl font-bold text-center">¿Vas a asistir?</h2>
-
-          <div className="flex gap-3">
-            <button type="button" onClick={() => setAttending(true)} className={`flex-1 py-4 rounded-2xl font-bold border transition-all ${attending === true ? 'bg-green-500 text-white border-green-500 shadow-lg shadow-green-500/20' : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-700'}`}>Sí, asisto</button>
-            <button type="button" onClick={() => setAttending(false)} className={`flex-1 py-4 rounded-2xl font-bold border transition-all ${attending === false ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20' : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-700'}`}>No puedo</button>
+      {showNameInput ? (
+        <form onSubmit={handleNameSubmit} className="px-6 space-y-6 -mt-4 relative z-10">
+          <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700 space-y-6 text-center">
+            <h2 className="text-xl font-bold">¡Bienvenido!</h2>
+            <p className="text-slate-500 text-sm">Por favor ingresa tu nombre completo para buscar tu invitación o registrarte.</p>
+            <input
+              type="text"
+              value={guestNameInput}
+              onChange={e => setGuestNameInput(e.target.value)}
+              placeholder="Tu Nombre Completo"
+              className="w-full h-14 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-4 text-center font-bold text-lg focus:ring-2 focus:ring-primary/20 outline-none"
+            />
+            <button type="submit" disabled={!guestNameInput.trim()} className="w-full h-14 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50">
+              Continuar
+            </button>
           </div>
+        </form>
+      ) : (
+        <form onSubmit={handleSubmit} className="px-6 space-y-6 -mt-4 relative z-10">
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700 space-y-6">
+            <h2 className="text-xl font-bold text-center">Hola {name}, <br />¿Vas a asistir?</h2>
 
-          {attending === true && foundGuest && (
-            <div className="space-y-6 animate-in slide-in-from-top-4 duration-300">
-              <p className="text-center text-xs font-bold text-slate-400 uppercase tracking-widest">Confirma los cupos</p>
-              <div className="grid grid-cols-2 gap-4">
-                <RSVPCount label="Adultos" val={confirmedAllotment.adults} max={foundGuest.allotted.adults} onDelta={d => updateConfirmed('adults', d)} />
-                <RSVPCount label="Adol." val={confirmedAllotment.teens} max={foundGuest.allotted.teens} onDelta={d => updateConfirmed('teens', d)} />
-                <RSVPCount label="Niños" val={confirmedAllotment.kids} max={foundGuest.allotted.kids} onDelta={d => updateConfirmed('kids', d)} />
-                <RSVPCount label="Bebés" val={confirmedAllotment.infants} max={foundGuest.allotted.infants} onDelta={d => updateConfirmed('infants', d)} />
-              </div>
-
-              {/* Sección de Nombres */}
-              {(confirmedAllotment.adults > 0 || confirmedAllotment.teens > 0 || confirmedAllotment.kids > 0 || confirmedAllotment.infants > 0) && (
-                <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-700">
-                  <p className="text-[10px] font-black text-slate-400 uppercase text-center tracking-widest">Ingresa los nombres de quienes asisten</p>
-
-                  {Object.keys(companionNames).map((key) => {
-                    const groupKey = key as keyof GuestCompanionNames;
-                    return companionNames[groupKey].map((n, i) => (
-                      <div key={`${groupKey}-${i}`} className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-400 uppercase ml-2">{groupKey === 'adults' ? 'Adulto' : groupKey === 'teens' ? 'Adolescente' : groupKey === 'kids' ? 'Niño' : 'Bebé'} {i + 1}</label>
-                        <input
-                          type="text"
-                          value={n}
-                          onChange={(e) => updateName(groupKey, i, e.target.value)}
-                          className="w-full h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-700 px-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                          placeholder="Nombre (opcional)"
-                        />
-                      </div>
-                    ));
-                  })}
-                </div>
-              )}
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setAttending(true)} className={`flex-1 py-4 rounded-2xl font-bold border transition-all ${attending === true ? 'bg-green-500 text-white border-green-500 shadow-lg shadow-green-500/20' : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-700'}`}>Sí, asisto</button>
+              <button type="button" onClick={() => setAttending(false)} className={`flex-1 py-4 rounded-2xl font-bold border transition-all ${attending === false ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20' : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-700'}`}>No puedo</button>
             </div>
-          )}
 
-          <button type="submit" disabled={attending === null} className="w-full h-14 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/20 disabled:opacity-50 hover:scale-[1.01] active:scale-[0.99] transition-all">Confirmar Respuesta</button>
-        </div>
+            {attending === true && foundGuest && (
+              <div className="space-y-6 animate-in slide-in-from-top-4 duration-300">
+                <p className="text-center text-xs font-bold text-slate-400 uppercase tracking-widest">Confirma los cupos</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <RSVPCount label="Adultos" val={confirmedAllotment.adults} max={foundGuest?.allotted.adults || 5} onDelta={d => updateConfirmed('adults', d)} />
+                  <RSVPCount label="Adol." val={confirmedAllotment.teens} max={foundGuest?.allotted.teens || 5} onDelta={d => updateConfirmed('teens', d)} />
+                  <RSVPCount label="Niños" val={confirmedAllotment.kids} max={foundGuest?.allotted.kids || 5} onDelta={d => updateConfirmed('kids', d)} />
+                  <RSVPCount label="Bebés" val={confirmedAllotment.infants} max={foundGuest?.allotted.infants || 5} onDelta={d => updateConfirmed('infants', d)} />
+                </div>
 
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm text-center">
-          <h3 className="text-xs font-bold uppercase text-slate-400 mb-3 tracking-widest">Información de Regalos</h3>
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-[10px] font-bold text-slate-500 uppercase">{invitation.giftType === 'alias' ? 'CBU / Alias Bancario' : 'Lista de Compras'}</p>
-            <p className="text-sm font-bold text-primary break-all">{invitation.giftDetail}</p>
-            <button type="button" onClick={() => { navigator.clipboard.writeText(invitation.giftDetail); alert('Copiado!'); }} className="text-[10px] font-bold text-slate-400 hover:text-primary mt-1 underline">COPIAR DATOS</button>
+                {/* Sección de Nombres */}
+                {(confirmedAllotment.adults > 0 || confirmedAllotment.teens > 0 || confirmedAllotment.kids > 0 || confirmedAllotment.infants > 0) && (
+                  <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+                    <p className="text-[10px] font-black text-slate-400 uppercase text-center tracking-widest">Ingresa los nombres de quienes asisten</p>
+
+                    {Object.keys(companionNames).map((key) => {
+                      const groupKey = key as keyof GuestCompanionNames;
+                      return companionNames[groupKey].map((n, i) => (
+                        <div key={`${groupKey}-${i}`} className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase ml-2">{groupKey === 'adults' ? 'Adulto' : groupKey === 'teens' ? 'Adolescente' : groupKey === 'kids' ? 'Niño' : 'Bebé'} {i + 1}</label>
+                          <input
+                            type="text"
+                            value={n}
+                            onChange={(e) => updateName(groupKey, i, e.target.value)}
+                            className="w-full h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-700 px-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                            placeholder="Nombre (opcional)"
+                          />
+                        </div>
+                      ));
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <button type="submit" disabled={attending === null} className="w-full h-14 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/20 disabled:opacity-50 hover:scale-[1.01] active:scale-[0.99] transition-all">Confirmar Respuesta</button>
           </div>
-        </div>
-      </form>
+
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm text-center">
+            <h3 className="text-xs font-bold uppercase text-slate-400 mb-3 tracking-widest">Información de Regalos</h3>
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-[10px] font-bold text-slate-500 uppercase">{invitation.giftType === 'alias' ? 'CBU / Alias Bancario' : 'Lista de Compras'}</p>
+              <p className="text-sm font-bold text-primary break-all">{invitation.giftDetail}</p>
+              <button type="button" onClick={() => { navigator.clipboard.writeText(invitation.giftDetail); alert('Copiado!'); }} className="text-[10px] font-bold text-slate-400 hover:text-primary mt-1 underline">COPIAR DATOS</button>
+            </div>
+          </div>
+        </form>
+      )}
     </div>
   );
 };

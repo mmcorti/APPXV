@@ -8,9 +8,10 @@ interface DashboardProps {
   invitations: InvitationData[];
   onAddEvent: (event: InvitationData) => Promise<InvitationData>;
   onLogout: () => void;
+  onRefresh: () => void;
 }
 
-const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEvent, onLogout }) => {
+const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEvent, onLogout, onRefresh }) => {
   const navigate = useNavigate();
   const [showAddModal, setShowAddModal] = useState(false);
   const [newEventName, setNewEventName] = useState('');
@@ -38,6 +39,7 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
 
     try {
       const createdEvent = await onAddEvent(tempEvent);
+      setInvitations(prev => [...prev, createdEvent]); // Add new event to local state
       setNewEventName('');
       setShowAddModal(false);
       navigate(`/edit/${createdEvent.id}`);
@@ -82,6 +84,9 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
             </div>
           </div>
           <div className="flex gap-2">
+            <button onClick={onRefresh} className="flex items-center justify-center size-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 transition-colors hover:bg-blue-50 hover:text-blue-500">
+              <span className="material-symbols-outlined">refresh</span>
+            </button>
             <button onClick={onLogout} className="flex items-center justify-center size-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-500">
               <span className="material-symbols-outlined">logout</span>
             </button>

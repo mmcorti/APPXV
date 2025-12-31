@@ -214,7 +214,7 @@ const App: React.FC = () => {
         />
         <Route
           path="/dashboard"
-          element={user ? <DashboardScreen user={user} invitations={invitations} onAddEvent={addInvitation} onLogout={handleLogout} /> : <Navigate to="/login" />}
+          element={user ? <DashboardScreen user={user} invitations={invitations} onAddEvent={addInvitation} onLogout={handleLogout} onRefresh={() => loadAllData(user.email)} /> : <Navigate to="/login" />}
         />
         <Route
           path="/edit/:id"
@@ -235,8 +235,10 @@ const App: React.FC = () => {
         <Route path="/rsvp/:id" element={<GuestRSVPScreen invitations={invitations} onRsvpSubmit={(invId, guestData) => {
           const inv = invitations.find(i => i.id === invId);
           if (inv) {
-            const guest = inv.guests.find(g => g.name === guestData.name);
+            const guest = inv.guests.find(g => g.name.toLowerCase() === guestData.name?.toLowerCase());
+
             if (guest) {
+              // UPDATE EXISTING GUEST
               notionService.updateRSVP(
                 guest.id as string,
                 guestData.status as string,
@@ -248,6 +250,24 @@ const App: React.FC = () => {
 
               const updatedGuests = inv.guests.map(g => g.name === guestData.name ? { ...g, ...guestData as Guest } : g);
               updateGuests(invId, updatedGuests);
+            } else {
+              // CREATE NEW GUEST (from Public Link)
+              const newGuest: Guest = {
+                id: Date.now(), // Temporary ID
+                name: guestData.name || 'Invitado',
+                email: '',
+                status: guestData.status || 'confirmed',
+                allotted: { adults: guestData.confirmed?.adults || 1, teens: 0, kids: 0, infants: 0 }, // Assume allotted matches confirmed for new guests
+                confirmed: guestData.confirmed || { adults: 1, teens: 0, kids: 0, infants: 0 },
+                companionNames: guestData.companionNames,
+                sent: false
+              };
+
+              notionService.saveGuest(invId, newGuest).then(() => {
+                refreshEventData(invId);
+              }).catch(console.error);
+
+              updateGuests(invId, [...inv.guests, newGuest]);
             }
           }
         }} />} />

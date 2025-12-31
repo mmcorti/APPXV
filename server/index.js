@@ -450,13 +450,17 @@ app.get('/api/tables/:eventId', async (req, res) => {
                     const assignedTableRelation = c.properties["Assigned Table"]?.relation || [];
                     return assignedTableRelation.some(r => r.id === tableId);
                 })
-                .map(c => ({
-                    guestId: getText(c.properties.Guest)[0],
-                    name: getText(c.properties.Name),
-                    status: 'confirmed',
-                    companionIndex: c.properties.Index?.number || 0,
-                    companionId: c.id
-                }));
+                .map(c => {
+                    const guestId = getText(c.properties.Guest)[0];
+                    const parentGuest = allGuests.find(g => g.id === guestId);
+                    return {
+                        guestId: guestId,
+                        name: getText(c.properties.Name),
+                        status: parentGuest ? (getText(parentGuest.properties.Status) || 'pending') : 'pending',
+                        companionIndex: c.properties.Index?.number || 0,
+                        companionId: c.id
+                    };
+                });
 
             return {
                 id: tableId,

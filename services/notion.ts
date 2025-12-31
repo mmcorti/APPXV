@@ -1,6 +1,6 @@
 import { InvitationData, Guest, Table } from '../types';
 
-const API_URL = 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 export const notionService = {
     async login(email: string, passwordHash: string) {
