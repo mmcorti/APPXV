@@ -6,9 +6,10 @@ import { InvitationData, Guest, GuestAllotment, GuestCompanionNames } from '../t
 interface GuestRSVPScreenProps {
   invitations: InvitationData[];
   onRsvpSubmit: (invId: string, guestData: Partial<Guest>) => Promise<void>;
+  loading?: boolean;
 }
 
-const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSubmit }) => {
+const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSubmit, loading: parentLoading }) => {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -18,14 +19,7 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
   const guestNameParam = searchParams.get('guest');
   const [showNameInput, setShowNameInput] = useState(!guestNameParam);
   const [guestNameInput, setGuestNameInput] = useState('');
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-
-  // Initial loading timer to prevent flash of error
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 2000);
-    return () => clearTimeout(timer);
-  }, []);
 
   const [name, setName] = useState(guestNameParam || '');
   const [attending, setAttending] = useState<boolean | null>(null);
@@ -66,7 +60,7 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
   }, [invitation, name]);
 
   if (!invitation) {
-    return loading ? (
+    return parentLoading ? (
       <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>

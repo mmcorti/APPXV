@@ -17,6 +17,7 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
   const invitation = invitations.find(inv => inv.id === id);
 
   const [filter, setFilter] = useState<GuestFilter>('all');
+  const [catFilter, setCatFilter] = useState<keyof GuestAllotment | 'all'>('all');
   const [showModal, setShowModal] = useState<'add' | 'edit' | null>(null);
   const [currentGuest, setCurrentGuest] = useState<Partial<Guest>>({
     name: '',
@@ -28,35 +29,49 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
   if (!invitation) return <div className="p-10 text-center font-bold">Evento no encontrado</div>;
 
   const stats = useMemo(() => {
-    let total = 0, si = 0, no = 0, pend = 0;
+    const catTotal = { adults: 0, teens: 0, kids: 0, infants: 0 };
+    const catSi = { adults: 0, teens: 0, kids: 0, infants: 0 };
+    const catNo = { adults: 0, teens: 0, kids: 0, infants: 0 };
+    const catPend = { adults: 0, teens: 0, kids: 0, infants: 0 };
 
     invitation.guests.forEach(g => {
-      const gAllottedTotal = g.allotted.adults + g.allotted.teens + g.allotted.kids + g.allotted.infants;
-
-      // Count actual confirmed attendees from companionNames to ensure consistency
-      let actualConfirmed = 0;
-      if (g.status === 'confirmed' && g.companionNames) {
-        actualConfirmed = [
-          ...g.companionNames.adults,
-          ...g.companionNames.teens,
-          ...g.companionNames.kids,
-          ...g.companionNames.infants
-        ].filter(n => n && n.trim() !== "").length;
-      }
-
-      total += gAllottedTotal;
+      // category totals (always based on allotted)
+      catTotal.adults += (g.allotted.adults || 0);
+      catTotal.teens += (g.allotted.teens || 0);
+      catTotal.kids += (g.allotted.kids || 0);
+      catTotal.infants += (g.allotted.infants || 0);
 
       if (g.status === 'confirmed') {
-        si += actualConfirmed;
-        no += (gAllottedTotal - actualConfirmed);
+        catSi.adults += (g.confirmed.adults || 0);
+        catSi.teens += (g.confirmed.teens || 0);
+        catSi.kids += (g.confirmed.kids || 0);
+        catSi.infants += (g.confirmed.infants || 0);
+
+        // Absence calculation (allotted - confirmed) capped at 0 minimum
+        catNo.adults += Math.max(0, (g.allotted.adults || 0) - (g.confirmed.adults || 0));
+        catNo.teens += Math.max(0, (g.allotted.teens || 0) - (g.confirmed.teens || 0));
+        catNo.kids += Math.max(0, (g.allotted.kids || 0) - (g.confirmed.kids || 0));
+        catNo.infants += Math.max(0, (g.allotted.infants || 0) - (g.confirmed.infants || 0));
       } else if (g.status === 'declined') {
-        no += gAllottedTotal;
+        catNo.adults += (g.allotted.adults || 0);
+        catNo.teens += (g.allotted.teens || 0);
+        catNo.kids += (g.allotted.kids || 0);
+        catNo.infants += (g.allotted.infants || 0);
       } else {
-        pend += gAllottedTotal;
+        catPend.adults += (g.allotted.adults || 0);
+        catPend.teens += (g.allotted.teens || 0);
+        catPend.kids += (g.allotted.kids || 0);
+        catPend.infants += (g.allotted.infants || 0);
       }
     });
 
-    return { total, si, no, pend };
+    // Main buttons derive their values from the sum of their category details
+    const total = catTotal.adults + catTotal.teens + catTotal.kids + catTotal.infants;
+    const si = catSi.adults + catSi.teens + catSi.kids + catSi.infants;
+    const no = catNo.adults + catNo.teens + catNo.kids + catNo.infants;
+    const pend = catPend.adults + catPend.teens + catPend.kids + catPend.infants;
+
+    return { total, si, no, pend, catTotal, catSi, catNo, catPend };
   }, [invitation.guests]);
 
 
@@ -107,15 +122,31 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
 
   const renderList = () => {
     return invitation.guests.filter(g => {
-      if (filter === 'all') return true;
-
-      if (filter === 'declined') {
-        const hasAbsences = (g.allotted.adults + g.allotted.teens + g.allotted.kids + g.allotted.infants) >
-          (g.confirmed.adults + g.confirmed.teens + g.confirmed.kids + g.confirmed.infants);
-        return g.status === 'declined' || (g.status === 'confirmed' && hasAbsences);
+      // 1. Filter by Status
+      let statusMatch = true;
+      if (filter !== 'all') {
+        if (filter === 'declined') {
+          const hasAbsences = (g.allotted.adults + g.allotted.teens + g.allotted.kids + g.allotted.infants) >
+            (g.confirmed.adults + g.confirmed.teens + g.confirmed.kids + g.confirmed.infants);
+          statusMatch = g.status === 'declined' || (g.status === 'confirmed' && hasAbsences);
+        } else {
+          statusMatch = g.status === filter;
+        }
       }
+      if (!statusMatch) return false;
 
-      return g.status === filter;
+      // 2. Filter by Category
+      if (catFilter === 'all') return true;
+
+      if (filter === 'confirmed') {
+        return (g.confirmed[catFilter] || 0) > 0;
+      } else if (filter === 'declined') {
+        if (g.status === 'declined') return (g.allotted[catFilter] || 0) > 0;
+        return (g.allotted[catFilter] || 0) - (g.confirmed[catFilter] || 0) > 0;
+      } else {
+        // 'all' or 'pending' fallback to allotted count
+        return (g.allotted[catFilter] || 0) > 0;
+      }
     }).map(g => {
       const isSent = g.sent || g.status === 'confirmed' || g.status === 'declined';
       const gAllottedTotal = g.allotted.adults + g.allotted.teens + g.allotted.kids + g.allotted.infants;
@@ -282,10 +313,27 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
 
       <div className="p-4 space-y-6">
         <div className="grid grid-cols-4 gap-2">
-          <StatBtn label="TOTAL" val={stats.total} active={filter === 'all'} onClick={() => setFilter('all')} color="primary" />
-          <StatBtn label="SI" val={stats.si} active={filter === 'confirmed'} onClick={() => setFilter('confirmed')} color="green-500" />
-          <StatBtn label="NO" val={stats.no} active={filter === 'declined'} onClick={() => setFilter('declined')} color="red-500" />
-          <StatBtn label="PEND." val={stats.pend} active={filter === 'pending'} onClick={() => setFilter('pending')} color="slate-400" />
+          <StatBtn label="TOTAL" val={stats.total} active={filter === 'all'} onClick={() => { setFilter('all'); setCatFilter('all'); }} color="primary" />
+          <StatBtn label="SI" val={stats.si} active={filter === 'confirmed'} onClick={() => { setFilter('confirmed'); setCatFilter('all'); }} color="green-500" />
+          <StatBtn label="NO" val={stats.no} active={filter === 'declined'} onClick={() => { setFilter('declined'); setCatFilter('all'); }} color="red-500" />
+          <StatBtn label="PEND." val={stats.pend} active={filter === 'pending'} onClick={() => { setFilter('pending'); setCatFilter('all'); }} color="slate-400" />
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+          {(() => {
+            const currentCatStats = filter === 'all' ? stats.catTotal :
+              filter === 'confirmed' ? stats.catSi :
+                filter === 'declined' ? stats.catNo :
+                  stats.catPend;
+            return (
+              <>
+                <CategoryBadge label="Adultos" val={currentCatStats.adults} dotColor="bg-slate-400" active={catFilter === 'adults'} onClick={() => setCatFilter(catFilter === 'adults' ? 'all' : 'adults')} />
+                <CategoryBadge label="Adol" val={currentCatStats.teens} dotColor="bg-sky-400" active={catFilter === 'teens'} onClick={() => setCatFilter(catFilter === 'teens' ? 'all' : 'teens')} />
+                <CategoryBadge label="Niños" val={currentCatStats.kids} dotColor="bg-blue-600" active={catFilter === 'kids'} onClick={() => setCatFilter(catFilter === 'kids' ? 'all' : 'kids')} />
+                <CategoryBadge label="Bebés" val={currentCatStats.infants} dotColor="bg-pink-400" active={catFilter === 'infants'} onClick={() => setCatFilter(catFilter === 'infants' ? 'all' : 'infants')} />
+              </>
+            );
+          })()}
         </div>
 
         <div>
@@ -367,9 +415,16 @@ const CompanionNameInput = ({ label, value, onChange }: CompanionNameInputProps)
 
 
 const StatBtn = ({ label, val, active, onClick, color }: any) => (
-  <button onClick={onClick} className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all ${active ? `bg-${color === 'primary' ? 'primary' : color} text-white shadow-lg` : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800'}`}>
+  <button onClick={onClick} className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all ${active ? (color === 'primary' ? 'bg-primary text-white shadow-lg' : `bg-${color} text-white shadow-lg`) : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800'}`}>
     <span className="text-xl font-black leading-none mb-1">{val}</span>
     <span className="text-[8px] font-bold uppercase tracking-widest">{label}</span>
+  </button>
+);
+
+const CategoryBadge = ({ label, val, dotColor, active, onClick }: { label: string, val: number, dotColor: string, active?: boolean, onClick?: () => void }) => (
+  <button onClick={onClick} className={`flex items-center gap-2 px-3 py-2 rounded-full border transition-all shrink-0 shadow-sm ${active ? 'bg-primary border-primary text-white' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800'}`}>
+    <span className={`size-2 rounded-full ${active ? 'bg-white' : dotColor}`}></span>
+    <span className={`text-[10px] font-bold ${active ? 'text-white' : 'text-slate-600 dark:text-slate-400'}`}>{label}: <span className={active ? 'text-white' : 'text-slate-900 dark:text-white'}>{val}</span></span>
   </button>
 );
 

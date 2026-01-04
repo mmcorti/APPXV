@@ -49,7 +49,7 @@ const INITIAL_INVITATION: InvitationData = {
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [invitations, setInvitations] = useState<InvitationData[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(window.location.hash.includes('#/rsvp/'));
 
   const loadAllData = async (userEmail: string) => {
     setLoading(true);
@@ -232,6 +232,7 @@ const App: React.FC = () => {
     const rsvpMatch = path.match(/#\/rsvp\/([^?]+)/);
 
     if (rsvpMatch && !user && invitations.length === 0) {
+      setLoading(true);
       const eventId = rsvpMatch[1];
       notionService.getEvents()
         .then(async (events) => {
@@ -242,7 +243,8 @@ const App: React.FC = () => {
             setInvitations([{ ...event, guests, tables }]);
           }
         })
-        .catch(err => console.error("Failed to fetch public invitation:", err));
+        .catch(err => console.error("Failed to fetch public invitation:", err))
+        .finally(() => setLoading(false));
     }
   }, [invitations.length, user]);
 
@@ -275,7 +277,7 @@ const App: React.FC = () => {
           path="/location/:id"
           element={user ? <LocationScreen invitations={invitations} /> : <Navigate to="/login" />}
         />
-        <Route path="/rsvp/:id" element={<GuestRSVPScreen invitations={invitations} onRsvpSubmit={async (invId, guestData) => {
+        <Route path="/rsvp/:id" element={<GuestRSVPScreen loading={loading} invitations={invitations} onRsvpSubmit={async (invId, guestData) => {
           const inv = invitations.find(i => i.id === invId);
           if (inv) {
             const guest = inv.guests.find(g => g.name.toLowerCase() === guestData.name?.toLowerCase());
