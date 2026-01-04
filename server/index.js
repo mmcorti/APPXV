@@ -6,7 +6,7 @@ import cors from 'cors';
 import notion, { DS, DB } from './notion.js';
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
@@ -577,5 +577,9 @@ app.delete('/api/tables/:id', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`API Server running on http://localhost:${PORT}`);
+    console.log(`-----------------------------------------`);
+    console.log(`🚀 API Server running on port: ${PORT}`);
+    console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔑 Notion API Key: ${process.env.NOTION_API_KEY ? 'Present ✅' : 'NOT FOUND ❌'}`);
+    console.log(`-----------------------------------------`);
 });
