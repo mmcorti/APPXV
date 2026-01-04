@@ -6,7 +6,7 @@ import cors from 'cors';
 import notion, { DS, DB } from './notion.js';
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
@@ -24,6 +24,37 @@ const getText = (prop) => {
     if (prop.relation) return prop.relation.map(r => r.id);
     return '';
 };
+
+// AUTH
+app.post('/api/login', async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        if (!DS.USERS) {
+            return res.status(500).json({ success: false, message: 'USERS_DB_ID not configured' });
+        }
+        const response = await notion.dataSources.query({ data_source_id: DS.USERS });
+        const matchingPage = response.results.find(page => {
+            const emailValue = page.properties.Email?.rich_text?.[0]?.plain_text || '';
+            const passwordValue = page.properties.PasswordHash?.rich_text?.[0]?.plain_text || '';
+            return emailValue === email && passwordValue === password;
+        });
+        if (matchingPage) {
+            res.json({
+                success: true, user: {
+                    id: matchingPage.id,
+                    email: matchingPage.properties.Email?.rich_text?.[0]?.plain_text || '',
+                    name: matchingPage.properties.Name?.title?.[0]?.plain_text || '',
+                    role: matchingPage.properties.Role?.select?.name || 'admin'
+                }
+            });
+        } else {
+            res.status(401).json({ success: false, message: 'Credenciales inválidas' });
+        }
+    } catch (error) {
+        console.error("Login Error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 
 
 // EVENTS
@@ -577,5 +608,9 @@ app.delete('/api/tables/:id', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`API Server running on http://localhost:${PORT}`);
+    console.log(`-----------------------------------------`);
+    console.log(`🚀 API Server running on port: ${PORT}`);
+    console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔑 Notion API Key: ${process.env.NOTION_API_KEY ? 'Present ✅' : 'NOT FOUND ❌'}`);
+    console.log(`-----------------------------------------`);
 });

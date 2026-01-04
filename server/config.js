@@ -10,7 +10,8 @@ export const NOTION_CONFIG = {
         EVENTS: process.env.NOTION_DS_EVENTS || "7ff87dfd-fc2c-4065-9c3c-8534f84e8183",
         GUESTS: process.env.NOTION_DS_GUESTS || "19d111ce-aed2-4713-95aa-5b1f9419667e",
         TABLES: process.env.NOTION_DS_TABLES || "697acb07-5ada-4d02-aa20-7a7fb2dce2f0",
-        COMPANIONS: process.env.NOTION_DS_COMPANIONS || "d91f90d8-0253-447b-9d54-950c553592ba"
+        COMPANIONS: process.env.NOTION_DS_COMPANIONS || "d91f90d8-0253-447b-9d54-950c553592ba",
+        USERS: process.env.NOTION_DS_USERS || ""
     },
 
     // Database IDs (used for creation)
