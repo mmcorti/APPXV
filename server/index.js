@@ -28,30 +28,37 @@ const getText = (prop) => {
 // AUTH
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
+    console.log(`🔐 Intentando login para: ${email}`);
     try {
         if (!DS.USERS) {
-            return res.status(500).json({ success: false, message: 'USERS_DB_ID not configured' });
+            console.error("❌ DS.USERS no está configurado en las variables de entorno");
+            return res.status(500).json({ success: false, message: 'NOTION_DS_USERS no configurado' });
         }
         const response = await notion.dataSources.query({ data_source_id: DS.USERS });
+
         const matchingPage = response.results.find(page => {
-            const emailValue = page.properties.Email?.rich_text?.[0]?.plain_text || '';
-            const passwordValue = page.properties.PasswordHash?.rich_text?.[0]?.plain_text || '';
-            return emailValue === email && passwordValue === password;
+            const emailValue = getText(page.properties.Email);
+            const passwordValue = getText(page.properties.PasswordHash);
+            // Comparación simple (sensible a mayúsculas/minúsculas)
+            return emailValue.toLowerCase() === email.toLowerCase() && passwordValue === password;
         });
+
         if (matchingPage) {
+            console.log(`✅ Login exitoso: ${email}`);
             res.json({
                 success: true, user: {
                     id: matchingPage.id,
-                    email: matchingPage.properties.Email?.rich_text?.[0]?.plain_text || '',
-                    name: matchingPage.properties.Name?.title?.[0]?.plain_text || '',
-                    role: matchingPage.properties.Role?.select?.name || 'admin'
+                    email: getText(matchingPage.properties.Email),
+                    name: getText(matchingPage.properties.Name),
+                    role: getText(matchingPage.properties.Role) || 'admin'
                 }
             });
         } else {
+            console.warn(`⚠️ Credenciales inválidas para: ${email}`);
             res.status(401).json({ success: false, message: 'Credenciales inválidas' });
         }
     } catch (error) {
-        console.error("Login Error:", error);
+        console.error("❌ Error en Login:", error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
