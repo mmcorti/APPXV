@@ -3,7 +3,7 @@ dotenv.config(); // Carga .env si existe
 dotenv.config({ path: '.env.local', override: true }); // Carga .env.local si existe y sobreescribe
 import express from 'express';
 import cors from 'cors';
-import notion, { USERS_DB_ID, DS, DB } from './notion.js';
+import notion, { DS, DB } from './notion.js';
 
 const app = express();
 const PORT = 3001;
@@ -25,31 +25,6 @@ const getText = (prop) => {
     return '';
 };
 
-app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
-    try {
-        const response = await notion.dataSources.query({ data_source_id: USERS_DB_ID });
-        const matchingPage = response.results.find(page => {
-            const emailValue = page.properties.Email?.rich_text?.[0]?.plain_text || '';
-            const passwordValue = page.properties.PasswordHash?.rich_text?.[0]?.plain_text || '';
-            return emailValue === email && passwordValue === password;
-        });
-        if (matchingPage) {
-            res.json({
-                success: true, user: {
-                    id: matchingPage.id,
-                    email: matchingPage.properties.Email?.rich_text?.[0]?.plain_text || '',
-                    name: matchingPage.properties.Name?.title?.[0]?.plain_text || '',
-                    role: matchingPage.properties.Role?.select?.name || 'guest'
-                }
-            });
-        } else {
-            res.status(401).json({ success: false, message: 'Invalid credentials' });
-        }
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
 
 // EVENTS
 app.get('/api/events', async (req, res) => {

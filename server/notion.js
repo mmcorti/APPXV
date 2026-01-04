@@ -7,7 +7,5 @@ const notion = new Client({
 
 export default notion;
 
-export const USERS_DB_ID = NOTION_CONFIG.USERS_DB_ID;
-
 export const DS = NOTION_CONFIG.DATA_SOURCE;
 export const DB = NOTION_CONFIG.DATABASE;
