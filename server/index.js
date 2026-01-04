@@ -25,6 +25,37 @@ const getText = (prop) => {
     return '';
 };
 
+// AUTH
+app.post('/api/login', async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        if (!DS.USERS) {
+            return res.status(500).json({ success: false, message: 'USERS_DB_ID not configured' });
+        }
+        const response = await notion.dataSources.query({ data_source_id: DS.USERS });
+        const matchingPage = response.results.find(page => {
+            const emailValue = page.properties.Email?.rich_text?.[0]?.plain_text || '';
+            const passwordValue = page.properties.PasswordHash?.rich_text?.[0]?.plain_text || '';
+            return emailValue === email && passwordValue === password;
+        });
+        if (matchingPage) {
+            res.json({
+                success: true, user: {
+                    id: matchingPage.id,
+                    email: matchingPage.properties.Email?.rich_text?.[0]?.plain_text || '',
+                    name: matchingPage.properties.Name?.title?.[0]?.plain_text || '',
+                    role: matchingPage.properties.Role?.select?.name || 'admin'
+                }
+            });
+        } else {
+            res.status(401).json({ success: false, message: 'Credenciales inválidas' });
+        }
+    } catch (error) {
+        console.error("Login Error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 
 // EVENTS
 app.get('/api/events', async (req, res) => {
