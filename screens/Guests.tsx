@@ -29,11 +29,15 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
 
   const stats = useMemo(() => {
     let total = 0, si = 0, no = 0, pend = 0;
+    const catTotal = { adults: 0, teens: 0, kids: 0, infants: 0 };
+    const catSi = { adults: 0, teens: 0, kids: 0, infants: 0 };
+    const catNo = { adults: 0, teens: 0, kids: 0, infants: 0 };
+    const catPend = { adults: 0, teens: 0, kids: 0, infants: 0 };
 
     invitation.guests.forEach(g => {
       const gAllottedTotal = g.allotted.adults + g.allotted.teens + g.allotted.kids + g.allotted.infants;
 
-      // Count actual confirmed attendees from companionNames to ensure consistency
+      // Count actual confirmed attendees
       let actualConfirmed = 0;
       if (g.status === 'confirmed' && g.companionNames) {
         actualConfirmed = [
@@ -45,18 +49,42 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
       }
 
       total += gAllottedTotal;
+      // category totals (always based on allotted)
+      catTotal.adults += g.allotted.adults;
+      catTotal.teens += g.allotted.teens;
+      catTotal.kids += g.allotted.kids;
+      catTotal.infants += g.allotted.infants;
 
       if (g.status === 'confirmed') {
         si += actualConfirmed;
         no += (gAllottedTotal - actualConfirmed);
+
+        // break down si/no by category for confirmed guests
+        catSi.adults += g.confirmed.adults;
+        catSi.teens += g.confirmed.teens;
+        catSi.kids += g.confirmed.kids;
+        catSi.infants += g.confirmed.infants;
+
+        catNo.adults += (g.allotted.adults - g.confirmed.adults);
+        catNo.teens += (g.allotted.teens - g.confirmed.teens);
+        catNo.kids += (g.allotted.kids - g.confirmed.kids);
+        catNo.infants += (g.allotted.infants - g.confirmed.infants);
       } else if (g.status === 'declined') {
         no += gAllottedTotal;
+        catNo.adults += g.allotted.adults;
+        catNo.teens += g.allotted.teens;
+        catNo.kids += g.allotted.kids;
+        catNo.infants += g.allotted.infants;
       } else {
         pend += gAllottedTotal;
+        catPend.adults += g.allotted.adults;
+        catPend.teens += g.allotted.teens;
+        catPend.kids += g.allotted.kids;
+        catPend.infants += g.allotted.infants;
       }
     });
 
-    return { total, si, no, pend };
+    return { total, si, no, pend, catTotal, catSi, catNo, catPend };
   }, [invitation.guests]);
 
 
@@ -288,6 +316,23 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
           <StatBtn label="PEND." val={stats.pend} active={filter === 'pending'} onClick={() => setFilter('pending')} color="slate-400" />
         </div>
 
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+          {(() => {
+            const currentCatStats = filter === 'all' ? stats.catTotal :
+              filter === 'confirmed' ? stats.catSi :
+                filter === 'declined' ? stats.catNo :
+                  stats.catPend;
+            return (
+              <>
+                <CategoryBadge label="Adultos" val={currentCatStats.adults} dotColor="bg-slate-400" />
+                <CategoryBadge label="Adol" val={currentCatStats.teens} dotColor="bg-sky-400" />
+                <CategoryBadge label="Niños" val={currentCatStats.kids} dotColor="bg-blue-600" />
+                <CategoryBadge label="Bebés" val={currentCatStats.infants} dotColor="bg-pink-400" />
+              </>
+            );
+          })()}
+        </div>
+
         <div>
           {renderList().length > 0 ? renderList() : (
             <div className="py-20 text-center space-y-3 opacity-50">
@@ -367,10 +412,17 @@ const CompanionNameInput = ({ label, value, onChange }: CompanionNameInputProps)
 
 
 const StatBtn = ({ label, val, active, onClick, color }: any) => (
-  <button onClick={onClick} className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all ${active ? `bg-${color === 'primary' ? 'primary' : color} text-white shadow-lg` : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800'}`}>
+  <button onClick={onClick} className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all ${active ? (color === 'primary' ? 'bg-primary text-white shadow-lg' : `bg-${color} text-white shadow-lg`) : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800'}`}>
     <span className="text-xl font-black leading-none mb-1">{val}</span>
     <span className="text-[8px] font-bold uppercase tracking-widest">{label}</span>
   </button>
+);
+
+const CategoryBadge = ({ label, val, dotColor }: { label: string, val: number, dotColor: string }) => (
+  <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-2 rounded-full border border-slate-100 dark:border-slate-800 shadow-sm shrink-0">
+    <span className={`size-2 rounded-full ${dotColor}`}></span>
+    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">{label}: <span className="text-slate-900 dark:text-white">{val}</span></span>
+  </div>
 );
 
 const AllotmentInput = ({ label, val, onDelta }: any) => (

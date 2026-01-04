@@ -1,6 +1,10 @@
+import dotenv from 'dotenv';
+dotenv.config();
+dotenv.config({ path: '.env.local', override: true });
+
 export const NOTION_CONFIG = {
     API_KEY: process.env.NOTION_API_KEY || "",
-    USERS_DB_ID: process.env.NOTION_USERS_DB_ID || "1c083095-aa69-4166-8f4e-563bda239072",
+    USERS_DB_ID: process.env.NOTION_USERS_DB_ID || "d7a654bcdb684918aca9b2164f2bd0d0",
 
     // Data Source IDs (used for query)
     DATA_SOURCE: {

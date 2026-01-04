@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config(); // Carga .env si existe
+dotenv.config({ path: '.env.local', override: true }); // Carga .env.local si existe y sobreescribe
 import express from 'express';
 import cors from 'cors';
 import notion, { USERS_DB_ID, DS, DB } from './notion.js';

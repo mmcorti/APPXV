@@ -2,12 +2,13 @@ import { Client } from "@notionhq/client";
 import { NOTION_CONFIG } from './server/config.js';
 
 const notion = new Client({ auth: NOTION_CONFIG.API_KEY });
+console.log("Using API Key length:", NOTION_CONFIG.API_KEY ? NOTION_CONFIG.API_KEY.length : 0);
 const USERS_DB_ID = NOTION_CONFIG.USERS_DB_ID;
 
 async function verifyLogin() {
     console.log("Checking for admin user...");
     try {
-        // Updated to use dataSources.query as the correct API method
+        console.log("Querying DB:", USERS_DB_ID);
         const response = await notion.dataSources.query({
             data_source_id: USERS_DB_ID,
         });
