@@ -34,51 +34,11 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
     const catNo = { adults: 0, teens: 0, kids: 0, infants: 0 };
     const catPend = { adults: 0, teens: 0, kids: 0, infants: 0 };
 
-<<<<<<< HEAD
-    invitation.guests.forEach(g => {
-      const gAllottedTotal = (g.allotted?.adults || 0) + (g.allotted?.teens || 0) + (g.allotted?.kids || 0) + (g.allotted?.infants || 0);
-      const gConfirmedTotal = (g.confirmed?.adults || 0) + (g.confirmed?.teens || 0) + (g.confirmed?.kids || 0) + (g.confirmed?.infants || 0);
-
-      total += gAllottedTotal;
-
-      // category totals (always based on allotted)
-      catTotal.adults += (g.allotted?.adults || 0);
-      catTotal.teens += (g.allotted?.teens || 0);
-      catTotal.kids += (g.allotted?.kids || 0);
-      catTotal.infants += (g.allotted?.infants || 0);
-
-      if (g.status === 'confirmed') {
-        si += gConfirmedTotal;
-        no += (gAllottedTotal - gConfirmedTotal);
-
-        // break down si/no by category for confirmed guests
-        catSi.adults += (g.confirmed?.adults || 0);
-        catSi.teens += (g.confirmed?.teens || 0);
-        catSi.kids += (g.confirmed?.kids || 0);
-        catSi.infants += (g.confirmed?.infants || 0);
-
-        catNo.adults += ((g.allotted?.adults || 0) - (g.confirmed?.adults || 0));
-        catNo.teens += ((g.allotted?.teens || 0) - (g.confirmed?.teens || 0));
-        catNo.kids += ((g.allotted?.kids || 0) - (g.confirmed?.kids || 0));
-        catNo.infants += ((g.allotted?.infants || 0) - (g.confirmed?.infants || 0));
-      } else if (g.status === 'declined') {
-        no += gAllottedTotal;
-        catNo.adults += (g.allotted?.adults || 0);
-        catNo.teens += (g.allotted?.teens || 0);
-        catNo.kids += (g.allotted?.kids || 0);
-        catNo.infants += (g.allotted?.infants || 0);
-      } else {
-        pend += gAllottedTotal;
-        catPend.adults += (g.allotted?.adults || 0);
-        catPend.teens += (g.allotted?.teens || 0);
-        catPend.kids += (g.allotted?.kids || 0);
-        catPend.infants += (g.allotted?.infants || 0);
-=======
     (invitation.guests || []).forEach(g => {
-      // category totals (always based on allotted)
       const allotted = g.allotted || { adults: 0, teens: 0, kids: 0, infants: 0 };
       const confirmed = g.confirmed || { adults: 0, teens: 0, kids: 0, infants: 0 };
 
+      // category totals (always based on allotted)
       catTotal.adults += (allotted.adults || 0);
       catTotal.teens += (allotted.teens || 0);
       catTotal.kids += (allotted.kids || 0);
@@ -105,7 +65,6 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
         catPend.teens += (allotted.teens || 0);
         catPend.kids += (allotted.kids || 0);
         catPend.infants += (allotted.infants || 0);
->>>>>>> 44cc95f921814dd33d6bcfdad554d69d4e6ca4cf
       }
     });
 
