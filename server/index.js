@@ -16,6 +16,9 @@ const PORT = process.env.PORT || 10000;
 app.use(cors());
 app.use(express.json());
 
+import '../debug_pkg.js';
+
+
 // Servir archivos estáticos del Frontend (Vite build)
 app.use(express.static(path.join(__dirname, '../dist')));
 
