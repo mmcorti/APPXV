@@ -46,7 +46,15 @@ app.post('/api/login', async (req, res) => {
         console.log(`🔍 Buscando usuario en DB: ${DS.USERS}`);
 
         if (typeof notionClient.databases?.query !== 'function') {
-            console.error("❌ notionClient.databases.query no es una función. Estado del cliente:", Object.keys(notionClient));
+            console.error("❌ notionClient.databases.query no es una función.");
+            console.error("Notion Client Keys:", Object.keys(notionClient));
+            if (notionClient.databases) {
+                console.error("Type of databases:", typeof notionClient.databases);
+                console.error("Databases Keys:", Object.keys(notionClient.databases));
+                const proto = Object.getPrototypeOf(notionClient.databases);
+                console.error("Databases Proto Keys:", Object.getOwnPropertyNames(proto));
+                console.error("Type of query:", typeof notionClient.databases.query);
+            }
             throw new Error("El cliente de Notion no está inicializado correctamente.");
         }
 
