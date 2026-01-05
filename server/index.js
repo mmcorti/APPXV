@@ -38,7 +38,8 @@ const getText = (prop) => {
 
 // --- AUTH / LOGIN ---
 app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
+    const email = req.body.email?.trim();
+    const password = req.body.password?.trim();
     console.log(`🔐 Intentando login para: ${email}`);
     try {
         if (!DS.USERS) {
@@ -65,7 +66,7 @@ app.post('/api/login', async (req, res) => {
             database_id: DS.USERS,
             filter: {
                 property: "Email",
-                email: { equals: email }
+                rich_text: { equals: email }
             }
         });
 
@@ -74,8 +75,16 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ success: false, message: 'Usuario no encontrado' });
         }
 
-        const dbPassword = getText(userPage.properties.Password);
-        if (dbPassword !== password) {
+        const dbEmail = getText(userPage.properties.Email);
+        const dbPassword = getText(userPage.properties.PasswordHash || userPage.properties.Password);
+
+        console.log(`🔍 [DEBUG] User Found: ${dbEmail} (ID: ${userPage.id})`);
+        console.log(`🔍 [DEBUG] Password Check:`);
+        console.log(`   Input: '${password}' (Length: ${password.length})`);
+        console.log(`   DB:    '${dbPassword}' (Length: ${dbPassword.length})`);
+        console.log(`   Match: ${dbPassword === password}`);
+
+        if (dbPassword.trim() !== password) {
             return res.status(401).json({ success: false, message: 'Contraseña incorrecta' });
         }
 
@@ -85,7 +94,7 @@ app.post('/api/login', async (req, res) => {
                 id: userPage.id,
                 email: getText(userPage.properties.Email),
                 name: getText(userPage.properties.Name),
-                role: userPage.properties.Role?.select?.name || 'admin'
+                role: userPage.properties.Role?.multi_select?.[0]?.name || userPage.properties.Role?.select?.name || 'admin'
             }
         });
     } catch (error) {
