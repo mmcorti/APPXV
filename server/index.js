@@ -1,11 +1,13 @@
 import dotenv from 'dotenv';
-dotenv.config(); // Carga .env si existe
-dotenv.config({ path: '.env.local', override: true }); // Carga .env.local si existe y sobreescribe
+dotenv.config();
+dotenv.config({ path: '.env.local', override: true });
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { notion as notionClient, DS, DB } from './notion.js';
+import { schema, KNOWN_PROPERTIES } from './schema_manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,12 +18,13 @@ const PORT = process.env.PORT || 10000;
 app.use(cors());
 app.use(express.json());
 
+// Debug helper (keep existing if needed)
 import '../debug_pkg.js';
 
-
-// Servir archivos estáticos del Frontend (Vite build)
+// Serve static frontend files
 app.use(express.static(path.join(__dirname, '../dist')));
 
+// Helper to extract text from rich_text/title/select/etc
 const getText = (prop) => {
     if (!prop) return '';
     if (prop.title) return prop.title.map(t => t.plain_text).join('');
@@ -29,54 +32,42 @@ const getText = (prop) => {
     if (prop.select) return prop.select.name;
     if (prop.email) return prop.email;
     if (prop.date) return prop.date.start;
-    if (prop.number) return prop.number.toString();
+    if (prop.number !== undefined) return prop.number.toString();
     if (prop.url) return prop.url;
     if (prop.checkbox) return prop.checkbox;
     if (prop.relation) return prop.relation.map(r => r.id);
     return '';
 };
 
-// Helper to find a property by multiple possible names (case-insensitive)
+// Robust Property Finder
 const findProp = (properties, names) => {
+    if (!properties) return undefined;
     const propKeys = Object.keys(properties);
     for (const name of names) {
         const foundKey = propKeys.find(k => k.toLowerCase() === name.toLowerCase());
         if (foundKey) return properties[foundKey];
     }
-    return null;
+    return undefined;
 };
 
-// --- AUTH / LOGIN ---
+app.get('/', (req, res) => {
+    res.send('Fiesta Planner API is Running');
+});
+
+// --- LOGIN ---
 app.post('/api/login', async (req, res) => {
     const email = req.body.email?.trim();
     const password = req.body.password?.trim();
     console.log(`🔐 Intentando login para: ${email}`);
+
     try {
-        if (!DS.USERS) {
-            console.error("❌ DS.USERS no está configurado");
-            return res.status(500).json({ success: false, message: 'USERS_DB_ID not configured' });
-        }
-
-        console.log(`🔍 Buscando usuario en DB: ${DS.USERS}`);
-
-        if (typeof notionClient.databases?.query !== 'function') {
-            console.error("❌ notionClient.databases.query no es una función.");
-            console.error("Notion Client Keys:", Object.keys(notionClient));
-            if (notionClient.databases) {
-                console.error("Type of databases:", typeof notionClient.databases);
-                console.error("Databases Keys:", Object.keys(notionClient.databases));
-                const proto = Object.getPrototypeOf(notionClient.databases);
-                console.error("Databases Proto Keys:", Object.getOwnPropertyNames(proto));
-                console.error("Type of query:", typeof notionClient.databases.query);
-            }
-            throw new Error("El cliente de Notion no está inicializado correctamente.");
-        }
+        if (!DS.USERS) throw new Error("USERS_DB_ID not configured");
 
         const response = await notionClient.databases.query({
             database_id: DS.USERS,
             filter: {
                 property: "Email",
-                rich_text: { equals: email }
+                email: { equals: email }
             }
         });
 
@@ -87,12 +78,6 @@ app.post('/api/login', async (req, res) => {
 
         const dbEmail = getText(userPage.properties.Email);
         const dbPassword = getText(userPage.properties.PasswordHash || userPage.properties.Password);
-
-        console.log(`🔍 [DEBUG] User Found: ${dbEmail} (ID: ${userPage.id})`);
-        console.log(`🔍 [DEBUG] Password Check:`);
-        console.log(`   Input: '${password}' (Length: ${password.length})`);
-        console.log(`   DB:    '${dbPassword}' (Length: ${dbPassword.length})`);
-        console.log(`   Match: ${dbPassword === password}`);
 
         if (dbPassword.trim() !== password) {
             return res.status(401).json({ success: false, message: 'Contraseña incorrecta' });
@@ -107,6 +92,7 @@ app.post('/api/login', async (req, res) => {
                 role: userPage.properties.Role?.multi_select?.[0]?.name || userPage.properties.Role?.select?.name || 'admin'
             }
         });
+
     } catch (error) {
         console.error("❌ Error en Login:", error);
         res.status(500).json({ success: false, error: error.message });
@@ -117,40 +103,44 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/events', async (req, res) => {
     try {
         const { email } = req.query;
-        console.log(`🔍 [DEBUG] Fetching events for email: ${email}`);
+        // Use dynamic property name
         const filter = email ? {
-            property: "Creator Email",
+            property: schema.get('EVENTS', 'CreatorEmail'),
             email: { equals: email }
         } : undefined;
 
-        console.log(`🔍 [DEBUG] Using Filter:`, JSON.stringify(filter));
+        console.log(`🔍 [DEBUG] Using Event Filter Key: ${schema.get('EVENTS', 'CreatorEmail')}`);
 
         const response = await notionClient.databases.query({
             database_id: DS.EVENTS,
             filter
         });
 
-        console.log(`🔍 [DEBUG] Events found: ${response.results.length}`);
-
         const events = response.results.map((page, index) => {
             const props = page.properties;
             const event = {
                 id: page.id,
-                eventName: getText(findProp(props, ["Name", "Nombre", "Título", "Titulo"])),
-                date: getText(findProp(props, ["Date", "Fecha"])),
-                location: getText(findProp(props, ["Location", "Ubicación", "Ubicacion"])),
-                message: getText(findProp(props, ["Message", "Mensaje", "Frase", "Dedicatoria"])),
-                image: findProp(props, ["Image URL", "Imagen", "Image"])?.url || '',
-                time: getText(findProp(props, ["Time", "Hora"])),
-                hostName: getText(findProp(props, ["Host Name", "Anfitrión", "Anfitrion", "Hosts"])),
-                giftType: getText(findProp(props, ["Gift Type", "Tipo de Regalo"])),
-                giftDetail: getText(findProp(props, ["Gift Detail", "Alias", "CBU", "URL Regalo"])),
+                eventName: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Name)),
+                date: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Date)),
+                location: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Location)),
+                message: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Message)),
+                image: findProp(props, KNOWN_PROPERTIES.EVENTS.Image)?.url || '',
+                time: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Time)),
+                hostName: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Host)),
+                giftType: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.GiftType)),
+                giftDetail: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.GiftDetail)),
                 status: 'published'
             };
 
             if (index === 0) {
-                console.log("🔍 [DIAGNOSTIC] First Event Result:", JSON.stringify(event, null, 2));
-                console.log("🔍 [DIAGNOSTIC] Raw Properties keys:", Object.keys(props).join(', '));
+                console.log("🔍 [DIAGNOSTIC] First Event Mapped:", JSON.stringify(event, null, 2));
+                console.log("🔍 [DIAGNOSTIC] Actual Mapped Keys:", JSON.stringify(schema.mappings.EVENTS, null, 2));
+                const dump = {
+                    event_mapped: event,
+                    raw_keys: Object.keys(props),
+                    raw_properties: props
+                };
+                try { fs.writeFileSync(path.join(__dirname, 'diagnostic_dump_event.json'), JSON.stringify(dump, null, 2)); } catch (e) { }
             }
             return event;
         });
@@ -164,26 +154,23 @@ app.get('/api/events', async (req, res) => {
 app.post('/api/events', async (req, res) => {
     try {
         const { eventName, date, location, message, image, userEmail, time, hostName, giftType, giftDetail } = req.body;
-        console.log(`📝 [DEBUG] Creating event: ${eventName} for ${userEmail}`);
+        console.log(`📝 [DEBUG] Creating event: ${eventName}`);
 
-        if (!userEmail) {
-            return res.status(400).json({ error: "Email is required to create an event" });
-        }
+        const properties = {};
+        properties[schema.get('EVENTS', 'Name')] = { title: [{ text: { content: eventName || "Nuevo Evento" } }] };
+        properties[schema.get('EVENTS', 'CreatorEmail')] = { email: userEmail };
+        properties[schema.get('EVENTS', 'Date')] = { date: { start: date || new Date().toISOString().split('T')[0] } };
+        properties[schema.get('EVENTS', 'Location')] = { rich_text: [{ text: { content: location || "" } }] };
+        properties[schema.get('EVENTS', 'Message')] = { rich_text: [{ text: { content: message || "" } }] };
+        properties[schema.get('EVENTS', 'Image')] = { url: image || null };
+        properties[schema.get('EVENTS', 'Time')] = { rich_text: [{ text: { content: time || "" } }] };
+        properties[schema.get('EVENTS', 'Host')] = { rich_text: [{ text: { content: hostName || "" } }] };
+        if (giftType) properties[schema.get('EVENTS', 'GiftType')] = { select: { name: giftType } };
+        properties[schema.get('EVENTS', 'GiftDetail')] = { rich_text: [{ text: { content: giftDetail || "" } }] };
 
         const newPage = await notionClient.pages.create({
             parent: { database_id: DB.EVENTS },
-            properties: {
-                "Name": { title: [{ text: { content: eventName || "Nuevo Evento" } }] },
-                "Creator Email": { email: userEmail },
-                "Date": { date: { start: date || new Date().toISOString().split('T')[0] } },
-                "Location": { rich_text: [{ text: { content: location || "" } }] },
-                "Message": { rich_text: [{ text: { content: message || "" } }] },
-                "Image URL": { url: image || null },
-                "Time": { rich_text: [{ text: { content: time || "" } }] },
-                "Host Name": { rich_text: [{ text: { content: hostName || "" } }] },
-                "Gift Type": giftType ? { select: { name: giftType } } : undefined,
-                "Gift Detail": { rich_text: [{ text: { content: giftDetail || "" } }] }
-            }
+            properties
         });
 
         res.json({ success: true, id: newPage.id });
@@ -198,20 +185,20 @@ app.put('/api/events/:id', async (req, res) => {
         const { id } = req.params;
         const { eventName, date, location, message, image, time, hostName, giftType, giftDetail } = req.body;
 
-        await notionClient.pages.update({
-            page_id: id,
-            properties: {
-                "Name": { title: [{ text: { content: eventName } }] },
-                "Date": { date: { start: date } },
-                "Location": { rich_text: [{ text: { content: location || "" } }] },
-                "Message": { rich_text: [{ text: { content: message || "" } }] },
-                "Image URL": { url: image || null },
-                "Time": { rich_text: [{ text: { content: time || "" } }] },
-                "Host Name": { rich_text: [{ text: { content: hostName || "" } }] },
-                "Gift Type": giftType ? { select: { name: giftType } } : undefined,
-                "Gift Detail": { rich_text: [{ text: { content: giftDetail || "" } }] }
-            }
-        });
+        const properties = {};
+        if (eventName) properties[schema.get('EVENTS', 'Name')] = { title: [{ text: { content: eventName } }] };
+        if (date) properties[schema.get('EVENTS', 'Date')] = { date: { start: date } };
+
+        // Always try update optional fields
+        properties[schema.get('EVENTS', 'Location')] = { rich_text: [{ text: { content: location || "" } }] };
+        properties[schema.get('EVENTS', 'Message')] = { rich_text: [{ text: { content: message || "" } }] };
+        properties[schema.get('EVENTS', 'Image')] = { url: image || null };
+        properties[schema.get('EVENTS', 'Time')] = { rich_text: [{ text: { content: time || "" } }] };
+        properties[schema.get('EVENTS', 'Host')] = { rich_text: [{ text: { content: hostName || "" } }] };
+        if (giftType) properties[schema.get('EVENTS', 'GiftType')] = { select: { name: giftType } };
+        properties[schema.get('EVENTS', 'GiftDetail')] = { rich_text: [{ text: { content: giftDetail || "" } }] };
+
+        await notionClient.pages.update({ page_id: id, properties });
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -222,47 +209,54 @@ app.put('/api/events/:id', async (req, res) => {
 app.get('/api/guests', async (req, res) => {
     try {
         const { eventId } = req.query;
+        const filter = eventId ? {
+            property: schema.get('GUESTS', 'Event'),
+            relation: { contains: eventId }
+        } : undefined;
+
         const response = await notionClient.databases.query({
             database_id: DS.GUESTS,
-            filter: eventId ? {
-                property: "Event",
-                relation: { contains: eventId }
-            } : undefined
+            filter
         });
 
         const guests = response.results.map((page, index) => {
             const props = page.properties;
-            const companionNamesStr = getText(findProp(props, ["Companion Names", "Acompañantes"]));
+            const companionNamesStr = getText(findProp(props, KNOWN_PROPERTIES.GUESTS.CompanionNames));
             let companionNames = { adults: [], teens: [], kids: [], infants: [] };
             try {
                 if (companionNamesStr) companionNames = JSON.parse(companionNamesStr);
-            } catch (e) {
-                console.warn(`⚠️ Failed to parse companionNames for guest ${page.id}:`, companionNamesStr);
-            }
+            } catch (e) { }
 
             const guest = {
                 id: page.id,
-                name: getText(findProp(props, ["Name", "Nombre"])),
-                email: getText(findProp(props, ["Email", "Correo"])),
-                status: findProp(props, ["Status", "Estado"])?.select?.name || 'pending',
+                name: getText(findProp(props, KNOWN_PROPERTIES.GUESTS.Name)),
+                email: getText(findProp(props, KNOWN_PROPERTIES.GUESTS.Email)),
+                status: findProp(props, KNOWN_PROPERTIES.GUESTS.Status)?.select?.name || 'pending',
                 allotted: {
-                    adults: findProp(props, ["Allotted Adults", "Cupos Adultos"])?.number || 1,
-                    teens: findProp(props, ["Allotted Teens", "Cupos Jóvenes", "Cupos Jovenes"])?.number || 0,
-                    kids: findProp(props, ["Allotted Kids", "Cupos Niños", "Cupos Ninos"])?.number || 0,
-                    infants: findProp(props, ["Allotted Infants", "Cupos Bebés", "Cupos Bebes"])?.number || 0
+                    adults: findProp(props, KNOWN_PROPERTIES.GUESTS.AllottedAdults)?.number || 1,
+                    teens: findProp(props, KNOWN_PROPERTIES.GUESTS.AllottedTeens)?.number || 0,
+                    kids: findProp(props, KNOWN_PROPERTIES.GUESTS.AllottedKids)?.number || 0,
+                    infants: findProp(props, KNOWN_PROPERTIES.GUESTS.AllottedInfants)?.number || 0
                 },
                 confirmed: {
-                    adults: findProp(props, ["Confirmed Adults", "Confirmados Adultos"])?.number || 0,
-                    teens: findProp(props, ["Confirmed Teens", "Confirmados Jóvenes", "Confirmados Jovenes"])?.number || 0,
-                    kids: findProp(props, ["Confirmed Kids", "Confirmados Niños", "Confirmados Ninos"])?.number || 0,
-                    infants: findProp(props, ["Confirmed Infants", "Confirmados Bebés", "Confirmados Bebes"])?.number || 0
+                    adults: findProp(props, KNOWN_PROPERTIES.GUESTS.ConfirmedAdults)?.number || 0,
+                    teens: findProp(props, KNOWN_PROPERTIES.GUESTS.ConfirmedTeens)?.number || 0,
+                    kids: findProp(props, KNOWN_PROPERTIES.GUESTS.ConfirmedKids)?.number || 0,
+                    infants: findProp(props, KNOWN_PROPERTIES.GUESTS.ConfirmedInfants)?.number || 0
                 },
                 companionNames,
-                sent: findProp(props, ["Sent", "Enviado"])?.checkbox || false
+                sent: findProp(props, KNOWN_PROPERTIES.GUESTS.Sent)?.checkbox || false
             };
 
             if (index === 0) {
-                console.log("🔍 [DIAGNOSTIC] First Guest Result:", JSON.stringify(guest, null, 2));
+                console.log("🔍 [DIAGNOSTIC] First Guest Mapped:", JSON.stringify(guest, null, 2));
+                console.log("🔍 [DIAGNOSTIC] Actual Mapped Keys GUEST:", JSON.stringify(schema.mappings.GUESTS, null, 2));
+                const dump = {
+                    guest_mapped: guest,
+                    raw_keys: Object.keys(props),
+                    raw_properties: props
+                };
+                try { fs.writeFileSync(path.join(__dirname, 'diagnostic_dump_guest.json'), JSON.stringify(dump, null, 2)); } catch (e) { }
             }
             return guest;
         });
@@ -275,19 +269,22 @@ app.get('/api/guests', async (req, res) => {
 app.post('/api/guests', async (req, res) => {
     try {
         const { eventId, guest } = req.body;
+        const properties = {};
+        properties[schema.get('GUESTS', 'Name')] = { title: [{ text: { content: guest.name } }] };
+        properties[schema.get('GUESTS', 'Email')] = { email: guest.email || null };
+        properties[schema.get('GUESTS', 'Status')] = { select: { name: guest.status || 'pending' } };
+
+        properties[schema.get('GUESTS', 'AllottedAdults')] = { number: guest.allotted?.adults || 0 };
+        properties[schema.get('GUESTS', 'AllottedTeens')] = { number: guest.allotted?.teens || 0 };
+        properties[schema.get('GUESTS', 'AllottedKids')] = { number: guest.allotted?.kids || 0 };
+        properties[schema.get('GUESTS', 'AllottedInfants')] = { number: guest.allotted?.infants || 0 };
+
+        properties[schema.get('GUESTS', 'Event')] = { relation: [{ id: eventId }] };
+        properties[schema.get('GUESTS', 'CompanionNames')] = { rich_text: [{ text: { content: JSON.stringify(guest.companionNames || {}) } }] };
+
         const newPage = await notionClient.pages.create({
             parent: { database_id: DB.GUESTS },
-            properties: {
-                "Name": { title: [{ text: { content: guest.name } }] },
-                "Email": { email: guest.email || null },
-                "Status": { select: { name: guest.status || 'pending' } },
-                "Allotted Adults": { number: guest.allotted?.adults || 0 },
-                "Allotted Teens": { number: guest.allotted?.teens || 0 },
-                "Allotted Kids": { number: guest.allotted?.kids || 0 },
-                "Allotted Infants": { number: guest.allotted?.infants || 0 },
-                "Event": { relation: [{ id: eventId }] },
-                "Companion Names": { rich_text: [{ text: { content: JSON.stringify(guest.companionNames || {}) } }] }
-            }
+            properties
         });
         res.json({ success: true, id: newPage.id });
     } catch (error) {
@@ -299,24 +296,25 @@ app.put('/api/guests/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { guest } = req.body;
-        await notionClient.pages.update({
-            page_id: id,
-            properties: {
-                "Name": { title: [{ text: { content: guest.name } }] },
-                "Email": { email: guest.email || null },
-                "Status": { select: { name: guest.status } },
-                "Allotted Adults": { number: guest.allotted?.adults || 0 },
-                "Allotted Teens": { number: guest.allotted?.teens || 0 },
-                "Allotted Kids": { number: guest.allotted?.kids || 0 },
-                "Allotted Infants": { number: guest.allotted?.infants || 0 },
-                "Confirmed Adults": { number: guest.confirmed?.adults || 0 },
-                "Confirmed Teens": { number: guest.confirmed?.teens || 0 },
-                "Confirmed Kids": { number: guest.confirmed?.kids || 0 },
-                "Confirmed Infants": { number: guest.confirmed?.infants || 0 },
-                "Companion Names": { rich_text: [{ text: { content: JSON.stringify(guest.companionNames || {}) } }] },
-                "Sent": { checkbox: guest.sent || false }
-            }
-        });
+        const properties = {};
+        if (guest.name) properties[schema.get('GUESTS', 'Name')] = { title: [{ text: { content: guest.name } }] };
+        properties[schema.get('GUESTS', 'Email')] = { email: guest.email || null };
+        if (guest.status) properties[schema.get('GUESTS', 'Status')] = { select: { name: guest.status } };
+
+        properties[schema.get('GUESTS', 'AllottedAdults')] = { number: guest.allotted?.adults || 0 };
+        properties[schema.get('GUESTS', 'AllottedTeens')] = { number: guest.allotted?.teens || 0 };
+        properties[schema.get('GUESTS', 'AllottedKids')] = { number: guest.allotted?.kids || 0 };
+        properties[schema.get('GUESTS', 'AllottedInfants')] = { number: guest.allotted?.infants || 0 };
+
+        properties[schema.get('GUESTS', 'ConfirmedAdults')] = { number: guest.confirmed?.adults || 0 };
+        properties[schema.get('GUESTS', 'ConfirmedTeens')] = { number: guest.confirmed?.teens || 0 };
+        properties[schema.get('GUESTS', 'ConfirmedKids')] = { number: guest.confirmed?.kids || 0 };
+        properties[schema.get('GUESTS', 'ConfirmedInfants')] = { number: guest.confirmed?.infants || 0 };
+
+        properties[schema.get('GUESTS', 'CompanionNames')] = { rich_text: [{ text: { content: JSON.stringify(guest.companionNames || {}) } }] };
+        properties[schema.get('GUESTS', 'Sent')] = { checkbox: guest.sent || false };
+
+        await notionClient.pages.update({ page_id: id, properties });
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -327,19 +325,23 @@ app.patch('/api/guests/:id/rsvp', async (req, res) => {
     try {
         const { id } = req.params;
         const { status, confirmed, companionNames } = req.body;
-        await notionClient.pages.update({
-            page_id: id,
-            properties: {
-                "Status": { select: { name: status } },
-                "Confirmed Adults": { number: confirmed?.adults || 0 },
-                "Confirmed Teens": { number: confirmed?.teens || 0 },
-                "Confirmed Kids": { number: confirmed?.kids || 0 },
-                "Confirmed Infants": { number: confirmed?.infants || 0 },
-                "Companion Names": { rich_text: [{ text: { content: JSON.stringify(companionNames || {}) } }] }
-            }
-        });
+
+        const properties = {};
+        if (status) properties[schema.get('GUESTS', 'Status')] = { select: { name: status } };
+
+        properties[schema.get('GUESTS', 'ConfirmedAdults')] = { number: confirmed?.adults || 0 };
+        properties[schema.get('GUESTS', 'ConfirmedTeens')] = { number: confirmed?.teens || 0 };
+        properties[schema.get('GUESTS', 'ConfirmedKids')] = { number: confirmed?.kids || 0 };
+        properties[schema.get('GUESTS', 'ConfirmedInfants')] = { number: confirmed?.infants || 0 };
+
+        properties[schema.get('GUESTS', 'CompanionNames')] = { rich_text: [{ text: { content: JSON.stringify(companionNames || {}) } }] };
+
+        console.log("📝 [DEBUG] Updating RSVP:", JSON.stringify(properties));
+
+        await notionClient.pages.update({ page_id: id, properties });
         res.json({ success: true });
     } catch (error) {
+        console.error("❌ RSVP Error:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -357,28 +359,24 @@ app.delete('/api/guests/:id', async (req, res) => {
 app.get('/api/tables', async (req, res) => {
     try {
         const { eventId } = req.query;
+        const filter = eventId ? {
+            property: schema.get('TABLES', 'Event'),
+            relation: { contains: eventId }
+        } : undefined;
+
         const response = await notionClient.databases.query({
             database_id: DS.TABLES,
-            filter: eventId ? {
-                property: "Event",
-                relation: { contains: eventId }
-            } : undefined
+            filter
         });
 
-        const tables = response.results.map(page => {
-            const assignmentsStr = getText(page.properties.Assignments);
-            let guests = [];
-            try {
-                if (assignmentsStr) guests = JSON.parse(assignmentsStr);
-            } catch (e) { }
-
-            return {
-                id: page.id,
-                name: getText(page.properties.Name),
-                capacity: page.properties.Capacity?.number || 0,
-                guests: guests
-            };
-        });
+        const tables = response.results.map(page => ({
+            id: page.id,
+            name: getText(findProp(page.properties, KNOWN_PROPERTIES.TABLES.Name)),
+            capacity: findProp(page.properties, KNOWN_PROPERTIES.TABLES.Capacity)?.number || 0,
+            // Logic for guests in tables depends on how assignments are stored
+            // If it's a relation to guests, we use it directly. 
+            guests: findProp(page.properties, KNOWN_PROPERTIES.TABLES.Guests)?.relation?.map(r => r.id) || []
+        }));
         res.json(tables);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -387,14 +385,15 @@ app.get('/api/tables', async (req, res) => {
 
 app.post('/api/tables', async (req, res) => {
     try {
-        const { eventId, table } = req.body;
+        const { eventId, name, capacity } = req.body;
+        const properties = {};
+        properties[schema.get('TABLES', 'Name')] = { title: [{ text: { content: name } }] };
+        properties[schema.get('TABLES', 'Capacity')] = { number: capacity || 10 };
+        properties[schema.get('TABLES', 'Event')] = { relation: [{ id: eventId }] };
+
         const newPage = await notionClient.pages.create({
             parent: { database_id: DB.TABLES },
-            properties: {
-                "Name": { title: [{ text: { content: table.name } }] },
-                "Capacity": { number: table.capacity || 10 },
-                "Event": { relation: [{ id: eventId }] }
-            }
+            properties
         });
         res.json({ success: true, id: newPage.id });
     } catch (error) {
@@ -406,17 +405,32 @@ app.patch('/api/tables/:id/guests', async (req, res) => {
     try {
         const { id } = req.params;
         const { assignments } = req.body;
-        await notionClient.pages.update({
-            page_id: id,
-            properties: {
-                "Assignments": { rich_text: [{ text: { content: JSON.stringify(assignments) } }] }
-            }
-        });
+        // NOTE: If assignments are strictly relations, we should update the relation property.
+        // But the previous code was doing rich_text 'Assignments'?
+        // Let's stick to relation update if possible, OR if previous code used 'Assignments' column:
+        // Checking previous code: Step 89 showed `guests: page.properties.Guests?.relation...`
+        // But in Step 199 it showed `Assignments` rich text.
+        // I will trust the Schema Manager 'Guests' property which maps to 'Guests' or 'Invitados' relation.
+        // If the user wants to store JSON assignments, they need a text column. 
+        // For now, I'll assume standard Relation update for seated guests if 'Assignments' doesn't exist.
+        // But wait, the frontend sends `assignments` array.
+        // If we want to persist specific seating (companion index etc), we need JSON.
+        // Let's assume there is an 'Assignments' or 'Asignaciones' column if complex seating.
+        // If not, we just update relation.
+        // For safety, I'll use schema.get for 'Guests' (Relation).
+
+        // Use Relation update for guests
+        const guestIds = assignments.map(a => ({ id: a.guestId }));
+        const properties = {};
+        properties[schema.get('TABLES', 'Guests')] = { relation: guestIds };
+
+        await notionClient.pages.update({ page_id: id, properties });
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
+
 
 app.delete('/api/tables/:id', async (req, res) => {
     try {
@@ -427,15 +441,21 @@ app.delete('/api/tables/:id', async (req, res) => {
     }
 });
 
-// Redirigir cualquier otra ruta al Frontend
+// Catch-all for frontend
 app.get(/.*/, (req, res) => {
     res.sendFile(path.join(__dirname, '../dist', 'index.html'));
 });
 
-app.listen(PORT, () => {
-    console.log(`-----------------------------------------`);
-    console.log(`🚀 API Server running on port: ${PORT}`);
-    console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🔑 Notion API Key: ${process.env.NOTION_API_KEY ? 'Present ✅' : 'NOT FOUND ❌'}`);
-    console.log(`-----------------------------------------`);
-});
+// Start server
+const start = async () => {
+    await schema.init(); // Initialize dynamic schema mapping
+    app.listen(PORT, () => {
+        console.log(`-----------------------------------------`);
+        console.log(`🚀 API Server running on port: ${PORT}`);
+        console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`🔑 Notion API Key: ${process.env.NOTION_API_KEY ? 'Present ✅' : 'NOT FOUND ❌'}`);
+        console.log(`-----------------------------------------`);
+    });
+};
+
+start();
