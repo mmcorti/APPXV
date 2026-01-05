@@ -5,7 +5,7 @@ const notion = new Client({
     auth: NOTION_CONFIG.API_KEY,
 });
 
-export default notion;
+export { notion };
 
 export const DS = NOTION_CONFIG.DATA_SOURCE;
 export const DB = NOTION_CONFIG.DATABASE;

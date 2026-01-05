@@ -5,7 +5,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import notion, { DS, DB } from './notion.js';
+import { notion as notionClient, DS, DB } from './notion.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,7 +43,7 @@ app.post('/api/login', async (req, res) => {
             return res.status(500).json({ success: false, message: 'USERS_DB_ID not configured' });
         }
 
-        const response = await notion.databases.query({
+        const response = await notionClient.databases.query({
             database_id: DS.USERS,
             filter: {
                 property: "Email",
@@ -85,7 +85,7 @@ app.get('/api/events', async (req, res) => {
             email: { equals: email }
         } : undefined;
 
-        const response = await notion.databases.query({
+        const response = await notionClient.databases.query({
             database_id: DS.EVENTS,
             filter
         });
@@ -110,7 +110,7 @@ app.get('/api/events', async (req, res) => {
 app.get('/api/guests', async (req, res) => {
     try {
         const { eventId } = req.query;
-        const response = await notion.databases.query({
+        const response = await notionClient.databases.query({
             database_id: DS.GUESTS,
             filter: eventId ? {
                 property: "Event",
@@ -136,7 +136,7 @@ app.get('/api/guests', async (req, res) => {
 app.get('/api/tables', async (req, res) => {
     try {
         const { eventId } = req.query;
-        const response = await notion.databases.query({
+        const response = await notionClient.databases.query({
             database_id: DS.TABLES,
             filter: eventId ? {
                 property: "Event",
