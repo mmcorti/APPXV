@@ -28,6 +28,21 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
 
   if (!invitation) return <div className="p-10 text-center font-bold">Evento no encontrado</div>;
 
+  /* Helper to get effective confirmed counts mainly for legacy data or errors */
+  const getEffectiveConfirmed = (g: Guest) => {
+    const allotted = g.allotted || { adults: 0, teens: 0, kids: 0, infants: 0 };
+    const confirmed = g.confirmed || { adults: 0, teens: 0, kids: 0, infants: 0 };
+
+    // If status is confirmed but total confirmed is 0, fallback to allotted to avoid '0 attendance' error
+    if (g.status === 'confirmed') {
+      const totalConf = confirmed.adults + confirmed.teens + confirmed.kids + confirmed.infants;
+      if (totalConf === 0) {
+        return { ...allotted };
+      }
+    }
+    return confirmed;
+  };
+
   const stats = useMemo(() => {
     const catTotal = { adults: 0, teens: 0, kids: 0, infants: 0 };
     const catSi = { adults: 0, teens: 0, kids: 0, infants: 0 };
@@ -36,7 +51,7 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
 
     (invitation.guests || []).forEach(g => {
       const allotted = g.allotted || { adults: 0, teens: 0, kids: 0, infants: 0 };
-      const confirmed = g.confirmed || { adults: 0, teens: 0, kids: 0, infants: 0 };
+      const confirmed = getEffectiveConfirmed(g);
 
       // category totals (always based on allotted)
       catTotal.adults += (allotted.adults || 0);
@@ -76,7 +91,6 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
 
     return { total, si, no, pend, catTotal, catSi, catNo, catPend };
   }, [invitation.guests]);
-
 
   const handleSendWhatsApp = (guest: Guest) => {
     const url = `${window.location.origin}${window.location.pathname}#/rsvp/${id}?guest=${encodeURIComponent(guest.name)}`;
@@ -128,7 +142,7 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
       // 1. Filter by Status
       let statusMatch = true;
       const allotted = g.allotted || { adults: 0, teens: 0, kids: 0, infants: 0 };
-      const confirmed = g.confirmed || { adults: 0, teens: 0, kids: 0, infants: 0 };
+      const confirmed = getEffectiveConfirmed(g);
 
       if (filter !== 'all') {
         if (filter === 'declined') {
@@ -155,9 +169,18 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
       }
     }).map(g => {
       const isSent = g.sent || g.status === 'confirmed' || g.status === 'declined';
-      const gAllottedTotal = g.allotted.adults + g.allotted.teens + g.allotted.kids + g.allotted.infants;
-      const gConfirmedTotal = g.confirmed.adults + g.confirmed.teens + g.confirmed.kids + g.confirmed.infants;
+      const allotted = g.allotted || { adults: 0, teens: 0, kids: 0, infants: 0 };
+      const confirmed = getEffectiveConfirmed(g);
+
+      const gAllottedTotal = allotted.adults + allotted.teens + allotted.kids + allotted.infants;
+      const gConfirmedTotal = confirmed.adults + confirmed.teens + confirmed.kids + confirmed.infants;
       const diffTotal = gAllottedTotal - gConfirmedTotal;
+
+      // Determine main guest category label for display
+      let mainGuestLabel = "Adulto";
+      if (allotted.teens > 0 && allotted.adults === 0) mainGuestLabel = "Adolescente";
+      if (allotted.kids > 0 && allotted.adults === 0 && allotted.teens === 0) mainGuestLabel = "Niño";
+      if (allotted.infants > 0 && gAllottedTotal === allotted.infants) mainGuestLabel = "Bebé";
 
       return (
         <div key={g.id} className="relative bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden mb-4 animate-in slide-in-from-bottom-2 duration-300">
@@ -191,12 +214,12 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
               <div className="grid grid-cols-2 gap-2 text-[10px] font-bold">
                 <div className="bg-slate-50 dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-700">
                   <p className="text-slate-400 uppercase mb-1">Cupo Asignado</p>
-                  <p>Ad: {g.allotted.adults} | Adol: {g.allotted.teens} | Ni: {g.allotted.kids} | Be: {g.allotted.infants}</p>
+                  <p>Ad: {allotted.adults} | Adol: {allotted.teens} | Ni: {allotted.kids} | Be: {allotted.infants}</p>
                 </div>
                 {g.status === 'confirmed' ? (
                   <div className="bg-green-50 dark:bg-green-900/20 p-2 rounded-xl border border-green-100 dark:border-green-800/50">
                     <p className="text-green-600 dark:text-green-400 uppercase mb-1">Confirmados</p>
-                    <p>Ad: {g.confirmed.adults} | Adol: {g.confirmed.teens} | Ni: {g.confirmed.kids} | Be: {g.confirmed.infants}</p>
+                    <p>Ad: {confirmed.adults} | Adol: {confirmed.teens} | Ni: {confirmed.kids} | Be: {confirmed.infants}</p>
                   </div>
                 ) : (
                   <div className={`bg-slate-50 dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-700 italic flex items-center justify-center ${g.status === 'declined' ? 'text-red-500 font-bold bg-red-50/50 border-red-100' : 'text-slate-400'}`}>
@@ -213,10 +236,10 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                     {g.status === 'declined' ? `Todo el grupo ausente: ${gAllottedTotal}` : `Ausencias en el grupo: ${diffTotal}`}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {g.allotted.adults - g.confirmed.adults > 0 && <span className="text-[8px] font-bold bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-red-100/50 text-red-400">-{g.allotted.adults - g.confirmed.adults} Adultos</span>}
-                    {g.allotted.teens - g.confirmed.teens > 0 && <span className="text-[8px] font-bold bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-red-100/50 text-red-400">-{g.allotted.teens - g.confirmed.teens} Adol.</span>}
-                    {g.allotted.kids - g.confirmed.kids > 0 && <span className="text-[8px] font-bold bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-red-100/50 text-red-400">-{g.allotted.kids - g.confirmed.kids} Niños</span>}
-                    {g.allotted.infants - g.confirmed.infants > 0 && <span className="text-[8px] font-bold bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-red-100/50 text-red-400">-{g.allotted.infants - g.confirmed.infants} Bebés</span>}
+                    {allotted.adults - confirmed.adults > 0 && <span className="text-[8px] font-bold bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-red-100/50 text-red-400">-{allotted.adults - confirmed.adults} Adultos</span>}
+                    {allotted.teens - confirmed.teens > 0 && <span className="text-[8px] font-bold bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-red-100/50 text-red-400">-{allotted.teens - confirmed.teens} Adol.</span>}
+                    {allotted.kids - confirmed.kids > 0 && <span className="text-[8px] font-bold bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-red-100/50 text-red-400">-{allotted.kids - confirmed.kids} Niños</span>}
+                    {allotted.infants - confirmed.infants > 0 && <span className="text-[8px] font-bold bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-red-100/50 text-red-400">-{allotted.infants - confirmed.infants} Bebés</span>}
                   </div>
                 </div>
               ) : null}
@@ -226,24 +249,28 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                 <div className="pt-2 border-t border-slate-50 dark:border-slate-700">
                   <p className="text-[9px] font-black text-slate-400 uppercase mb-1.5 font-sans">Invitados que asisten:</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {/* Invitado Principal */}
+                    {/* Invitado Principal - con etiqueta de categoría */}
                     <span className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-1.5">
                       <span className="size-1.5 bg-green-500 rounded-full"></span>
                       {g.name}
+                      <span className="text-[8px] text-slate-400 uppercase ml-0.5">({mainGuestLabel})</span>
                     </span>
 
                     {/* Acompañantes */}
                     {g.companionNames && [
-                      ...g.companionNames.adults,
-                      ...g.companionNames.teens,
-                      ...g.companionNames.kids,
-                      ...g.companionNames.infants
-                    ].filter(n => n.trim() !== "" && n.toLowerCase() !== g.name.toLowerCase()).map((name, idx) => (
-                      <span key={idx} className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-1.5">
-                        <span className="size-1.5 bg-green-500 rounded-full"></span>
-                        {name}
-                      </span>
-                    ))}
+                      { list: g.companionNames.adults, label: "Adulto" },
+                      { list: g.companionNames.teens, label: "Adol." },
+                      { list: g.companionNames.kids, label: "Niño" },
+                      { list: g.companionNames.infants, label: "Bebé" },
+                    ].map(type =>
+                      type.list?.filter(n => n.trim() !== "" && n.toLowerCase() !== g.name.toLowerCase()).map((name, idx) => (
+                        <span key={`${type.label}-${idx}`} className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-1.5">
+                          <span className="size-1.5 bg-green-500 rounded-full"></span>
+                          {name}
+                          <span className="text-[8px] text-slate-400 uppercase ml-0.5">({type.label})</span>
+                        </span>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
