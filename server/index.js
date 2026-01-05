@@ -34,7 +34,20 @@ app.post('/api/login', async (req, res) => {
             console.error("❌ DS.USERS no está configurado en las variables de entorno");
             return res.status(500).json({ success: false, message: 'NOTION_DS_USERS no configurado' });
         }
-        const response = await notion.dataSources.query({ data_source_id: DS.USERS });
+
+        let response;
+        try {
+            // Intentar primero como Data Source
+            response = await notion.dataSources.query({ data_source_id: DS.USERS });
+        } catch (dsError) {
+            if (dsError.code === 'object_not_found') {
+                console.log("ℹ️ No se encontró como Data Source, reintentando como Database estándar...");
+                // Reintentar como Database estándar
+                response = await notion.databases.query({ database_id: DS.USERS });
+            } else {
+                throw dsError;
+            }
+        }
 
         const matchingPage = response.results.find(page => {
             const emailValue = getText(page.properties.Email);
