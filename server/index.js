@@ -107,15 +107,20 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/events', async (req, res) => {
     try {
         const { email } = req.query;
+        console.log(`🔍 [DEBUG] Fetching events for email: ${email}`);
         const filter = email ? {
             property: "Creator Email",
             email: { equals: email }
         } : undefined;
 
+        console.log(`🔍 [DEBUG] Using Filter:`, JSON.stringify(filter));
+
         const response = await notionClient.databases.query({
             database_id: DS.EVENTS,
             filter
         });
+
+        console.log(`🔍 [DEBUG] Events found: ${response.results.length}`);
 
         const events = response.results.map(page => ({
             id: page.id,
@@ -129,6 +134,60 @@ app.get('/api/events', async (req, res) => {
         res.json(events);
     } catch (error) {
         console.error("Fetch Events Error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/events', async (req, res) => {
+    try {
+        const { title, date, location, description, image, email, time, hosts, giftType, giftDetail } = req.body;
+
+        console.log(`📝 [DEBUG] Creating event: ${title} for ${email}`);
+
+        if (!email) {
+            return res.status(400).json({ error: "Email is required to create an event" });
+        }
+
+        const newPage = await notionClient.pages.create({
+            parent: { database_id: DB.EVENTS },
+            properties: {
+                "Name": {
+                    title: [{ text: { content: title || "Nuevo Evento" } }]
+                },
+                "Creator Email": {
+                    email: email
+                },
+                "Date": {
+                    date: { start: date || new Date().toISOString().split('T')[0] }
+                },
+                "Location": {
+                    rich_text: [{ text: { content: location || "" } }]
+                },
+                "Message": {
+                    rich_text: [{ text: { content: description || "" } }]
+                },
+                "Image URL": {
+                    url: image || null
+                },
+                "Time": {
+                    rich_text: [{ text: { content: time || "" } }]
+                },
+                "Host Name": {
+                    rich_text: [{ text: { content: hosts || "" } }]
+                },
+                "Gift Type": giftType ? {
+                    select: { name: giftType }
+                } : undefined,
+                "Gift Detail": {
+                    rich_text: [{ text: { content: giftDetail || "" } }]
+                }
+            }
+        });
+
+        console.log(`✅ Event Created: ${newPage.id}`);
+        res.json({ success: true, id: newPage.id });
+    } catch (error) {
+        console.error("❌ Error Creating Event:", error);
         res.status(500).json({ error: error.message });
     }
 });
