@@ -26,8 +26,11 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
 
   // Lista de invitados disponibles (no declinados y que no estén ya sentados)
   const availablePool = useMemo(() => {
+    const tableList = invitation.tables || [];
+    const guestList = invitation.guests || [];
+
     // Generate a set of unique keys for already seated guests/companions
-    const seatedSet = new Set(tables.flatMap(t => t.guests.map(sg => `${sg.guestId}-${sg.companionIndex ?? -1}-${sg.name}`)));
+    const seatedSet = new Set(tableList.flatMap(t => (t.guests || []).map(sg => `${sg.guestId}-${sg.companionIndex ?? -1}-${sg.name}`)));
 
     const getCategoryLabel = (type: string) => {
       switch (type) {
@@ -43,7 +46,7 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
     const poolMap = new Map<string, any>();
     const pool: { guestId: string | number; companionId?: string; name: string; status: 'confirmed' | 'pending'; companionIndex?: number }[] = [];
 
-    invitation.guests.forEach(g => {
+    guestList.forEach(g => {
       if (g.status === 'declined') return;
 
       // Invitado principal
@@ -59,35 +62,31 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
         pool.push(entry);
       }
 
-      // Acompañantes (ahora se muestran aunque no estén confirmados)
-      if (g.companions) {
-        g.companions.forEach((c) => {
-          // Fallback name logic: "Tipo X - Invitado Principal"
-          const fallbackName = `${getCategoryLabel(c.type)} ${c.index + 1} - ${g.name}`;
-          const displayName = c.name.trim() || fallbackName;
+      // Acompañantes
+      const companions = (g as any).companions || [];
+      companions.forEach((c: any) => {
+        const fallbackName = `${getCategoryLabel(c.type)} ${c.index + 1} - ${g.name}`;
+        const displayName = (c.name || '').trim() || fallbackName;
+        const compKey = `${g.id}-${c.index}-${displayName}`;
 
-          const compKey = `${g.id}-${c.index}-${displayName}`;
+        if (displayName.trim().toLowerCase() === g.name.trim().toLowerCase()) return;
 
-          // Avoid duplicating the main guest
-          if (displayName.trim().toLowerCase() === g.name.trim().toLowerCase()) return;
-
-          if (!seatedSet.has(compKey) && !poolMap.has(compKey)) {
-            const entry = {
-              guestId: g.id,
-              companionId: c.id,
-              name: displayName,
-              status: (g.status === 'confirmed' ? 'confirmed' : 'pending') as 'confirmed' | 'pending',
-              companionIndex: c.index
-            };
-            poolMap.set(compKey, entry);
-            pool.push(entry);
-          }
-        });
-      }
+        if (!seatedSet.has(compKey) && !poolMap.has(compKey)) {
+          const entry = {
+            guestId: g.id,
+            companionId: c.id,
+            name: displayName,
+            status: (g.status === 'confirmed' ? 'confirmed' : 'pending') as 'confirmed' | 'pending',
+            companionIndex: c.index
+          };
+          poolMap.set(compKey, entry);
+          pool.push(entry);
+        }
+      });
     });
 
     return pool.sort((a, b) => a.name.localeCompare(b.name));
-  }, [invitation.guests, tables]);
+  }, [invitation.guests, invitation.tables]);
 
   const handleAddTable = (e: React.FormEvent) => {
     e.preventDefault();

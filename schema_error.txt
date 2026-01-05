@@ -1,0 +1,7 @@
+{
+  "name": "APIResponseError",
+  "code": "unauthorized",
+  "status": 401,
+  "headers": {},
+  "body": "{\"object\":\"error\",\"status\":401,\"code\":\"unauthorized\",\"message\":\"API token is invalid.\",\"request_id\":\"a2cc6e88-2758-49f5-bf1d-815c15b3b90e\"}"
+}

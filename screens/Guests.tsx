@@ -34,34 +34,37 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
     const catNo = { adults: 0, teens: 0, kids: 0, infants: 0 };
     const catPend = { adults: 0, teens: 0, kids: 0, infants: 0 };
 
-    invitation.guests.forEach(g => {
+    (invitation.guests || []).forEach(g => {
       // category totals (always based on allotted)
-      catTotal.adults += (g.allotted.adults || 0);
-      catTotal.teens += (g.allotted.teens || 0);
-      catTotal.kids += (g.allotted.kids || 0);
-      catTotal.infants += (g.allotted.infants || 0);
+      const allotted = g.allotted || { adults: 0, teens: 0, kids: 0, infants: 0 };
+      const confirmed = g.confirmed || { adults: 0, teens: 0, kids: 0, infants: 0 };
+
+      catTotal.adults += (allotted.adults || 0);
+      catTotal.teens += (allotted.teens || 0);
+      catTotal.kids += (allotted.kids || 0);
+      catTotal.infants += (allotted.infants || 0);
 
       if (g.status === 'confirmed') {
-        catSi.adults += (g.confirmed.adults || 0);
-        catSi.teens += (g.confirmed.teens || 0);
-        catSi.kids += (g.confirmed.kids || 0);
-        catSi.infants += (g.confirmed.infants || 0);
+        catSi.adults += (confirmed.adults || 0);
+        catSi.teens += (confirmed.teens || 0);
+        catSi.kids += (confirmed.kids || 0);
+        catSi.infants += (confirmed.infants || 0);
 
         // Absence calculation (allotted - confirmed) capped at 0 minimum
-        catNo.adults += Math.max(0, (g.allotted.adults || 0) - (g.confirmed.adults || 0));
-        catNo.teens += Math.max(0, (g.allotted.teens || 0) - (g.confirmed.teens || 0));
-        catNo.kids += Math.max(0, (g.allotted.kids || 0) - (g.confirmed.kids || 0));
-        catNo.infants += Math.max(0, (g.allotted.infants || 0) - (g.confirmed.infants || 0));
+        catNo.adults += Math.max(0, (allotted.adults || 0) - (confirmed.adults || 0));
+        catNo.teens += Math.max(0, (allotted.teens || 0) - (confirmed.teens || 0));
+        catNo.kids += Math.max(0, (allotted.kids || 0) - (confirmed.kids || 0));
+        catNo.infants += Math.max(0, (allotted.infants || 0) - (confirmed.infants || 0));
       } else if (g.status === 'declined') {
-        catNo.adults += (g.allotted.adults || 0);
-        catNo.teens += (g.allotted.teens || 0);
-        catNo.kids += (g.allotted.kids || 0);
-        catNo.infants += (g.allotted.infants || 0);
+        catNo.adults += (allotted.adults || 0);
+        catNo.teens += (allotted.teens || 0);
+        catNo.kids += (allotted.kids || 0);
+        catNo.infants += (allotted.infants || 0);
       } else {
-        catPend.adults += (g.allotted.adults || 0);
-        catPend.teens += (g.allotted.teens || 0);
-        catPend.kids += (g.allotted.kids || 0);
-        catPend.infants += (g.allotted.infants || 0);
+        catPend.adults += (allotted.adults || 0);
+        catPend.teens += (allotted.teens || 0);
+        catPend.kids += (allotted.kids || 0);
+        catPend.infants += (allotted.infants || 0);
       }
     });
 
@@ -121,13 +124,16 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
   };
 
   const renderList = () => {
-    return invitation.guests.filter(g => {
+    return (invitation.guests || []).filter(g => {
       // 1. Filter by Status
       let statusMatch = true;
+      const allotted = g.allotted || { adults: 0, teens: 0, kids: 0, infants: 0 };
+      const confirmed = g.confirmed || { adults: 0, teens: 0, kids: 0, infants: 0 };
+
       if (filter !== 'all') {
         if (filter === 'declined') {
-          const hasAbsences = (g.allotted.adults + g.allotted.teens + g.allotted.kids + g.allotted.infants) >
-            (g.confirmed.adults + g.confirmed.teens + g.confirmed.kids + g.confirmed.infants);
+          const hasAbsences = (allotted.adults + allotted.teens + allotted.kids + allotted.infants) >
+            (confirmed.adults + confirmed.teens + confirmed.kids + confirmed.infants);
           statusMatch = g.status === 'declined' || (g.status === 'confirmed' && hasAbsences);
         } else {
           statusMatch = g.status === filter;
@@ -139,13 +145,13 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
       if (catFilter === 'all') return true;
 
       if (filter === 'confirmed') {
-        return (g.confirmed[catFilter] || 0) > 0;
+        return (confirmed[catFilter] || 0) > 0;
       } else if (filter === 'declined') {
-        if (g.status === 'declined') return (g.allotted[catFilter] || 0) > 0;
-        return (g.allotted[catFilter] || 0) - (g.confirmed[catFilter] || 0) > 0;
+        if (g.status === 'declined') return (allotted[catFilter] || 0) > 0;
+        return (allotted[catFilter] || 0) - (confirmed[catFilter] || 0) > 0;
       } else {
         // 'all' or 'pending' fallback to allotted count
-        return (g.allotted[catFilter] || 0) > 0;
+        return (allotted[catFilter] || 0) > 0;
       }
     }).map(g => {
       const isSent = g.sent || g.status === 'confirmed' || g.status === 'declined';
