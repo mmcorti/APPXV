@@ -35,52 +35,43 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
     const catPend = { adults: 0, teens: 0, kids: 0, infants: 0 };
 
     invitation.guests.forEach(g => {
-      const gAllottedTotal = g.allotted.adults + g.allotted.teens + g.allotted.kids + g.allotted.infants;
-
-      // Count actual confirmed attendees
-      let actualConfirmed = 0;
-      if (g.status === 'confirmed' && g.companionNames) {
-        actualConfirmed = [
-          ...g.companionNames.adults,
-          ...g.companionNames.teens,
-          ...g.companionNames.kids,
-          ...g.companionNames.infants
-        ].filter(n => n && n.trim() !== "").length;
-      }
+      const gAllottedTotal = (g.allotted?.adults || 0) + (g.allotted?.teens || 0) + (g.allotted?.kids || 0) + (g.allotted?.infants || 0);
+      const gConfirmedTotal = (g.confirmed?.adults || 0) + (g.confirmed?.teens || 0) + (g.confirmed?.kids || 0) + (g.confirmed?.infants || 0);
 
       total += gAllottedTotal;
+
       // category totals (always based on allotted)
-      catTotal.adults += g.allotted.adults;
-      catTotal.teens += g.allotted.teens;
-      catTotal.kids += g.allotted.kids;
-      catTotal.infants += g.allotted.infants;
+      catTotal.adults += (g.allotted?.adults || 0);
+      catTotal.teens += (g.allotted?.teens || 0);
+      catTotal.kids += (g.allotted?.kids || 0);
+      catTotal.infants += (g.allotted?.infants || 0);
 
       if (g.status === 'confirmed') {
-        si += actualConfirmed;
-        no += (gAllottedTotal - actualConfirmed);
+        si += gConfirmedTotal;
+        no += (gAllottedTotal - gConfirmedTotal);
 
         // break down si/no by category for confirmed guests
-        catSi.adults += g.confirmed.adults;
-        catSi.teens += g.confirmed.teens;
-        catSi.kids += g.confirmed.kids;
-        catSi.infants += g.confirmed.infants;
+        catSi.adults += (g.confirmed?.adults || 0);
+        catSi.teens += (g.confirmed?.teens || 0);
+        catSi.kids += (g.confirmed?.kids || 0);
+        catSi.infants += (g.confirmed?.infants || 0);
 
-        catNo.adults += (g.allotted.adults - g.confirmed.adults);
-        catNo.teens += (g.allotted.teens - g.confirmed.teens);
-        catNo.kids += (g.allotted.kids - g.confirmed.kids);
-        catNo.infants += (g.allotted.infants - g.confirmed.infants);
+        catNo.adults += ((g.allotted?.adults || 0) - (g.confirmed?.adults || 0));
+        catNo.teens += ((g.allotted?.teens || 0) - (g.confirmed?.teens || 0));
+        catNo.kids += ((g.allotted?.kids || 0) - (g.confirmed?.kids || 0));
+        catNo.infants += ((g.allotted?.infants || 0) - (g.confirmed?.infants || 0));
       } else if (g.status === 'declined') {
         no += gAllottedTotal;
-        catNo.adults += g.allotted.adults;
-        catNo.teens += g.allotted.teens;
-        catNo.kids += g.allotted.kids;
-        catNo.infants += g.allotted.infants;
+        catNo.adults += (g.allotted?.adults || 0);
+        catNo.teens += (g.allotted?.teens || 0);
+        catNo.kids += (g.allotted?.kids || 0);
+        catNo.infants += (g.allotted?.infants || 0);
       } else {
         pend += gAllottedTotal;
-        catPend.adults += g.allotted.adults;
-        catPend.teens += g.allotted.teens;
-        catPend.kids += g.allotted.kids;
-        catPend.infants += g.allotted.infants;
+        catPend.adults += (g.allotted?.adults || 0);
+        catPend.teens += (g.allotted?.teens || 0);
+        catPend.kids += (g.allotted?.kids || 0);
+        catPend.infants += (g.allotted?.infants || 0);
       }
     });
 
