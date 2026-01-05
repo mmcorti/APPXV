@@ -124,12 +124,16 @@ app.get('/api/events', async (req, res) => {
 
         const events = response.results.map(page => ({
             id: page.id,
-            title: getText(page.properties.Name),
+            eventName: getText(page.properties.Name),
             date: getText(page.properties.Date),
             location: getText(page.properties.Location),
-            description: getText(page.properties.Message),
+            message: getText(page.properties.Message),
             image: page.properties['Image URL']?.url || '',
-            status: 'published' // Default status as not present in DB
+            time: getText(page.properties.Time),
+            hostName: getText(page.properties['Host Name']),
+            giftType: getText(page.properties['Gift Type']),
+            giftDetail: getText(page.properties['Gift Detail']),
+            status: 'published'
         }));
         res.json(events);
     } catch (error) {
@@ -140,54 +144,57 @@ app.get('/api/events', async (req, res) => {
 
 app.post('/api/events', async (req, res) => {
     try {
-        const { title, date, location, description, image, email, time, hosts, giftType, giftDetail } = req.body;
+        const { eventName, date, location, message, image, userEmail, time, hostName, giftType, giftDetail } = req.body;
+        console.log(`📝 [DEBUG] Creating event: ${eventName} for ${userEmail}`);
 
-        console.log(`📝 [DEBUG] Creating event: ${title} for ${email}`);
-
-        if (!email) {
+        if (!userEmail) {
             return res.status(400).json({ error: "Email is required to create an event" });
         }
 
         const newPage = await notionClient.pages.create({
             parent: { database_id: DB.EVENTS },
             properties: {
-                "Name": {
-                    title: [{ text: { content: title || "Nuevo Evento" } }]
-                },
-                "Creator Email": {
-                    email: email
-                },
-                "Date": {
-                    date: { start: date || new Date().toISOString().split('T')[0] }
-                },
-                "Location": {
-                    rich_text: [{ text: { content: location || "" } }]
-                },
-                "Message": {
-                    rich_text: [{ text: { content: description || "" } }]
-                },
-                "Image URL": {
-                    url: image || null
-                },
-                "Time": {
-                    rich_text: [{ text: { content: time || "" } }]
-                },
-                "Host Name": {
-                    rich_text: [{ text: { content: hosts || "" } }]
-                },
-                "Gift Type": giftType ? {
-                    select: { name: giftType }
-                } : undefined,
-                "Gift Detail": {
-                    rich_text: [{ text: { content: giftDetail || "" } }]
-                }
+                "Name": { title: [{ text: { content: eventName || "Nuevo Evento" } }] },
+                "Creator Email": { email: userEmail },
+                "Date": { date: { start: date || new Date().toISOString().split('T')[0] } },
+                "Location": { rich_text: [{ text: { content: location || "" } }] },
+                "Message": { rich_text: [{ text: { content: message || "" } }] },
+                "Image URL": { url: image || null },
+                "Time": { rich_text: [{ text: { content: time || "" } }] },
+                "Host Name": { rich_text: [{ text: { content: hostName || "" } }] },
+                "Gift Type": giftType ? { select: { name: giftType } } : undefined,
+                "Gift Detail": { rich_text: [{ text: { content: giftDetail || "" } }] }
             }
         });
 
-        console.log(`✅ Event Created: ${newPage.id}`);
         res.json({ success: true, id: newPage.id });
     } catch (error) {
         console.error("❌ Error Creating Event:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.put('/api/events/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { eventName, date, location, message, image, time, hostName, giftType, giftDetail } = req.body;
+
+        await notionClient.pages.update({
+            page_id: id,
+            properties: {
+                "Name": { title: [{ text: { content: eventName } }] },
+                "Date": { date: { start: date } },
+                "Location": { rich_text: [{ text: { content: location || "" } }] },
+                "Message": { rich_text: [{ text: { content: message || "" } }] },
+                "Image URL": { url: image || null },
+                "Time": { rich_text: [{ text: { content: time || "" } }] },
+                "Host Name": { rich_text: [{ text: { content: hostName || "" } }] },
+                "Gift Type": giftType ? { select: { name: giftType } } : undefined,
+                "Gift Detail": { rich_text: [{ text: { content: giftDetail || "" } }] }
+            }
+        });
+        res.json({ success: true });
+    } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
@@ -204,14 +211,117 @@ app.get('/api/guests', async (req, res) => {
             } : undefined
         });
 
-        const guests = response.results.map(page => ({
-            id: page.id,
-            name: getText(page.properties.Name),
-            email: getText(page.properties.Email),
-            status: page.properties.Status?.select?.name || 'pending',
-            table: getText(page.properties["Assigned Table"])
-        }));
+        const guests = response.results.map(page => {
+            const props = page.properties;
+            const companionNamesStr = getText(props["Companion Names"]);
+            let companionNames = { adults: [], teens: [], kids: [], infants: [] };
+            try {
+                if (companionNamesStr) companionNames = JSON.parse(companionNamesStr);
+            } catch (e) { }
+
+            return {
+                id: page.id,
+                name: getText(props.Name),
+                email: getText(props.Email),
+                status: props.Status?.select?.name || 'pending',
+                allotted: {
+                    adults: props["Allotted Adults"]?.number || 1,
+                    teens: props["Allotted Teens"]?.number || 0,
+                    kids: props["Allotted Kids"]?.number || 0,
+                    infants: props["Allotted Infants"]?.number || 0
+                },
+                confirmed: {
+                    adults: props["Confirmed Adults"]?.number || 0,
+                    teens: props["Confirmed Teens"]?.number || 0,
+                    kids: props["Confirmed Kids"]?.number || 0,
+                    infants: props["Confirmed Infants"]?.number || 0
+                },
+                companionNames,
+                sent: props.Sent?.checkbox || false
+            };
+        });
         res.json(guests);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/guests', async (req, res) => {
+    try {
+        const { eventId, guest } = req.body;
+        const newPage = await notionClient.pages.create({
+            parent: { database_id: DB.GUESTS },
+            properties: {
+                "Name": { title: [{ text: { content: guest.name } }] },
+                "Email": { email: guest.email || null },
+                "Status": { select: { name: guest.status || 'pending' } },
+                "Allotted Adults": { number: guest.allotted?.adults || 0 },
+                "Allotted Teens": { number: guest.allotted?.teens || 0 },
+                "Allotted Kids": { number: guest.allotted?.kids || 0 },
+                "Allotted Infants": { number: guest.allotted?.infants || 0 },
+                "Event": { relation: [{ id: eventId }] },
+                "Companion Names": { rich_text: [{ text: { content: JSON.stringify(guest.companionNames || {}) } }] }
+            }
+        });
+        res.json({ success: true, id: newPage.id });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.put('/api/guests/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { guest } = req.body;
+        await notionClient.pages.update({
+            page_id: id,
+            properties: {
+                "Name": { title: [{ text: { content: guest.name } }] },
+                "Email": { email: guest.email || null },
+                "Status": { select: { name: guest.status } },
+                "Allotted Adults": { number: guest.allotted?.adults || 0 },
+                "Allotted Teens": { number: guest.allotted?.teens || 0 },
+                "Allotted Kids": { number: guest.allotted?.kids || 0 },
+                "Allotted Infants": { number: guest.allotted?.infants || 0 },
+                "Confirmed Adults": { number: guest.confirmed?.adults || 0 },
+                "Confirmed Teens": { number: guest.confirmed?.teens || 0 },
+                "Confirmed Kids": { number: guest.confirmed?.kids || 0 },
+                "Confirmed Infants": { number: guest.confirmed?.infants || 0 },
+                "Companion Names": { rich_text: [{ text: { content: JSON.stringify(guest.companionNames || {}) } }] },
+                "Sent": { checkbox: guest.sent || false }
+            }
+        });
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.patch('/api/guests/:id/rsvp', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status, confirmed, companionNames } = req.body;
+        await notionClient.pages.update({
+            page_id: id,
+            properties: {
+                "Status": { select: { name: status } },
+                "Confirmed Adults": { number: confirmed?.adults || 0 },
+                "Confirmed Teens": { number: confirmed?.teens || 0 },
+                "Confirmed Kids": { number: confirmed?.kids || 0 },
+                "Confirmed Infants": { number: confirmed?.infants || 0 },
+                "Companion Names": { rich_text: [{ text: { content: JSON.stringify(companionNames || {}) } }] }
+            }
+        });
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/guests/:id', async (req, res) => {
+    try {
+        await notionClient.pages.update({ page_id: req.params.id, archived: true });
+        res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -229,13 +339,63 @@ app.get('/api/tables', async (req, res) => {
             } : undefined
         });
 
-        const tables = response.results.map(page => ({
-            id: page.id,
-            name: getText(page.properties.Name),
-            capacity: page.properties.Capacity?.number || 0,
-            guests: page.properties.Guests?.relation?.map(r => r.id) || []
-        }));
+        const tables = response.results.map(page => {
+            const assignmentsStr = getText(page.properties.Assignments);
+            let guests = [];
+            try {
+                if (assignmentsStr) guests = JSON.parse(assignmentsStr);
+            } catch (e) { }
+
+            return {
+                id: page.id,
+                name: getText(page.properties.Name),
+                capacity: page.properties.Capacity?.number || 0,
+                guests: guests
+            };
+        });
         res.json(tables);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/tables', async (req, res) => {
+    try {
+        const { eventId, table } = req.body;
+        const newPage = await notionClient.pages.create({
+            parent: { database_id: DB.TABLES },
+            properties: {
+                "Name": { title: [{ text: { content: table.name } }] },
+                "Capacity": { number: table.capacity || 10 },
+                "Event": { relation: [{ id: eventId }] }
+            }
+        });
+        res.json({ success: true, id: newPage.id });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.patch('/api/tables/:id/guests', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { assignments } = req.body;
+        await notionClient.pages.update({
+            page_id: id,
+            properties: {
+                "Assignments": { rich_text: [{ text: { content: JSON.stringify(assignments) } }] }
+            }
+        });
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/tables/:id', async (req, res) => {
+    try {
+        await notionClient.pages.update({ page_id: req.params.id, archived: true });
+        res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
