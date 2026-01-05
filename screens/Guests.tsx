@@ -178,9 +178,12 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
 
       // Determine main guest category label for display
       let mainGuestLabel = "Adulto";
-      if (allotted.teens > 0 && allotted.adults === 0) mainGuestLabel = "Adolescente";
-      if (allotted.kids > 0 && allotted.adults === 0 && allotted.teens === 0) mainGuestLabel = "Niño";
-      if (allotted.infants > 0 && gAllottedTotal === allotted.infants) mainGuestLabel = "Bebé";
+      const countSource = g.status === 'confirmed' ? confirmed : allotted;
+
+      if (countSource.adults > 0) mainGuestLabel = "Adulto";
+      else if (countSource.teens > 0) mainGuestLabel = "Adolescente";
+      else if (countSource.kids > 0) mainGuestLabel = "Niño";
+      else if (countSource.infants > 0) mainGuestLabel = "Bebé";
 
       return (
         <div key={g.id} className="relative bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden mb-4 animate-in slide-in-from-bottom-2 duration-300">
