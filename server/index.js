@@ -29,11 +29,21 @@ const getText = (prop) => {
     if (prop.select) return prop.select.name;
     if (prop.email) return prop.email;
     if (prop.date) return prop.date.start;
-    if (prop.number) return prop.number;
+    if (prop.number) return prop.number.toString();
     if (prop.url) return prop.url;
     if (prop.checkbox) return prop.checkbox;
     if (prop.relation) return prop.relation.map(r => r.id);
     return '';
+};
+
+// Helper to find a property by multiple possible names (case-insensitive)
+const findProp = (properties, names) => {
+    const propKeys = Object.keys(properties);
+    for (const name of names) {
+        const foundKey = propKeys.find(k => k.toLowerCase() === name.toLowerCase());
+        if (foundKey) return properties[foundKey];
+    }
+    return null;
 };
 
 // --- AUTH / LOGIN ---
@@ -122,19 +132,28 @@ app.get('/api/events', async (req, res) => {
 
         console.log(`🔍 [DEBUG] Events found: ${response.results.length}`);
 
-        const events = response.results.map(page => ({
-            id: page.id,
-            eventName: getText(page.properties.Name),
-            date: getText(page.properties.Date),
-            location: getText(page.properties.Location),
-            message: getText(page.properties.Message),
-            image: page.properties['Image URL']?.url || '',
-            time: getText(page.properties.Time),
-            hostName: getText(page.properties['Host Name']),
-            giftType: getText(page.properties['Gift Type']),
-            giftDetail: getText(page.properties['Gift Detail']),
-            status: 'published'
-        }));
+        const events = response.results.map((page, index) => {
+            const props = page.properties;
+            const event = {
+                id: page.id,
+                eventName: getText(findProp(props, ["Name", "Nombre", "Título", "Titulo"])),
+                date: getText(findProp(props, ["Date", "Fecha"])),
+                location: getText(findProp(props, ["Location", "Ubicación", "Ubicacion"])),
+                message: getText(findProp(props, ["Message", "Mensaje", "Frase", "Dedicatoria"])),
+                image: findProp(props, ["Image URL", "Imagen", "Image"])?.url || '',
+                time: getText(findProp(props, ["Time", "Hora"])),
+                hostName: getText(findProp(props, ["Host Name", "Anfitrión", "Anfitrion", "Hosts"])),
+                giftType: getText(findProp(props, ["Gift Type", "Tipo de Regalo"])),
+                giftDetail: getText(findProp(props, ["Gift Detail", "Alias", "CBU", "URL Regalo"])),
+                status: 'published'
+            };
+
+            if (index === 0) {
+                console.log("🔍 [DIAGNOSTIC] First Event Result:", JSON.stringify(event, null, 2));
+                console.log("🔍 [DIAGNOSTIC] Raw Properties keys:", Object.keys(props).join(', '));
+            }
+            return event;
+        });
         res.json(events);
     } catch (error) {
         console.error("Fetch Events Error:", error);
@@ -211,34 +230,41 @@ app.get('/api/guests', async (req, res) => {
             } : undefined
         });
 
-        const guests = response.results.map(page => {
+        const guests = response.results.map((page, index) => {
             const props = page.properties;
-            const companionNamesStr = getText(props["Companion Names"]);
+            const companionNamesStr = getText(findProp(props, ["Companion Names", "Acompañantes"]));
             let companionNames = { adults: [], teens: [], kids: [], infants: [] };
             try {
                 if (companionNamesStr) companionNames = JSON.parse(companionNamesStr);
-            } catch (e) { }
+            } catch (e) {
+                console.warn(`⚠️ Failed to parse companionNames for guest ${page.id}:`, companionNamesStr);
+            }
 
-            return {
+            const guest = {
                 id: page.id,
-                name: getText(props.Name),
-                email: getText(props.Email),
-                status: props.Status?.select?.name || 'pending',
+                name: getText(findProp(props, ["Name", "Nombre"])),
+                email: getText(findProp(props, ["Email", "Correo"])),
+                status: findProp(props, ["Status", "Estado"])?.select?.name || 'pending',
                 allotted: {
-                    adults: props["Allotted Adults"]?.number || 1,
-                    teens: props["Allotted Teens"]?.number || 0,
-                    kids: props["Allotted Kids"]?.number || 0,
-                    infants: props["Allotted Infants"]?.number || 0
+                    adults: findProp(props, ["Allotted Adults", "Cupos Adultos"])?.number || 1,
+                    teens: findProp(props, ["Allotted Teens", "Cupos Jóvenes", "Cupos Jovenes"])?.number || 0,
+                    kids: findProp(props, ["Allotted Kids", "Cupos Niños", "Cupos Ninos"])?.number || 0,
+                    infants: findProp(props, ["Allotted Infants", "Cupos Bebés", "Cupos Bebes"])?.number || 0
                 },
                 confirmed: {
-                    adults: props["Confirmed Adults"]?.number || 0,
-                    teens: props["Confirmed Teens"]?.number || 0,
-                    kids: props["Confirmed Kids"]?.number || 0,
-                    infants: props["Confirmed Infants"]?.number || 0
+                    adults: findProp(props, ["Confirmed Adults", "Confirmados Adultos"])?.number || 0,
+                    teens: findProp(props, ["Confirmed Teens", "Confirmados Jóvenes", "Confirmados Jovenes"])?.number || 0,
+                    kids: findProp(props, ["Confirmed Kids", "Confirmados Niños", "Confirmados Ninos"])?.number || 0,
+                    infants: findProp(props, ["Confirmed Infants", "Confirmados Bebés", "Confirmados Bebes"])?.number || 0
                 },
                 companionNames,
-                sent: props.Sent?.checkbox || false
+                sent: findProp(props, ["Sent", "Enviado"])?.checkbox || false
             };
+
+            if (index === 0) {
+                console.log("🔍 [DIAGNOSTIC] First Guest Result:", JSON.stringify(guest, null, 2));
+            }
+            return guest;
         });
         res.json(guests);
     } catch (error) {
