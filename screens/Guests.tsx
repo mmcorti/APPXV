@@ -21,7 +21,7 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
   const [showModal, setShowModal] = useState<'add' | 'edit' | null>(null);
   const [currentGuest, setCurrentGuest] = useState<Partial<Guest>>({
     name: '',
-    allotted: { adults: 1, teens: 0, kids: 0, infants: 0 },
+    allotted: { adults: 0, teens: 0, kids: 0, infants: 0 },
     companionNames: { adults: [], teens: [], kids: [], infants: [] }
   });
   const [editingId, setEditingId] = useState<string | number | null>(null);
@@ -227,12 +227,10 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                   <p className="text-[9px] font-black text-slate-400 uppercase mb-1.5 font-sans">Invitados que asisten:</p>
                   <div className="flex flex-wrap gap-1.5">
                     {/* Invitado Principal */}
-                    {g.confirmed.adults > 0 && (
-                      <span className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-1.5">
-                        <span className="size-1.5 bg-green-500 rounded-full"></span>
-                        {g.name}
-                      </span>
-                    )}
+                    <span className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-1.5">
+                      <span className="size-1.5 bg-green-500 rounded-full"></span>
+                      {g.name}
+                    </span>
 
                     {/* Acompañantes */}
                     {g.companionNames && [
@@ -310,7 +308,7 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
           setEditingId(null);
           setCurrentGuest({
             name: '',
-            allotted: { adults: 1, teens: 0, kids: 0, infants: 0 },
+            allotted: { adults: 0, teens: 0, kids: 0, infants: 0 },
             companionNames: { adults: [], teens: [], kids: [], infants: [] }
           });
           setShowModal('add');

@@ -43,13 +43,34 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
       if (existingGuest) {
         if (existingGuest.status !== 'pending') {
           setAttending(existingGuest.status === 'confirmed');
-          setConfirmedAllotment(existingGuest.confirmed);
+          setConfirmedAllotment(existingGuest.confirmed || { adults: 0, teens: 0, kids: 0, infants: 0 });
           setCompanionNames(existingGuest.companionNames || { adults: [], teens: [], kids: [], infants: [] });
           setSubmitted(true);
         } else {
-          // Default for pending existing guest
-          setConfirmedAllotment({ adults: existingGuest.allotted.adults || 1, teens: existingGuest.allotted.teens, kids: existingGuest.allotted.kids, infants: existingGuest.allotted.infants });
-          setCompanionNames({ adults: [existingGuest.name], teens: [], kids: [], infants: [] });
+          // Default for pending existing guest - find the primary category they are allotted for
+          const a = existingGuest.allotted;
+          const defaultAllotment = { adults: 0, teens: 0, kids: 0, infants: 0 };
+          const defaultNames = { adults: [] as string[], teens: [] as string[], kids: [] as string[], infants: [] as string[] };
+
+          if (a.adults > 0) {
+            defaultAllotment.adults = a.adults;
+            defaultNames.adults = [existingGuest.name];
+          } else if (a.teens > 0) {
+            defaultAllotment.teens = a.teens;
+            defaultNames.teens = [existingGuest.name];
+          } else if (a.kids > 0) {
+            defaultAllotment.kids = a.kids;
+            defaultNames.kids = [existingGuest.name];
+          } else if (a.infants > 0) {
+            defaultAllotment.infants = a.infants;
+            defaultNames.infants = [existingGuest.name];
+          } else {
+            defaultAllotment.adults = 1;
+            defaultNames.adults = [existingGuest.name];
+          }
+
+          setConfirmedAllotment(defaultAllotment);
+          setCompanionNames(defaultNames);
         }
       } else {
         // New guest (not in list) -> Default values
