@@ -43,6 +43,13 @@ app.post('/api/login', async (req, res) => {
             return res.status(500).json({ success: false, message: 'USERS_DB_ID not configured' });
         }
 
+        console.log(`🔍 Buscando usuario en DB: ${DS.USERS}`);
+
+        if (typeof notionClient.databases?.query !== 'function') {
+            console.error("❌ notionClient.databases.query no es una función. Estado del cliente:", Object.keys(notionClient));
+            throw new Error("El cliente de Notion no está inicializado correctamente.");
+        }
+
         const response = await notionClient.databases.query({
             database_id: DS.USERS,
             filter: {
