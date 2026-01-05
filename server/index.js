@@ -119,12 +119,12 @@ app.get('/api/events', async (req, res) => {
 
         const events = response.results.map(page => ({
             id: page.id,
-            title: getText(page.properties.Title),
+            title: getText(page.properties.Name),
             date: getText(page.properties.Date),
             location: getText(page.properties.Location),
-            description: getText(page.properties.Description),
-            image: getText(page.properties.Image),
-            status: page.properties.Status?.select?.name || 'draft'
+            description: getText(page.properties.Message),
+            image: page.properties['Image URL']?.url || '',
+            status: 'published' // Default status as not present in DB
         }));
         res.json(events);
     } catch (error) {
@@ -150,8 +150,7 @@ app.get('/api/guests', async (req, res) => {
             name: getText(page.properties.Name),
             email: getText(page.properties.Email),
             status: page.properties.Status?.select?.name || 'pending',
-            table: getText(page.properties["Assigned Table"]),
-            plusOne: page.properties["Plus One"]?.checkbox || false
+            table: getText(page.properties["Assigned Table"])
         }));
         res.json(guests);
     } catch (error) {
