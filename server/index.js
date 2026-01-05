@@ -164,7 +164,7 @@ app.get('/api/tables', async (req, res) => {
 });
 
 // Redirigir cualquier otra ruta al Frontend
-app.get('*', (req, res) => {
+app.get('(.*)', (req, res) => {
     res.sendFile(path.join(__dirname, '../dist', 'index.html'));
 });
 
