@@ -36,7 +36,7 @@ export const notionService = {
     },
 
     async getGuests(eventId: string): Promise<Guest[]> {
-        const res = await fetch(`${API_URL}/guests/${eventId}`);
+        const res = await fetch(`${API_URL}/guests?eventId=${eventId}`);
         if (!res.ok) throw new Error('Failed to fetch guests');
         return await res.json();
     },
@@ -75,7 +75,7 @@ export const notionService = {
     },
 
     async getTables(eventId: string): Promise<Table[]> {
-        const res = await fetch(`${API_URL}/tables/${eventId}`);
+        const res = await fetch(`${API_URL}/tables?eventId=${eventId}`);
         if (!res.ok) throw new Error('Failed to fetch tables');
         return await res.json();
     },
