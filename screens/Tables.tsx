@@ -195,7 +195,9 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
         guestId: g.guestId,
         companionId: g.companionId,
         companionIndex: g.companionIndex ?? -1,
-        companionName: g.name
+        name: g.name,
+        companionName: g.name,
+        status: g.status || 'pending'  // Preserve status
       }));
 
     onUpdateSeating(invitation.id, tableId, newAssignments);
