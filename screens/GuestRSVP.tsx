@@ -29,6 +29,9 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
   const [companionNames, setCompanionNames] = useState<GuestCompanionNames>({
     adults: [], teens: [], kids: [], infants: []
   });
+  const [originalCompanionNames, setOriginalCompanionNames] = useState<GuestCompanionNames>({
+    adults: [], teens: [], kids: [], infants: []
+  });
   const [submitted, setSubmitted] = useState(false);
 
   const foundGuest = invitation?.guests.find(g => g.name.toLowerCase() === name.toLowerCase());
@@ -74,6 +77,8 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
           }
 
           setCompanionNames(namesWithSlots);
+          // Save original names for restoration when user increases count after decreasing
+          setOriginalCompanionNames(JSON.parse(JSON.stringify(namesWithSlots)));
         }
       } else {
         // New guest (not in list) -> Default values
@@ -135,8 +140,15 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
 
     setCompanionNames(prev => {
       const currentNames = [...prev[key]];
+      const originals = originalCompanionNames[key] || [];
+
       if (delta > 0) {
-        while (currentNames.length < newVal) currentNames.push("");
+        // When adding slots, restore original names if available
+        while (currentNames.length < newVal) {
+          const idx = currentNames.length;
+          const originalName = originals[idx] || '';
+          currentNames.push(originalName);
+        }
       } else {
         while (currentNames.length > newVal) currentNames.pop();
       }

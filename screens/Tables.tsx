@@ -31,7 +31,8 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
     const guestList = invitation.guests || [];
 
     // Generate a set of unique keys for already seated guests/companions
-    const seatedSet = new Set(tableList.flatMap(t => (t.guests || []).map(sg => `${sg.guestId}-${sg.companionIndex ?? -1}-${sg.name}`)));
+    // KEY: guestId-companionIndex (without name, since names can change)
+    const seatedSet = new Set(tableList.flatMap(t => (t.guests || []).map(sg => `${sg.guestId}-${sg.companionIndex ?? -1}`)));
 
     const getCategoryLabel = (key: string) => {
       switch (key) {
@@ -57,9 +58,9 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
       const namesObj = g.companionNames || { adults: [], teens: [], kids: [], infants: [] };
 
       // 1. ADD MAIN GUEST
-      // We always add the main guest first.
+      // Main guest always has companionIndex = -1
       const mainGuestName = g.name;
-      const mainKey = `${g.id}--1-${mainGuestName}`;
+      const mainKey = `${g.id}--1`;  // Key without name
 
       if (!seatedSet.has(mainKey) && !poolMap.has(mainKey)) {
         poolMap.set(mainKey, true);
@@ -99,8 +100,8 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
           let displayName = suppliedName.trim() ? suppliedName : `${categoryLabel} ${i + 1} - ${g.name}`;
 
           // Generate uniqueness key using flatIndex as the companionIndex
-          // Note: We use flatIndex which increments continuously, effectively assigning IDs 0, 1, 2... to companions
-          const compKey = `${g.id}-${flatIndex}-${displayName}`;
+          // KEY: guestId-companionIndex (without name)
+          const compKey = `${g.id}-${flatIndex}`;
 
           if (!seatedSet.has(compKey) && !poolMap.has(compKey)) {
             poolMap.set(compKey, true);
