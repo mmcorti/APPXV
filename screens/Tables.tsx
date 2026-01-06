@@ -32,12 +32,12 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
     // Generate a set of unique keys for already seated guests/companions
     const seatedSet = new Set(tableList.flatMap(t => (t.guests || []).map(sg => `${sg.guestId}-${sg.companionIndex ?? -1}-${sg.name}`)));
 
-    const getCategoryLabel = (type: string) => {
-      switch (type) {
-        case 'adult': return 'Adulto';
-        case 'teen': return 'Adolescente';
-        case 'kid': return 'Niño';
-        case 'infant': return 'Bebé';
+    const getCategoryLabel = (key: string) => {
+      switch (key) {
+        case 'adults': return 'Adulto';
+        case 'teens': return 'Adolescente';
+        case 'kids': return 'Niño';
+        case 'infants': return 'Bebé';
         default: return 'Invitado';
       }
     };
@@ -47,42 +47,83 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
     const pool: { guestId: string | number; companionId?: string; name: string; status: 'confirmed' | 'pending'; companionIndex?: number }[] = [];
 
     guestList.forEach(g => {
+      // Allow confirmed AND pending, but skip declined
       if (g.status === 'declined') return;
 
-      // Invitado principal
-      const mainKey = `${g.id}--1-${g.name}`;
+      // 1. Invitado principal
+      const mainGuestName = g.name; // Keep original name
+      const mainKey = `${g.id}--1-${mainGuestName}`;
+
       if (!seatedSet.has(mainKey) && !poolMap.has(mainKey)) {
-        const entry = {
+        poolMap.set(mainKey, true);
+        pool.push({
           guestId: g.id,
-          name: g.name,
-          status: (g.status === 'confirmed' ? 'confirmed' : 'pending') as 'confirmed' | 'pending',
-          companionIndex: -1
-        };
-        poolMap.set(mainKey, entry);
-        pool.push(entry);
+          name: mainGuestName,
+          status: g.status === 'confirmed' ? 'confirmed' : 'pending',
+          companionIndex: -1 // -1 indicates Main Guest
+        });
       }
 
-      // Acompañantes
-      const companions = (g as any).companions || [];
-      companions.forEach((c: any) => {
-        const fallbackName = `${getCategoryLabel(c.type)} ${c.index + 1} - ${g.name}`;
-        const displayName = (c.name || '').trim() || fallbackName;
-        const compKey = `${g.id}-${c.index}-${displayName}`;
+      // 2. Acompañantes from companionNames object
+      if (g.companionNames) {
+        let globalIndex = 0; // Or keep per-category index? Users usually prefer "Adulto 1", "Adulto 2".
 
-        if (displayName.trim().toLowerCase() === g.name.trim().toLowerCase()) return;
+        Object.entries(g.companionNames).forEach(([catKey, names]) => {
+          (names as string[]).forEach((name, idx) => {
+            // Determine display name
+            // If name is empty or just whitespace, generate label
+            // "Adulto 1 - Alejandra", "Niño 1 - Alejandra"
+            const categoryLabel = getCategoryLabel(catKey);
+            let displayName = name && name.trim().length > 0 ? name : `${categoryLabel} ${idx + 1} - ${g.name}`;
 
-        if (!seatedSet.has(compKey) && !poolMap.has(compKey)) {
-          const entry = {
-            guestId: g.id,
-            companionId: c.id,
-            name: displayName,
-            status: (g.status === 'confirmed' ? 'confirmed' : 'pending') as 'confirmed' | 'pending',
-            companionIndex: c.index
-          };
-          poolMap.set(compKey, entry);
-          pool.push(entry);
-        }
-      });
+            // Check if this specific companion is seated
+            // We use category + index as a pseudo-unique identifier within the guest group? 
+            // Wait, previous logic used 'index' but across ALL companions? 
+            // Better to use a composite index or just loop. 
+            // For now, let's assume `globalIndex` if we want unique indices, BUT
+            // The user wants "Adulto 1", "Niño 1". So let's use `idx` but combine with category in the KEY.
+
+            // Creating a unique key for the pool/seated check is tricky if we don't save the category in seated list.
+            // The seated list in backend uses `companionIndex`. 
+            // To support "Adulto 1" vs "Niño 1", we strictly need to know WHICH item in the arrays this is.
+            // Let's generate a unique synthetic index: 
+            // adults: 0-99, teens: 100-199, kids: 200-299... ? 
+            // OR simpler: just flatten the list in a consistent order and use that index.
+            // Let's use flattened index for uniqueness.
+          });
+        });
+
+        // Let's re-do the iteration to assign a stable index based on flattening
+        // Order: adults, teens, kids, infants.
+        // We MUST match this order when saving/loading to remain consistent if we use numerical index.
+        const allCompanions: { type: string, name: string, originalIdx: number }[] = [];
+        ['adults', 'teens', 'kids', 'infants'].forEach(cat => {
+          const list = g.companionNames?.[cat as keyof typeof g.companionNames] || [];
+          list.forEach((n, i) => allCompanions.push({ type: cat, name: n, originalIdx: i }));
+        });
+
+        allCompanions.forEach((comp, flatIndex) => {
+          // Logic for Display Name
+          const categoryLabel = getCategoryLabel(comp.type);
+          let displayName = comp.name && comp.name.trim().length > 0 ? comp.name : `${categoryLabel} ${comp.originalIdx + 1} - ${g.name}`;
+
+          // Check if seated
+          // The backend stores `companionIndex`. If we use `flatIndex`, it's unique per guest.
+          const compKey = `${g.id}-${flatIndex}-${displayName}`; // We include Name in key just in case, but ID-Index should be enough if consistent.
+
+          // Allow loose match on ID-Index OR Name? 
+          // Tables.tsx Line 33 uses `${sg.guestId}-${sg.companionIndex ?? -1}-${sg.name}`.
+
+          if (!seatedSet.has(compKey)) {
+            pool.push({
+              guestId: g.id,
+              name: displayName,
+              status: g.status === 'confirmed' ? 'confirmed' : 'pending',
+              companionIndex: flatIndex
+            });
+          }
+        });
+      }
     });
 
     return pool.sort((a, b) => a.name.localeCompare(b.name));

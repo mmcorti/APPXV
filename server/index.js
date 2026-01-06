@@ -377,6 +377,8 @@ app.delete('/api/guests/:id', async (req, res) => {
 app.get('/api/tables', async (req, res) => {
     try {
         const { eventId } = req.query;
+        await schema.init();
+
         const filter = eventId ? {
             property: schema.get('TABLES', 'Event'),
             relation: { contains: eventId }
@@ -387,27 +389,55 @@ app.get('/api/tables', async (req, res) => {
             filter
         });
 
-        const tables = response.results.map(page => ({
-            id: page.id,
-            name: getText(findProp(page.properties, KNOWN_PROPERTIES.TABLES.Name)),
-            capacity: findProp(page.properties, KNOWN_PROPERTIES.TABLES.Capacity)?.number || 0,
-            // Logic for guests in tables depends on how assignments are stored
-            // If it's a relation to guests, we use it directly. 
-            guests: findProp(page.properties, KNOWN_PROPERTIES.TABLES.Guests)?.relation?.map(r => r.id) || []
-        }));
+        const tables = response.results.map(page => {
+            const assignmentJson = getText(findProp(page.properties, KNOWN_PROPERTIES.TABLES.Assignments));
+            let parsedGuests = [];
+
+            if (assignmentJson) {
+                try {
+                    parsedGuests = JSON.parse(assignmentJson);
+                } catch (e) { console.error("Error parsing table assignments", e); }
+            } else {
+                // Fallback: use relation if no JSON (legacy behavior)
+                const relationIds = findProp(page.properties, KNOWN_PROPERTIES.TABLES.Guests)?.relation?.map(r => r.id) || [];
+                parsedGuests = relationIds.map(id => ({ guestId: id, name: "Invitado (Legacy)", companionIndex: -1 }));
+            }
+
+            return {
+                id: page.id,
+                name: getText(findProp(page.properties, KNOWN_PROPERTIES.TABLES.Name)),
+                capacity: findProp(page.properties, KNOWN_PROPERTIES.TABLES.Capacity)?.number || 0,
+                guests: parsedGuests
+            };
+        });
         res.json(tables);
     } catch (error) {
+        console.error("Error fetching tables:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.post('/api/tables', async (req, res) => {
     try {
-        const { eventId, name, capacity } = req.body;
+        await schema.init();
+        let { eventId, name, capacity, table } = req.body;
+
+        // Handle payload variation { eventId, table: { name, capacity } }
+        if (table) {
+            name = table.name;
+            capacity = table.capacity;
+        }
+
         const properties = {};
-        properties[schema.get('TABLES', 'Name')] = { title: [{ text: { content: name } }] };
-        properties[schema.get('TABLES', 'Capacity')] = { number: capacity || 10 };
-        properties[schema.get('TABLES', 'Event')] = { relation: [{ id: eventId }] };
+        const setProp = (key, value) => {
+            const propName = schema.get('TABLES', key);
+            if (propName) properties[propName] = value;
+        };
+
+        setProp('Name', { title: [{ text: { content: name } }] });
+        setProp('Capacity', { number: Number(capacity) || 10 });
+        setProp('Event', { relation: [{ id: eventId }] });
+        setProp('Assignments', { rich_text: [{ text: { content: "[]" } }] }); // Init empty
 
         const newPage = await notionClient.pages.create({
             parent: { database_id: DB.TABLES },
@@ -423,28 +453,27 @@ app.patch('/api/tables/:id/guests', async (req, res) => {
     try {
         const { id } = req.params;
         const { assignments } = req.body;
-        // NOTE: If assignments are strictly relations, we should update the relation property.
-        // But the previous code was doing rich_text 'Assignments'?
-        // Let's stick to relation update if possible, OR if previous code used 'Assignments' column:
-        // Checking previous code: Step 89 showed `guests: page.properties.Guests?.relation...`
-        // But in Step 199 it showed `Assignments` rich text.
-        // I will trust the Schema Manager 'Guests' property which maps to 'Guests' or 'Invitados' relation.
-        // If the user wants to store JSON assignments, they need a text column. 
-        // For now, I'll assume standard Relation update for seated guests if 'Assignments' doesn't exist.
-        // But wait, the frontend sends `assignments` array.
-        // If we want to persist specific seating (companion index etc), we need JSON.
-        // Let's assume there is an 'Assignments' or 'Asignaciones' column if complex seating.
-        // If not, we just update relation.
-        // For safety, I'll use schema.get for 'Guests' (Relation).
+        await schema.init();
 
-        // Use Relation update for guests
-        const guestIds = assignments.map(a => ({ id: a.guestId }));
         const properties = {};
-        properties[schema.get('TABLES', 'Guests')] = { relation: guestIds };
+        const setProp = (key, value) => {
+            const propName = schema.get('TABLES', key);
+            if (propName) properties[propName] = value;
+        };
+
+        // 1. Save detailed assignments as JSON text
+        setProp('Assignments', { rich_text: [{ text: { content: JSON.stringify(assignments) } }] });
+
+        // 2. Also update the Relation for Notion UI visibility (Main guests only)
+        // Extract unique main guest IDs from assignments
+        const uniqueGuestIds = [...new Set(assignments.map(a => a.guestId))];
+        const relationIds = uniqueGuestIds.map(gId => ({ id: gId }));
+        setProp('Guests', { relation: relationIds });
 
         await notionClient.pages.update({ page_id: id, properties });
         res.json({ success: true });
     } catch (error) {
+        console.error("Error updating table guests:", error);
         res.status(500).json({ error: error.message });
     }
 });

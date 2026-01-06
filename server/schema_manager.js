@@ -33,6 +33,7 @@ const KNOWN_PROPERTIES = {
         Name: ["Name", "Nombre", "Mesa"],
         Capacity: ["Capacity", "Capacidad"],
         Guests: ["Guests", "Invitados"],
+        Assignments: ["Assignments", "Asignaciones", "Detalle", "Json"],
         Event: ["Event", "Evento"]
     }
 };

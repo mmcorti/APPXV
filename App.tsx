@@ -229,11 +229,12 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const path = window.location.hash;
-    const rsvpMatch = path.match(/#\/rsvp\/([^?]+)/);
+    // Match either /rsvp/ID or /location/ID
+    const publicMatch = path.match(/#\/(?:rsvp|location)\/([^?]+)/);
 
-    if (rsvpMatch && !user && invitations.length === 0) {
+    if (publicMatch && !user && invitations.length === 0) {
       setLoading(true);
-      const eventId = rsvpMatch[1];
+      const eventId = publicMatch[1];
       notionService.getEvents()
         .then(async (events) => {
           const event = events.find(e => e.id === eventId);
@@ -275,7 +276,7 @@ const App: React.FC = () => {
         />
         <Route
           path="/location/:id"
-          element={user ? <LocationScreen invitations={invitations} /> : <Navigate to="/login" />}
+          element={<LocationScreen invitations={invitations} />}
         />
         <Route path="/rsvp/:id" element={<GuestRSVPScreen loading={loading} invitations={invitations} onRsvpSubmit={async (invId, guestData) => {
           const inv = invitations.find(i => i.id === invId);
