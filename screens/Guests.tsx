@@ -84,13 +84,16 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
     });
 
     // Main buttons derive their values from the sum of their category details
-    const total = catTotal.adults + catTotal.teens + catTotal.kids + catTotal.infants;
     const si = catSi.adults + catSi.teens + catSi.kids + catSi.infants;
     const no = catNo.adults + catNo.teens + catNo.kids + catNo.infants;
     const pend = catPend.adults + catPend.teens + catPend.kids + catPend.infants;
 
+    // Total is simply the sum of the parts to ensure they match visually
+    const total = si + no + pend;
+
     return { total, si, no, pend, catTotal, catSi, catNo, catPend };
   }, [invitation.guests]);
+
 
   const handleSendWhatsApp = (guest: Guest) => {
     const url = `${window.location.origin}${window.location.pathname}#/rsvp/${id}?guest=${encodeURIComponent(guest.name)}`;
@@ -177,7 +180,7 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
       const diffTotal = gAllottedTotal - gConfirmedTotal;
 
       // Determine main guest category label for display
-      let mainGuestLabel = "Adulto";
+      let mainGuestLabel = "Sin Cupo";
       const countSource = g.status === 'confirmed' ? confirmed : allotted;
 
       if (countSource.adults > 0) mainGuestLabel = "Adulto";
@@ -247,8 +250,8 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                 </div>
               ) : null}
 
-              {/* Lista de invitados que asisten */}
-              {g.status === 'confirmed' && (
+              {/* Lista de invitados que asisten - Solo si hay confirmados reales */}
+              {g.status === 'confirmed' && gConfirmedTotal > 0 && (
                 <div className="pt-2 border-t border-slate-50 dark:border-slate-700">
                   <p className="text-[9px] font-black text-slate-400 uppercase mb-1.5 font-sans">Invitados que asisten:</p>
                   <div className="flex flex-wrap gap-1.5">
