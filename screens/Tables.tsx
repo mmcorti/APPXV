@@ -159,12 +159,19 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
       guestId: g.guestId,
       companionId: g.companionId,
       companionIndex: g.companionIndex ?? -1,
-      companionName: g.name
+      name: g.name,
+      companionName: g.name  // Also save as companionName for Notion storage
     }));
 
     const newAssignments = [
       ...currentAssignments,
-      { guestId: guest.guestId, companionId: guest.companionId, companionIndex: guest.companionIndex ?? -1, companionName: guest.name }
+      {
+        guestId: guest.guestId,
+        companionId: guest.companionId,
+        companionIndex: guest.companionIndex ?? -1,
+        name: guest.name,
+        companionName: guest.name
+      }
     ];
 
     onUpdateSeating(invitation.id, tableId, newAssignments);

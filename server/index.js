@@ -395,7 +395,11 @@ app.get('/api/tables', async (req, res) => {
 
             if (assignmentJson) {
                 try {
-                    parsedGuests = JSON.parse(assignmentJson);
+                    // Map companionName to name for frontend compatibility
+                    parsedGuests = JSON.parse(assignmentJson).map(g => ({
+                        ...g,
+                        name: g.companionName || g.name || "Sin nombre"
+                    }));
                 } catch (e) { console.error("Error parsing table assignments", e); }
             } else {
                 // Fallback: use relation if no JSON (legacy behavior)
