@@ -63,18 +63,41 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
           });
 
           // Pre-fill companion names from existing data
-          // If no names exist yet, create empty slots
-          const namesWithSlots = {
-            adults: existingNames.adults.length > 0 ? existingNames.adults : Array(Math.max(0, (a.adults || 0))).fill(''),
-            teens: existingNames.teens.length > 0 ? existingNames.teens : Array(a.teens || 0).fill(''),
-            kids: existingNames.kids.length > 0 ? existingNames.kids : Array(a.kids || 0).fill(''),
-            infants: existingNames.infants.length > 0 ? existingNames.infants : Array(a.infants || 0).fill('')
+          // First slot is always the main guest, subsequent slots are companions
+          // For adults: slot 0 = main guest name, slots 1+ = companion names from existingNames
+          const buildNamesWithSlots = (category: 'adults' | 'teens' | 'kids' | 'infants', allottedCount: number) => {
+            if (allottedCount <= 0) return [];
+
+            const result: string[] = [];
+            const existingCompanions = existingNames[category] || [];
+
+            // First slot: main guest name (for adults) or first companion name
+            if (category === 'adults') {
+              result.push(existingGuest.name); // Main guest always first
+              // Remaining slots are for companions
+              for (let i = 1; i < allottedCount; i++) {
+                // Check if there's an existing companion name (stored at index i-1 or i)
+                // Previously companions were stored starting at index 0 or 1, need to handle both cases
+                const companionName = existingCompanions[i] || existingCompanions[i - 1] || '';
+                // If the companion name equals the main guest name, it was incorrectly stored, use empty
+                result.push(companionName === existingGuest.name ? '' : companionName);
+              }
+            } else {
+              // For teens, kids, infants - just use existing names or empty slots
+              for (let i = 0; i < allottedCount; i++) {
+                result.push(existingCompanions[i] || '');
+              }
+            }
+
+            return result;
           };
 
-          // Put main guest name in first adult slot if adults are allotted
-          if (a.adults > 0 && !namesWithSlots.adults[0]) {
-            namesWithSlots.adults[0] = existingGuest.name;
-          }
+          const namesWithSlots = {
+            adults: buildNamesWithSlots('adults', a.adults || 0),
+            teens: buildNamesWithSlots('teens', a.teens || 0),
+            kids: buildNamesWithSlots('kids', a.kids || 0),
+            infants: buildNamesWithSlots('infants', a.infants || 0)
+          };
 
           setCompanionNames(namesWithSlots);
           // Save original names for restoration when user increases count after decreasing
@@ -146,11 +169,19 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
         // When adding slots, restore original names if available
         while (currentNames.length < newVal) {
           const idx = currentNames.length;
-          const originalName = originals[idx] || '';
-          currentNames.push(originalName);
+          // For adults, first slot is always the main guest
+          if (key === 'adults' && idx === 0 && foundGuest) {
+            currentNames.push(foundGuest.name);
+          } else {
+            const originalName = originals[idx] || '';
+            currentNames.push(originalName);
+          }
         }
       } else {
-        while (currentNames.length > newVal) currentNames.pop();
+        // When removing slots, never remove the main guest (first adult)
+        while (currentNames.length > newVal) {
+          currentNames.pop();
+        }
       }
       return { ...prev, [key]: currentNames };
     });
@@ -271,18 +302,27 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
 
                     {Object.keys(companionNames).map((key) => {
                       const groupKey = key as keyof GuestCompanionNames;
-                      return companionNames[groupKey].map((n, i) => (
-                        <div key={`${groupKey}-${i}`} className="space-y-1">
-                          <label className="text-[9px] font-bold text-slate-400 uppercase ml-2">{groupKey === 'adults' ? 'Adulto' : groupKey === 'teens' ? 'Adolescente' : groupKey === 'kids' ? 'Niño' : 'Bebé'} {i + 1}</label>
-                          <input
-                            type="text"
-                            value={n}
-                            onChange={(e) => updateName(groupKey, i, e.target.value)}
-                            className="w-full h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-700 px-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                            placeholder="Nombre (opcional)"
-                          />
-                        </div>
-                      ));
+                      return companionNames[groupKey].map((n, i) => {
+                        // For adults, first slot (i=0) is the main guest (read-only)
+                        const isMainGuest = groupKey === 'adults' && i === 0;
+                        const labelName = groupKey === 'adults' ? 'Adulto' : groupKey === 'teens' ? 'Adolescente' : groupKey === 'kids' ? 'Niño' : 'Bebé';
+
+                        return (
+                          <div key={`${groupKey}-${i}`} className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase ml-2">
+                              {labelName} {i + 1} {isMainGuest && '(Invitado Principal)'}
+                            </label>
+                            <input
+                              type="text"
+                              value={n}
+                              onChange={(e) => updateName(groupKey, i, e.target.value)}
+                              readOnly={isMainGuest}
+                              className={`w-full h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-700 px-4 text-sm font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all ${isMainGuest ? 'opacity-70 cursor-not-allowed' : ''}`}
+                              placeholder={isMainGuest ? '' : 'Nombre (opcional)'}
+                            />
+                          </div>
+                        );
+                      });
                     })}
                   </div>
                 )}
