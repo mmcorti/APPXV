@@ -422,30 +422,51 @@ app.post('/api/tables', async (req, res) => {
         await schema.init();
         let { eventId, name, capacity, table } = req.body;
 
+        console.log("\n=== POST /api/tables ===");
+        console.log("Request body:", JSON.stringify(req.body, null, 2));
+
         // Handle payload variation { eventId, table: { name, capacity } }
         if (table) {
             name = table.name;
             capacity = table.capacity;
+            console.log("Using table object - name:", name, "capacity:", capacity);
+        }
+
+        if (!name || !eventId) {
+            console.error("❌ Missing required fields - name:", name, "eventId:", eventId);
+            return res.status(400).json({ error: "Missing required fields: name, eventId" });
         }
 
         const properties = {};
         const setProp = (key, value) => {
             const propName = schema.get('TABLES', key);
-            if (propName) properties[propName] = value;
+            if (propName) {
+                properties[propName] = value;
+                console.log(`Set property ${key} (${propName})`);
+            } else {
+                console.warn(`⚠️  Property ${key} not found in schema`);
+            }
         };
 
         setProp('Name', { title: [{ text: { content: name } }] });
         setProp('Capacity', { number: Number(capacity) || 10 });
         setProp('Event', { relation: [{ id: eventId }] });
-        setProp('Assignments', { rich_text: [{ text: { content: "[]" } }] }); // Init empty
+        setProp('Assignments', { rich_text: [{ text: { content: "[]" } }] });
+
+        console.log("Properties to create:", Object.keys(properties));
+        console.log("Database ID:", DB.TABLES);
 
         const newPage = await notionClient.pages.create({
             parent: { database_id: DB.TABLES },
             properties
         });
+
+        console.log("✅ Table created successfully:", newPage.id);
         res.json({ success: true, id: newPage.id });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error("❌ Error creating table:", error.body || error.message);
+        console.error("Stack:", error.stack);
+        res.status(500).json({ error: error.message, details: error.body });
     }
 });
 
@@ -455,26 +476,41 @@ app.patch('/api/tables/:id/guests', async (req, res) => {
         const { assignments } = req.body;
         await schema.init();
 
+        console.log(`\n=== PATCH /api/tables/${id}/guests ===`);
+        console.log("Assignments received:", JSON.stringify(assignments, null, 2));
+
         const properties = {};
         const setProp = (key, value) => {
             const propName = schema.get('TABLES', key);
-            if (propName) properties[propName] = value;
+            if (propName) {
+                properties[propName] = value;
+                console.log(`Set property ${key} (${propName})`);
+            } else {
+                console.warn(`⚠️  Property ${key} not found in schema`);
+            }
         };
 
         // 1. Save detailed assignments as JSON text
-        setProp('Assignments', { rich_text: [{ text: { content: JSON.stringify(assignments) } }] });
+        const assignmentsJson = JSON.stringify(assignments);
+        console.log("Assignments JSON length:", assignmentsJson.length);
+        setProp('Assignments', { rich_text: [{ text: { content: assignmentsJson } }] });
 
         // 2. Also update the Relation for Notion UI visibility (Main guests only)
-        // Extract unique main guest IDs from assignments
         const uniqueGuestIds = [...new Set(assignments.map(a => a.guestId))];
-        const relationIds = uniqueGuestIds.map(gId => ({ id: gId }));
+        console.log("Unique guest IDs:", uniqueGuestIds);
+        const relationIds = uniqueGuestIds.map(gId => ({ id: gId.toString() }));
         setProp('Guests', { relation: relationIds });
 
-        await notionClient.pages.update({ page_id: id, properties });
-        res.json({ success: true });
+        console.log("Properties to update:", Object.keys(properties));
+
+        const result = await notionClient.pages.update({ page_id: id, properties });
+        console.log("✅ Table updated successfully");
+
+        res.json({ success: true, updated: result.id });
     } catch (error) {
-        console.error("Error updating table guests:", error);
-        res.status(500).json({ error: error.message });
+        console.error("❌ Error updating table guests:", error.body || error.message);
+        console.error("Stack:", error.stack);
+        res.status(500).json({ error: error.message, details: error.body });
     }
 });
 
