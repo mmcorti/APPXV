@@ -233,10 +233,10 @@ app.get('/api/guests', async (req, res) => {
                 email: getText(findProp(props, KNOWN_PROPERTIES.GUESTS.Email)),
                 status: findProp(props, KNOWN_PROPERTIES.GUESTS.Status)?.select?.name || 'pending',
                 allotted: {
-                    adults: findProp(props, KNOWN_PROPERTIES.GUESTS.AllottedAdults)?.number || 1,
-                    teens: findProp(props, KNOWN_PROPERTIES.GUESTS.AllottedTeens)?.number || 0,
-                    kids: findProp(props, KNOWN_PROPERTIES.GUESTS.AllottedKids)?.number || 0,
-                    infants: findProp(props, KNOWN_PROPERTIES.GUESTS.AllottedInfants)?.number || 0
+                    adults: findProp(props, KNOWN_PROPERTIES.GUESTS.AllottedAdults)?.number ?? 0,
+                    teens: findProp(props, KNOWN_PROPERTIES.GUESTS.AllottedTeens)?.number ?? 0,
+                    kids: findProp(props, KNOWN_PROPERTIES.GUESTS.AllottedKids)?.number ?? 0,
+                    infants: findProp(props, KNOWN_PROPERTIES.GUESTS.AllottedInfants)?.number ?? 0
                 },
                 confirmed: {
                     adults: findProp(props, KNOWN_PROPERTIES.GUESTS.ConfirmedAdults)?.number || 0,
