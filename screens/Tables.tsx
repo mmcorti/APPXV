@@ -105,6 +105,7 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
             poolMap.set(compKey, true);
             pool.push({
               guestId: g.id,
+              companionId: undefined, // Explicit
               name: displayName,
               status: isConfirmed ? 'confirmed' : 'pending',
               companionIndex: flatIndex
@@ -115,7 +116,12 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
       });
     });
 
-    return pool.sort((a, b) => a.name.localeCompare(b.name));
+    // Sort by Guest ID to group main guest and companions together, then by index
+    return pool.sort((a, b) => {
+      if (a.guestId !== b.guestId) return a.guestId.toString().localeCompare(b.guestId.toString());
+      // Main guest has index -1, companions 0+
+      return (a.companionIndex || -1) - (b.companionIndex || -1);
+    });
   }, [invitation.guests, invitation.tables]);
 
   const handleAddTable = (e: React.FormEvent) => {
