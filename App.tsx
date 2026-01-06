@@ -103,6 +103,8 @@ const App: React.FC = () => {
   };
 
   const handleSaveGuest = async (eventId: string, guest: Guest) => {
+    const inv = invitations.find(i => i.id === eventId);
+
     // OPTIMISTIC UPDATE
     setInvitations(prev => prev.map(inv => {
       if (inv.id !== eventId) return inv;
@@ -115,6 +117,61 @@ const App: React.FC = () => {
 
     try {
       await notionService.saveGuest(eventId, guest);
+
+      // SYNC TABLE ASSIGNMENTS after guest edit
+      if (inv) {
+        const tables = inv.tables || [];
+        for (const table of tables) {
+          const guestAssignments = table.guests.filter(a => a.guestId === guest.id?.toString());
+          if (guestAssignments.length > 0) {
+            // Build updated names list from guest's companionNames
+            const allNames = guest.companionNames ? [
+              ...guest.companionNames.adults,
+              ...guest.companionNames.teens,
+              ...guest.companionNames.kids,
+              ...guest.companionNames.infants
+            ] : [];
+
+            const newAssignments = table.guests.map(a => {
+              if (a.guestId === guest.id?.toString()) {
+                // Find updated name by companion index
+                const idx = a.companionIndex ?? -1;
+                let updatedName = a.name;
+
+                if (idx === -1) {
+                  // Main guest
+                  updatedName = guest.name;
+                } else if (idx >= 0 && idx < allNames.length) {
+                  // Companion - use name if exists, otherwise generate placeholder
+                  const catName = allNames[idx] || '';
+                  updatedName = catName.trim() ? catName : `Invitado ${idx + 1} - ${guest.name}`;
+                }
+
+                return {
+                  guestId: a.guestId,
+                  companionId: a.companionId,
+                  companionIndex: a.companionIndex ?? -1,
+                  name: updatedName,
+                  companionName: updatedName,
+                  status: guest.status || 'pending'
+                };
+              }
+              return {
+                guestId: a.guestId,
+                companionId: a.companionId,
+                companionIndex: a.companionIndex ?? -1,
+                name: a.name,
+                companionName: a.name,
+                status: a.status || 'pending'
+              };
+            });
+
+            // Update table assignments
+            await notionService.updateTableGuests(table.id, newAssignments);
+          }
+        }
+      }
+
       await refreshEventData(eventId);
     } catch (e) {
       console.error("Guest save failed:", e);
