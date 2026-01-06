@@ -71,33 +71,34 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
       }
 
       // 2. ADD COMPANIONS BASED ON COUNTS (Numeric Iteration)
-      // This ensures unnamed companions appear in the list.
       const categories = ['adults', 'teens', 'kids', 'infants'] as const;
+
+      // Determine Main Guest Category to deduct 1 slot (since Main Guest is already added)
+      // Priority: Adults > Teens > Kids > Infants
+      let mainCategory: typeof categories[number] = 'adults';
+      if ((counts?.adults || 0) > 0) mainCategory = 'adults';
+      else if ((counts?.teens || 0) > 0) mainCategory = 'teens';
+      else if ((counts?.kids || 0) > 0) mainCategory = 'kids';
+      else if ((counts?.infants || 0) > 0) mainCategory = 'infants';
 
       let flatIndex = 0;
 
       categories.forEach(cat => {
-        // Iterate based on COUNT, not name list length, to ensure we catch unnamed guests
         const count = counts?.[cat] || 0;
+        // Deduct Main Guest from their category count because they are already in the pool
+        const effectiveCount = (cat === mainCategory) ? Math.max(0, count - 1) : count;
+
         const catNames = namesObj[cat] || [];
 
-        for (let i = 0; i < count; i++) {
+        for (let i = 0; i < effectiveCount; i++) {
           const suppliedName = catNames[i] || "";
 
           // Determine display Name
-          // If explicitly named, use it. Else "Adulto 1 - [Familia]"
           const categoryLabel = getCategoryLabel(cat);
           let displayName = suppliedName.trim() ? suppliedName : `${categoryLabel} ${i + 1} - ${g.name}`;
 
-          // CRITICAL: Avoid duplicating Main Guest.
-          // If the supplied name matches Main Guest's name, we assume this "slot" is occupied by them.
-          // We increment flatIndex to keep indices aligned but DO NOT add to pool.
-          if (suppliedName.trim().toLowerCase() === g.name.toLowerCase()) {
-            flatIndex++;
-            continue;
-          }
-
           // Generate uniqueness key using flatIndex as the companionIndex
+          // Note: We use flatIndex which increments continuously, effectively assigning IDs 0, 1, 2... to companions
           const compKey = `${g.id}-${flatIndex}-${displayName}`;
 
           if (!seatedSet.has(compKey) && !poolMap.has(compKey)) {
