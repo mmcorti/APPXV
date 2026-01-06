@@ -161,9 +161,22 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
       }
       if (!statusMatch) return false;
 
-      // 2.5 Filter by Search Query
-      if (searchQuery.trim() && !g.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-        return false;
+      // 2.5 Filter by Search Query (search main guest name AND companion names)
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const mainNameMatch = g.name.toLowerCase().includes(query);
+        const companionNames = g.companionNames || { adults: [], teens: [], kids: [], infants: [] };
+        const allCompanionNames = [
+          ...companionNames.adults,
+          ...companionNames.teens,
+          ...companionNames.kids,
+          ...companionNames.infants
+        ];
+        const companionMatch = allCompanionNames.some(n => n && n.toLowerCase().includes(query));
+
+        if (!mainNameMatch && !companionMatch) {
+          return false;
+        }
       }
 
       // 2. Filter by Category
@@ -448,8 +461,20 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                   <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-700">
                     <p className="text-[10px] font-black text-slate-400 uppercase">Nombres de acompañantes (opcional)</p>
 
-                    {currentGuest.companionNames?.adults.map((name, i) => (
-                      <CompanionNameInput key={`a-${i}`} label={`Adulto ${i + 1}`} value={name} onChange={val => updateCompanionName('adults', i, val)} />
+                    {/* Adults - First adult is the main guest (read-only), rest are companions */}
+                    {currentGuest.allotted!.adults > 0 && (
+                      <div className="relative">
+                        <label className="absolute -top-2 left-3 px-1 bg-white dark:bg-slate-800 text-[9px] font-black text-slate-400 uppercase">Adulto 1 (Principal)</label>
+                        <input
+                          type="text"
+                          value={currentGuest.name}
+                          disabled
+                          className="w-full h-12 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 px-4 text-sm bg-slate-50 cursor-not-allowed opacity-60"
+                        />
+                      </div>
+                    )}
+                    {currentGuest.companionNames?.adults.slice(0, currentGuest.allotted!.adults - 1).map((name, i) => (
+                      <CompanionNameInput key={`a-${i}`} label={`Adulto ${i + 2}`} value={name} onChange={val => updateCompanionName('adults', i, val)} />
                     ))}
                     {currentGuest.companionNames?.teens.map((name, i) => (
                       <CompanionNameInput key={`t-${i}`} label={`Adolescente ${i + 1}`} value={name} onChange={val => updateCompanionName('teens', i, val)} />
