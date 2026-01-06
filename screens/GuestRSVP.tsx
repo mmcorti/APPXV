@@ -47,30 +47,33 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
           setCompanionNames(existingGuest.companionNames || { adults: [], teens: [], kids: [], infants: [] });
           setSubmitted(true);
         } else {
-          // Default for pending existing guest - find the primary category they are allotted for
+          // Default for pending existing guest - use their allotted values and existing companion names
           const a = existingGuest.allotted;
-          const defaultAllotment = { adults: 0, teens: 0, kids: 0, infants: 0 };
-          const defaultNames = { adults: [] as string[], teens: [] as string[], kids: [] as string[], infants: [] as string[] };
+          const existingNames = existingGuest.companionNames || { adults: [], teens: [], kids: [], infants: [] };
 
-          if (a.adults > 0) {
-            defaultAllotment.adults = a.adults;
-            defaultNames.adults = [existingGuest.name];
-          } else if (a.teens > 0) {
-            defaultAllotment.teens = a.teens;
-            defaultNames.teens = [existingGuest.name];
-          } else if (a.kids > 0) {
-            defaultAllotment.kids = a.kids;
-            defaultNames.kids = [existingGuest.name];
-          } else if (a.infants > 0) {
-            defaultAllotment.infants = a.infants;
-            defaultNames.infants = [existingGuest.name];
-          } else {
-            defaultAllotment.adults = 1;
-            defaultNames.adults = [existingGuest.name];
+          // Set allotment from what was assigned
+          setConfirmedAllotment({
+            adults: a.adults || 0,
+            teens: a.teens || 0,
+            kids: a.kids || 0,
+            infants: a.infants || 0
+          });
+
+          // Pre-fill companion names from existing data
+          // If no names exist yet, create empty slots
+          const namesWithSlots = {
+            adults: existingNames.adults.length > 0 ? existingNames.adults : Array(Math.max(0, (a.adults || 0))).fill(''),
+            teens: existingNames.teens.length > 0 ? existingNames.teens : Array(a.teens || 0).fill(''),
+            kids: existingNames.kids.length > 0 ? existingNames.kids : Array(a.kids || 0).fill(''),
+            infants: existingNames.infants.length > 0 ? existingNames.infants : Array(a.infants || 0).fill('')
+          };
+
+          // Put main guest name in first adult slot if adults are allotted
+          if (a.adults > 0 && !namesWithSlots.adults[0]) {
+            namesWithSlots.adults[0] = existingGuest.name;
           }
 
-          setConfirmedAllotment(defaultAllotment);
-          setCompanionNames(defaultNames);
+          setCompanionNames(namesWithSlots);
         }
       } else {
         // New guest (not in list) -> Default values
@@ -243,10 +246,10 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
               <div className="space-y-6 animate-in slide-in-from-top-4 duration-300">
                 <p className="text-center text-xs font-bold text-slate-400 uppercase tracking-widest">Confirma los cupos</p>
                 <div className="grid grid-cols-2 gap-4">
-                  <RSVPCount label="Adultos" val={confirmedAllotment.adults} max={foundGuest?.allotted.adults || 5} onDelta={d => updateConfirmed('adults', d)} />
-                  <RSVPCount label="Adol." val={confirmedAllotment.teens} max={foundGuest?.allotted.teens || 5} onDelta={d => updateConfirmed('teens', d)} />
-                  <RSVPCount label="Niños" val={confirmedAllotment.kids} max={foundGuest?.allotted.kids || 5} onDelta={d => updateConfirmed('kids', d)} />
-                  <RSVPCount label="Bebés" val={confirmedAllotment.infants} max={foundGuest?.allotted.infants || 5} onDelta={d => updateConfirmed('infants', d)} />
+                  <RSVPCount label="Adultos" val={confirmedAllotment.adults} max={foundGuest?.allotted.adults ?? 0} onDelta={d => updateConfirmed('adults', d)} />
+                  <RSVPCount label="Adol." val={confirmedAllotment.teens} max={foundGuest?.allotted.teens ?? 0} onDelta={d => updateConfirmed('teens', d)} />
+                  <RSVPCount label="Niños" val={confirmedAllotment.kids} max={foundGuest?.allotted.kids ?? 0} onDelta={d => updateConfirmed('kids', d)} />
+                  <RSVPCount label="Bebés" val={confirmedAllotment.infants} max={foundGuest?.allotted.infants ?? 0} onDelta={d => updateConfirmed('infants', d)} />
                 </div>
 
                 {/* Sección de Nombres */}

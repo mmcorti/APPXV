@@ -294,6 +294,66 @@ const App: React.FC = () => {
 
               await refreshEventData(invId);
 
+              // SYNC TABLE ASSIGNMENTS after RSVP change
+              const tables = inv.tables || [];
+              for (const table of tables) {
+                const guestAssignments = table.guests.filter(a => a.guestId === guest.id?.toString());
+                if (guestAssignments.length > 0) {
+                  let newAssignments;
+
+                  if (guestData.status === 'declined') {
+                    // Remove declined guest from table
+                    newAssignments = table.guests
+                      .filter(a => a.guestId !== guest.id?.toString())
+                      .map(a => ({
+                        guestId: a.guestId,
+                        companionId: a.companionId,
+                        companionIndex: a.companionIndex ?? -1,
+                        name: a.name,
+                        companionName: a.name,
+                        status: a.status || 'pending'
+                      }));
+                  } else {
+                    // Update names and status for confirmed guest
+                    const allNames = guestData.companionNames ? [
+                      ...guestData.companionNames.adults,
+                      ...guestData.companionNames.teens,
+                      ...guestData.companionNames.kids,
+                      ...guestData.companionNames.infants
+                    ].filter(n => n.trim()) : [];
+
+                    newAssignments = table.guests.map(a => {
+                      if (a.guestId === guest.id?.toString()) {
+                        // Find updated name by companion index
+                        const idx = a.companionIndex ?? -1;
+                        const updatedName = idx >= 0 && idx < allNames.length
+                          ? allNames[idx]
+                          : (idx === -1 && allNames.length > 0 ? allNames[0] : a.name);
+                        return {
+                          guestId: a.guestId,
+                          companionId: a.companionId,
+                          companionIndex: a.companionIndex ?? -1,
+                          name: updatedName,
+                          companionName: updatedName,
+                          status: guestData.status || 'confirmed'
+                        };
+                      }
+                      return {
+                        guestId: a.guestId,
+                        companionId: a.companionId,
+                        companionIndex: a.companionIndex ?? -1,
+                        name: a.name,
+                        companionName: a.name,
+                        status: a.status || 'pending'
+                      };
+                    });
+                  }
+
+                  // Update table assignments
+                  await notionService.updateTableGuests(table.id, newAssignments);
+                }
+              }
+
               const updatedGuests = inv.guests.map(g => g.name === guestData.name ? { ...g, ...guestData as Guest } : g);
               updateGuests(invId, updatedGuests);
             } else {
