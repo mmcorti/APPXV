@@ -19,6 +19,7 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
   const [newTableName, setNewTableName] = useState('');
   const [newTableCapacity, setNewTableCapacity] = useState(10);
   const [showAssignModal, setShowAssignModal] = useState<string | null>(null); // Table ID
+  const [searchQuery, setSearchQuery] = useState(''); // Search filter for guest list
 
   if (!invitation) return <div className="p-10 text-center font-bold">Evento no encontrado</div>;
 
@@ -160,7 +161,8 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
       companionId: g.companionId,
       companionIndex: g.companionIndex ?? -1,
       name: g.name,
-      companionName: g.name  // Also save as companionName for Notion storage
+      companionName: g.name,  // Also save as companionName for Notion storage
+      status: g.status || 'pending'  // Preserve confirmation status
     }));
 
     const newAssignments = [
@@ -170,7 +172,8 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
         companionId: guest.companionId,
         companionIndex: guest.companionIndex ?? -1,
         name: guest.name,
-        companionName: guest.name
+        companionName: guest.name,
+        status: guest.status || 'pending'  // Save confirmation status
       }
     ];
 
@@ -307,12 +310,24 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
                 <h3 className="text-lg font-bold">Asignar a {tables.find(t => t.id === showAssignModal)?.name}</h3>
                 <p className="text-[10px] font-bold text-slate-400 uppercase">Invitados Disponibles</p>
               </div>
-              <button onClick={() => setShowAssignModal(null)} className="size-10 flex items-center justify-center bg-slate-100 dark:bg-slate-700 rounded-full"><span className="material-symbols-outlined">close</span></button>
+              <button onClick={() => { setShowAssignModal(null); setSearchQuery(''); }} className="size-10 flex items-center justify-center bg-slate-100 dark:bg-slate-700 rounded-full"><span className="material-symbols-outlined">close</span></button>
+            </div>
+
+            {/* Search Input */}
+            <div className="mb-3 relative">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Buscar invitado..."
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
             </div>
 
             <div className="flex-1 overflow-y-auto no-scrollbar space-y-2 pr-1">
-              {availablePool.length > 0 ? (
-                availablePool.map((guest, idx) => (
+              {availablePool.filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? (
+                availablePool.filter(g => g.name.toLowerCase().includes(searchQuery.toLowerCase())).map((guest, idx) => (
                   <button
                     key={`${guest.guestId}-${guest.name}-${idx}`}
                     onClick={() => assignToTable(showAssignModal, guest)}
