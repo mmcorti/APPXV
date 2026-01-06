@@ -168,9 +168,6 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
     ];
 
     onUpdateSeating(invitation.id, tableId, newAssignments);
-
-    // Close the modal after assignment
-    setShowAssignModal(null);
   };
 
   const removeFromTable = (tableId: string, guestId: string | number, name: string, companionIndex: number = -1) => {

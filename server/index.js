@@ -495,12 +495,6 @@ app.patch('/api/tables/:id/guests', async (req, res) => {
         console.log("Assignments JSON length:", assignmentsJson.length);
         setProp('Assignments', { rich_text: [{ text: { content: assignmentsJson } }] });
 
-        // 2. Also update the Relation for Notion UI visibility (Main guests only)
-        const uniqueGuestIds = [...new Set(assignments.map(a => a.guestId))];
-        console.log("Unique guest IDs:", uniqueGuestIds);
-        const relationIds = uniqueGuestIds.map(gId => ({ id: gId.toString() }));
-        setProp('Guests', { relation: relationIds });
-
         console.log("Properties to update:", Object.keys(properties));
 
         const result = await notionClient.pages.update({ page_id: id, properties });
