@@ -7,12 +7,13 @@ interface DashboardProps {
   user: User;
   invitations: InvitationData[];
   onAddEvent: (event: InvitationData) => Promise<InvitationData>;
+  onDeleteEvent: (eventId: string) => Promise<void>;
   onLogout: () => void;
   onRefresh: () => void;
   loading?: boolean;
 }
 
-const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEvent, onLogout, onRefresh, loading }) => {
+const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEvent, onDeleteEvent, onLogout, onRefresh, loading }) => {
   const navigate = useNavigate();
   const [showAddModal, setShowAddModal] = useState(false);
   const [newEventName, setNewEventName] = useState('');
@@ -69,6 +70,26 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
     }
   };
 
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+
+  const handleDeleteEvent = async (inv: InvitationData) => {
+    const guestCount = inv.guests?.length || 0;
+    const tableCount = inv.tables?.length || 0;
+
+    const confirmMessage = guestCount > 0 || tableCount > 0
+      ? `¿Estás seguro de que quieres eliminar "${inv.eventName}"?\n\nEsto también eliminará:\n• ${guestCount} invitado(s)\n• ${tableCount} mesa(s)\n\nEsta acción no se puede deshacer.`
+      : `¿Estás seguro de que quieres eliminar "${inv.eventName}"?\n\nEsta acción no se puede deshacer.`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setDeletingEventId(inv.id);
+    try {
+      await onDeleteEvent(inv.id);
+    } finally {
+      setDeletingEventId(null);
+    }
+  };
+
   return (
     <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white pb-24 min-h-screen relative max-w-[480px] mx-auto overflow-x-hidden">
       <div className="sticky top-0 z-40 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md px-4 pt-6 pb-2">
@@ -121,12 +142,23 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                           {inv.date}
                         </p>
                       </div>
-                      <button
-                        onClick={() => navigate(`/edit/${inv.id}`)}
-                        className="p-2 rounded-xl bg-slate-50 dark:bg-slate-700 text-primary"
-                      >
-                        <span className="material-symbols-outlined text-xl">edit</span>
-                      </button>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => navigate(`/edit/${inv.id}`)}
+                          className="p-2 rounded-xl bg-slate-50 dark:bg-slate-700 text-primary hover:bg-blue-50 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-xl">edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEvent(inv)}
+                          disabled={deletingEventId === inv.id}
+                          className={`p-2 rounded-xl bg-slate-50 dark:bg-slate-700 text-red-500 hover:bg-red-50 transition-colors ${deletingEventId === inv.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          <span className={`material-symbols-outlined text-xl ${deletingEventId === inv.id ? 'animate-spin' : ''}`}>
+                            {deletingEventId === inv.id ? 'progress_activity' : 'delete'}
+                          </span>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2">

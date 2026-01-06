@@ -205,6 +205,22 @@ app.put('/api/events/:id', async (req, res) => {
     }
 });
 
+app.delete('/api/events/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        console.log(`🗑️ Deleting event: ${id}`);
+
+        // Archive the event page in Notion
+        await notionClient.pages.update({ page_id: id, archived: true });
+
+        console.log(`✅ Event ${id} deleted successfully`);
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Error deleting event:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // --- GUESTS ---
 app.get('/api/guests', async (req, res) => {
     try {

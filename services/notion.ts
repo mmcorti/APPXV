@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { InvitationData, Guest, Table } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
 
 export const notionService = {
     async login(email: string, passwordHash: string) {
@@ -32,6 +32,14 @@ export const notionService = {
             body: JSON.stringify(event)
         });
         if (!res.ok) throw new Error('Failed to save event');
+        return await res.json();
+    },
+
+    async deleteEvent(eventId: string) {
+        const res = await fetch(`${API_URL}/events/${eventId}`, {
+            method: 'DELETE'
+        });
+        if (!res.ok) throw new Error('Failed to delete event');
         return await res.json();
     },
 

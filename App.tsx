@@ -296,6 +296,47 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeleteEvent = async (eventId: string) => {
+    const inv = invitations.find(i => i.id === eventId);
+    if (!inv) return;
+
+    // OPTIMISTIC UPDATE - remove from state immediately
+    setInvitations(prev => prev.filter(i => i.id !== eventId));
+
+    try {
+      // Delete all tables first (continue even if some fail)
+      for (const table of inv.tables || []) {
+        try {
+          await notionService.deleteTable(table.id);
+          console.log(`✅ Deleted table: ${table.id}`);
+        } catch (tableError) {
+          console.warn(`⚠️ Failed to delete table ${table.id}:`, tableError);
+        }
+      }
+
+      // Delete all guests (continue even if some fail)
+      for (const guest of inv.guests || []) {
+        try {
+          await notionService.deleteGuest(guest.id.toString());
+          console.log(`✅ Deleted guest: ${guest.id}`);
+        } catch (guestError) {
+          console.warn(`⚠️ Failed to delete guest ${guest.id}:`, guestError);
+        }
+      }
+
+      // Finally delete the event itself
+      console.log(`🗑️ Deleting event: ${eventId}`);
+      await notionService.deleteEvent(eventId);
+      console.log(`✅ Event ${eventId} deleted successfully`);
+    } catch (e) {
+      console.error("❌ Event deletion failed:", e);
+      // Reload data on error to sync state
+      if (user?.email) {
+        await loadAllData(user.email);
+      }
+    }
+  };
+
   const handleAuthSuccess = (name: string, email: string, role?: string) => {
     setUser({
       name,
@@ -343,7 +384,7 @@ const App: React.FC = () => {
         />
         <Route
           path="/dashboard"
-          element={user ? <DashboardScreen user={user} invitations={invitations} loading={loading} onAddEvent={addInvitation} onLogout={handleLogout} onRefresh={() => loadAllData(user.email)} /> : <Navigate to="/login" />}
+          element={user ? <DashboardScreen user={user} invitations={invitations} loading={loading} onAddEvent={addInvitation} onDeleteEvent={handleDeleteEvent} onLogout={handleLogout} onRefresh={() => loadAllData(user.email)} /> : <Navigate to="/login" />}
         />
         <Route
           path="/edit/:id"
