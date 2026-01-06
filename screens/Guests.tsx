@@ -118,15 +118,17 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
       };
       onSaveGuest(invitation.id, newGuest);
     } else {
-      // For editing existing guests, sync confirmed counts with companionNames if status is confirmed
+      // For editing existing guests, sync confirmed counts with allotted if status is confirmed
       let syncedConfirmed = currentGuest.confirmed || { adults: 0, teens: 0, kids: 0, infants: 0 };
 
-      if (currentGuest.status === 'confirmed' && currentGuest.companionNames) {
+      if (currentGuest.status === 'confirmed') {
+        // Use allotted counts when confirmed - names can be empty but slots still count
+        const allotted = currentGuest.allotted || { adults: 0, teens: 0, kids: 0, infants: 0 };
         syncedConfirmed = {
-          adults: currentGuest.companionNames.adults?.filter(n => n && n.trim() !== "").length || 0,
-          teens: currentGuest.companionNames.teens?.filter(n => n && n.trim() !== "").length || 0,
-          kids: currentGuest.companionNames.kids?.filter(n => n && n.trim() !== "").length || 0,
-          infants: currentGuest.companionNames.infants?.filter(n => n && n.trim() !== "").length || 0
+          adults: allotted.adults || 0,
+          teens: allotted.teens || 0,
+          kids: allotted.kids || 0,
+          infants: allotted.infants || 0
         };
       }
 
@@ -417,6 +419,27 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                 <AllotmentInput label="Niños (3-11)" val={currentGuest.allotted!.kids} onDelta={d => updateAllotted('kids', d)} />
                 <AllotmentInput label="Bebés (0-3)" val={currentGuest.allotted!.infants} onDelta={d => updateAllotted('infants', d)} />
               </div>
+
+              {/* Status toggle for editing */}
+              {showModal === 'edit' && currentGuest.status && currentGuest.status !== 'pending' && (
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
+                  <p className="text-[10px] font-black text-slate-400 uppercase mb-2">Estado de Confirmación</p>
+                  <div className="flex gap-2">
+                    <div className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 ${currentGuest.status === 'confirmed' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+                      }`}>
+                      <span className={`size-2 rounded-full ${currentGuest.status === 'confirmed' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                      {currentGuest.status === 'confirmed' ? 'Confirmado' : 'No asiste'}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentGuest({ ...currentGuest, status: 'pending' })}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+                    >
+                      Quitar estado
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {(currentGuest.companionNames?.adults.length! > 0 ||
                 currentGuest.companionNames?.teens.length! > 0 ||
