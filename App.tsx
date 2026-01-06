@@ -180,6 +180,8 @@ const App: React.FC = () => {
   };
 
   const handleDeleteGuest = async (eventId: string, guestId: string) => {
+    const inv = invitations.find(i => i.id === eventId);
+
     // OPTIMISTIC UPDATE
     setInvitations(prev => prev.map(inv => {
       if (inv.id !== eventId) return inv;
@@ -188,6 +190,30 @@ const App: React.FC = () => {
 
     try {
       await notionService.deleteGuest(guestId);
+
+      // SYNC TABLE ASSIGNMENTS - remove deleted guest from all tables
+      if (inv) {
+        const tables = inv.tables || [];
+        for (const table of tables) {
+          const guestAssignments = table.guests.filter(a => a.guestId === guestId);
+          if (guestAssignments.length > 0) {
+            // Remove this guest from the table
+            const newAssignments = table.guests
+              .filter(a => a.guestId !== guestId)
+              .map(a => ({
+                guestId: a.guestId,
+                companionId: a.companionId,
+                companionIndex: a.companionIndex ?? -1,
+                name: a.name,
+                companionName: a.name,
+                status: a.status || 'pending'
+              }));
+
+            await notionService.updateTableGuests(table.id, newAssignments);
+          }
+        }
+      }
+
       await refreshEventData(eventId);
     } catch (e) {
       console.error("Guest delete failed:", e);
