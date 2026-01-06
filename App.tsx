@@ -304,22 +304,32 @@ const App: React.FC = () => {
     setInvitations(prev => prev.filter(i => i.id !== eventId));
 
     try {
-      // Delete all tables first
+      // Delete all tables first (continue even if some fail)
       for (const table of inv.tables || []) {
-        await notionService.deleteTable(table.id);
+        try {
+          await notionService.deleteTable(table.id);
+          console.log(`✅ Deleted table: ${table.id}`);
+        } catch (tableError) {
+          console.warn(`⚠️ Failed to delete table ${table.id}:`, tableError);
+        }
       }
 
-      // Delete all guests
+      // Delete all guests (continue even if some fail)
       for (const guest of inv.guests || []) {
-        await notionService.deleteGuest(guest.id.toString());
+        try {
+          await notionService.deleteGuest(guest.id.toString());
+          console.log(`✅ Deleted guest: ${guest.id}`);
+        } catch (guestError) {
+          console.warn(`⚠️ Failed to delete guest ${guest.id}:`, guestError);
+        }
       }
 
       // Finally delete the event itself
+      console.log(`🗑️ Deleting event: ${eventId}`);
       await notionService.deleteEvent(eventId);
-
-      console.log(`✅ Event ${eventId} and all related data deleted`);
+      console.log(`✅ Event ${eventId} deleted successfully`);
     } catch (e) {
-      console.error("Event deletion failed:", e);
+      console.error("❌ Event deletion failed:", e);
       // Reload data on error to sync state
       if (user?.email) {
         await loadAllData(user.email);
