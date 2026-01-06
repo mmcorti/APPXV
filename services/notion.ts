@@ -35,6 +35,14 @@ export const notionService = {
         return await res.json();
     },
 
+    async deleteEvent(eventId: string) {
+        const res = await fetch(`${API_URL}/events/${eventId}`, {
+            method: 'DELETE'
+        });
+        if (!res.ok) throw new Error('Failed to delete event');
+        return await res.json();
+    },
+
     async getGuests(eventId: string): Promise<Guest[]> {
         const res = await fetch(`${API_URL}/guests?eventId=${eventId}`);
         if (!res.ok) throw new Error('Failed to fetch guests');

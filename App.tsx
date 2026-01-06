@@ -296,6 +296,37 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeleteEvent = async (eventId: string) => {
+    const inv = invitations.find(i => i.id === eventId);
+    if (!inv) return;
+
+    // OPTIMISTIC UPDATE - remove from state immediately
+    setInvitations(prev => prev.filter(i => i.id !== eventId));
+
+    try {
+      // Delete all tables first
+      for (const table of inv.tables || []) {
+        await notionService.deleteTable(table.id);
+      }
+
+      // Delete all guests
+      for (const guest of inv.guests || []) {
+        await notionService.deleteGuest(guest.id.toString());
+      }
+
+      // Finally delete the event itself
+      await notionService.deleteEvent(eventId);
+
+      console.log(`✅ Event ${eventId} and all related data deleted`);
+    } catch (e) {
+      console.error("Event deletion failed:", e);
+      // Reload data on error to sync state
+      if (user?.email) {
+        await loadAllData(user.email);
+      }
+    }
+  };
+
   const handleAuthSuccess = (name: string, email: string, role?: string) => {
     setUser({
       name,
@@ -343,7 +374,7 @@ const App: React.FC = () => {
         />
         <Route
           path="/dashboard"
-          element={user ? <DashboardScreen user={user} invitations={invitations} loading={loading} onAddEvent={addInvitation} onLogout={handleLogout} onRefresh={() => loadAllData(user.email)} /> : <Navigate to="/login" />}
+          element={user ? <DashboardScreen user={user} invitations={invitations} loading={loading} onAddEvent={addInvitation} onDeleteEvent={handleDeleteEvent} onLogout={handleLogout} onRefresh={() => loadAllData(user.email)} /> : <Navigate to="/login" />}
         />
         <Route
           path="/edit/:id"
