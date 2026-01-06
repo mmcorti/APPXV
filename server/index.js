@@ -268,26 +268,44 @@ app.get('/api/guests', async (req, res) => {
 
 app.post('/api/guests', async (req, res) => {
     try {
+        await schema.init(); // Ensure schema is ready
         const { eventId, guest } = req.body;
+        console.log("📝 Creating Guest for Event:", eventId);
+        console.log("📦 Guest Payload:", JSON.stringify(guest, null, 2));
+
         const properties = {};
-        properties[schema.get('GUESTS', 'Name')] = { title: [{ text: { content: guest.name } }] };
-        properties[schema.get('GUESTS', 'Email')] = { email: guest.email || null };
-        properties[schema.get('GUESTS', 'Status')] = { select: { name: guest.status || 'pending' } };
 
-        properties[schema.get('GUESTS', 'AllottedAdults')] = { number: guest.allotted?.adults || 0 };
-        properties[schema.get('GUESTS', 'AllottedTeens')] = { number: guest.allotted?.teens || 0 };
-        properties[schema.get('GUESTS', 'AllottedKids')] = { number: guest.allotted?.kids || 0 };
-        properties[schema.get('GUESTS', 'AllottedInfants')] = { number: guest.allotted?.infants || 0 };
+        // Helper to safely set property
+        const setProp = (key, value) => {
+            const propName = schema.get('GUESTS', key);
+            if (propName) properties[propName] = value;
+            else console.warn(`⚠️ Warning: Property mapping for '${key}' not found.`);
+        };
 
-        properties[schema.get('GUESTS', 'Event')] = { relation: [{ id: eventId }] };
-        properties[schema.get('GUESTS', 'CompanionNames')] = { rich_text: [{ text: { content: JSON.stringify(guest.companionNames || {}) } }] };
+        setProp('Name', { title: [{ text: { content: guest.name } }] });
+        setProp('Email', { email: guest.email || null });
+        setProp('Status', { select: { name: guest.status || 'pending' } });
+
+        setProp('AllottedAdults', { number: Number(guest.allotted?.adults) || 0 });
+        setProp('AllottedTeens', { number: Number(guest.allotted?.teens) || 0 });
+        setProp('AllottedKids', { number: Number(guest.allotted?.kids) || 0 });
+        setProp('AllottedInfants', { number: Number(guest.allotted?.infants) || 0 });
+
+        setProp('Event', { relation: [{ id: eventId }] });
+        setProp('CompanionNames', { rich_text: [{ text: { content: JSON.stringify(guest.companionNames || {}) } }] });
+
+        console.log("📤 Notion Properties:", JSON.stringify(properties, null, 2));
 
         const newPage = await notionClient.pages.create({
             parent: { database_id: DB.GUESTS },
             properties
         });
+
+        console.log("✅ Guest Created:", newPage.id);
         res.json({ success: true, id: newPage.id });
     } catch (error) {
+        console.error("❌ Error creating guest:", error.message);
+        console.error("Stack:", error.stack);
         res.status(500).json({ error: error.message });
     }
 });
