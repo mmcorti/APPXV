@@ -71,14 +71,15 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
             const result: string[] = [];
             const existingCompanions = existingNames[category] || [];
 
-            // First slot: main guest name (for adults) or first companion name
+            // For adults: slot 0 = main guest name, slots 1+ = companion names from existingNames
+            // Companions are stored in existingCompanions[0], existingCompanions[1], etc.
+            // So slot 1 -> existingCompanions[0], slot 2 -> existingCompanions[1], etc.
             if (category === 'adults') {
               result.push(existingGuest.name); // Main guest always first
               // Remaining slots are for companions
               for (let i = 1; i < allottedCount; i++) {
-                // Check if there's an existing companion name (stored at index i-1 or i)
-                // Previously companions were stored starting at index 0 or 1, need to handle both cases
-                const companionName = existingCompanions[i] || existingCompanions[i - 1] || '';
+                // Companion at slot i corresponds to existingCompanions[i - 1]
+                const companionName = existingCompanions[i - 1] || '';
                 // If the companion name equals the main guest name, it was incorrectly stored, use empty
                 result.push(companionName === existingGuest.name ? '' : companionName);
               }
