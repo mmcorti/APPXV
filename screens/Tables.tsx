@@ -93,7 +93,9 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
         const catNames = namesObj[cat] || [];
 
         for (let i = 0; i < effectiveCount; i++) {
-          const suppliedName = catNames[i] || "";
+          // For adults, skip slot 0 (main guest name) - companions start at index 1
+          const nameIndex = (cat === 'adults') ? i + 1 : i;
+          const suppliedName = catNames[nameIndex] || "";
 
           // Determine display Name
           const categoryLabel = getCategoryLabel(cat);
