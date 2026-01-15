@@ -3,6 +3,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { InvitationData } from '../types';
 
+// Use the same API URL pattern as the rest of the app
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
+
 interface FotoWallConfigProps {
   invitations: InvitationData[];
 }
@@ -38,7 +41,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
     setPreviewPhotos([]);
 
     try {
-      const res = await fetch('/api/fotowall/validate', {
+      const res = await fetch(`${API_URL}/fotowall/validate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
@@ -65,7 +68,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
 
   const fetchPhotos = async (url: string) => {
     try {
-      const res = await fetch('/api/fotowall/album', {
+      const res = await fetch(`${API_URL}/fotowall/album`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
@@ -126,7 +129,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                   onBlur={() => validateLink(albumUrl)}
                   placeholder="https://photos.app.goo.gl/..."
                   className={`flex-1 bg-slate-50 dark:bg-slate-900 border-2 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-pink-500 transition-all ${linkStatus === 'valid' ? 'border-green-500' :
-                      linkStatus === 'invalid' ? 'border-red-500' : 'border-transparent'
+                    linkStatus === 'invalid' ? 'border-red-500' : 'border-transparent'
                     }`}
                 />
                 <button
