@@ -161,7 +161,7 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-4 gap-2">
                       <button
                         onClick={() => navigate(`/guests/${inv.id}`)}
                         className="flex flex-col items-center justify-center gap-1 py-3 bg-blue-50 dark:bg-blue-900/20 text-primary font-bold text-[10px] rounded-xl"
@@ -182,6 +182,13 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                       >
                         <span className="material-symbols-outlined text-lg">share</span>
                         Link
+                      </button>
+                      <button
+                        onClick={() => navigate(`/fotowall/${inv.id}`)}
+                        className="flex flex-col items-center justify-center gap-1 py-3 bg-pink-50 dark:bg-pink-900/20 text-pink-600 font-bold text-[10px] rounded-xl"
+                      >
+                        <span className="material-symbols-outlined text-lg">photo_library</span>
+                        FotoWall
                       </button>
                     </div>
                   </div>

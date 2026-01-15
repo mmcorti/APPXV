@@ -10,6 +10,8 @@ import GuestsScreen from './screens/Guests';
 import LocationScreen from './screens/Location';
 import GuestRSVPScreen from './screens/GuestRSVP';
 import TablesScreen from './screens/Tables';
+import FotoWallConfigScreen from './screens/FotoWallConfig';
+import FotoWallPlayerScreen from './screens/FotoWallPlayer';
 import { InvitationData, User, Guest, Table, SeatedGuest } from './types';
 import { notionService } from './services/notion';
 
@@ -397,6 +399,14 @@ const App: React.FC = () => {
         <Route
           path="/tables/:id"
           element={user ? <TablesScreen invitations={invitations} onAddTable={handleAddTable} onUpdateSeating={handleUpdateTableGuests} onDeleteTable={handleDeleteTable} /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/fotowall/:id"
+          element={user ? <FotoWallConfigScreen invitations={invitations} /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/fotowall-player/:id"
+          element={<FotoWallPlayerScreen invitations={invitations} />}
         />
         <Route
           path="/location/:id"
