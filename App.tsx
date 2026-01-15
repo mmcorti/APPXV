@@ -236,6 +236,25 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateTable = async (eventId: string, tableId: string, name: string, capacity: number) => {
+    // OPTIMISTIC UPDATE
+    setInvitations(prev => prev.map(inv => {
+      if (inv.id !== eventId) return inv;
+      const updatedTables = (inv.tables || []).map(t =>
+        t.id === tableId ? { ...t, name, capacity } : t
+      );
+      return { ...inv, tables: updatedTables };
+    }));
+
+    try {
+      await notionService.updateTable(tableId, name, capacity);
+      await refreshEventData(eventId);
+    } catch (e) {
+      console.error("Table update failed:", e);
+      refreshEventData(eventId);
+    }
+  };
+
   const handleUpdateTableGuests = async (eventId: string, tableId: string, assignments: { guestId: string | number, companionId?: string, companionIndex: number, companionName: string }[]) => {
     // OPTIMISTIC UPDATE
     setInvitations(prev => prev.map(inv => {
@@ -398,7 +417,7 @@ const App: React.FC = () => {
         />
         <Route
           path="/tables/:id"
-          element={user ? <TablesScreen invitations={invitations} onAddTable={handleAddTable} onUpdateSeating={handleUpdateTableGuests} onDeleteTable={handleDeleteTable} /> : <Navigate to="/login" />}
+          element={user ? <TablesScreen invitations={invitations} onAddTable={handleAddTable} onUpdateTable={handleUpdateTable} onUpdateSeating={handleUpdateTableGuests} onDeleteTable={handleDeleteTable} /> : <Navigate to="/login" />}
         />
         <Route
           path="/fotowall/:id"

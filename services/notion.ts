@@ -98,6 +98,16 @@ export const notionService = {
         return await res.json();
     },
 
+    async updateTable(tableId: string, name: string, capacity: number) {
+        const res = await fetch(`${API_URL}/tables/${tableId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, capacity })
+        });
+        if (!res.ok) throw new Error('Failed to update table');
+        return await res.json();
+    },
+
     async updateTableGuests(tableId: string, assignments: { guestId: string | number, companionId?: string, companionIndex: number, companionName: string }[]) {
         const res = await fetch(`${API_URL}/tables/${tableId}/guests`, {
             method: 'PATCH',
