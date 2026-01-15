@@ -44,6 +44,7 @@ export interface Table {
   id: string;
   name: string;
   capacity: number;
+  order?: number;
   guests: SeatedGuest[];
 }
 

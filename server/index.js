@@ -428,9 +428,13 @@ app.get('/api/tables', async (req, res) => {
                 id: page.id,
                 name: getText(findProp(page.properties, KNOWN_PROPERTIES.TABLES.Name)),
                 capacity: findProp(page.properties, KNOWN_PROPERTIES.TABLES.Capacity)?.number || 0,
+                order: findProp(page.properties, KNOWN_PROPERTIES.TABLES.Order)?.number ?? 999,
                 guests: parsedGuests
             };
         });
+
+        // Sort tables by order before sending
+        tables.sort((a, b) => a.order - b.order);
         res.json(tables);
     } catch (error) {
         console.error("Error fetching tables:", error);
@@ -533,11 +537,11 @@ app.patch('/api/tables/:id/guests', async (req, res) => {
 app.put('/api/tables/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, capacity } = req.body;
+        const { name, capacity, order } = req.body;
         await schema.init();
 
         console.log(`\n=== PUT /api/tables/${id} ===`);
-        console.log("Update data:", { name, capacity });
+        console.log("Update data:", { name, capacity, order });
 
         const properties = {};
         const setProp = (key, value) => {
@@ -549,6 +553,7 @@ app.put('/api/tables/:id', async (req, res) => {
 
         if (name) setProp('Name', { title: [{ text: { content: name } }] });
         if (capacity !== undefined) setProp('Capacity', { number: Number(capacity) });
+        if (order !== undefined) setProp('Order', { number: Number(order) });
 
         const result = await notionClient.pages.update({ page_id: id, properties });
         console.log("✅ Table updated successfully");
@@ -556,6 +561,40 @@ app.put('/api/tables/:id', async (req, res) => {
         res.json({ success: true, updated: result.id });
     } catch (error) {
         console.error("❌ Error updating table:", error.body || error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Batch update table orders
+app.patch('/api/tables/reorder', async (req, res) => {
+    try {
+        const { orders } = req.body; // Array of { tableId, order }
+        await schema.init();
+
+        console.log(`\n=== PATCH /api/tables/reorder ===`);
+        console.log("Orders to update:", orders);
+
+        const orderPropName = schema.get('TABLES', 'Order');
+        if (!orderPropName) {
+            // Property doesn't exist yet, just return success
+            console.log("Order property not found in schema, skipping order update");
+            return res.json({ success: true, message: "Order property not found" });
+        }
+
+        // Update each table's order
+        for (const { tableId, order } of orders) {
+            await notionClient.pages.update({
+                page_id: tableId,
+                properties: {
+                    [orderPropName]: { number: order }
+                }
+            });
+        }
+
+        console.log("✅ Table orders updated successfully");
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Error updating table orders:", error.body || error.message);
         res.status(500).json({ error: error.message });
     }
 });
