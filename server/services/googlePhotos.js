@@ -33,43 +33,50 @@ export const googlePhotosService = {
             const finalUrl = await googlePhotosService.resolveUrl(albumUrl);
             console.log(`🔗 Resolved URL: ${finalUrl}`);
 
-            const response = await fetch(finalUrl);
+            const response = await fetch(finalUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+            });
             if (!response.ok) throw new Error(`Failed to fetch album: ${response.status}`);
 
             const html = await response.text();
 
-            // Regex to find image URLs in the specific Google Photos structure
-            // We look for patterns like: ["https://lh3.googleusercontent.com/...", width, height]
-            // This is a common heuristic for their packed JSON data.
-            const regex = /\["(https:\/\/lh3\.googleusercontent\.com\/[^"]+)",\s*(\d+),\s*(\d+)\]/g;
+            // Robust scraping: find all lh3.googleusercontent.com URLs
+            const regex = /https:\/\/lh3\.googleusercontent\.com\/[^"'\s\)]+/g;
 
             const photos = [];
-            let match;
             const seen = new Set();
+            let match;
 
             while ((match = regex.exec(html)) !== null) {
-                const url = match[1];
-                const width = parseInt(match[2]);
-                const height = parseInt(match[3]);
+                const url = match[0];
 
-                // Filter out small icons/thumbnails if possible (arbitrary threshold like 100px)
-                if (width > 100 && !seen.has(url)) {
-                    seen.add(url);
-                    photos.push({
-                        url: url,
-                        width: width,
-                        height: height,
-                        // Add base params to ensure high quality
-                        src: `${url}=w${Math.min(width, 1920)}-h${Math.min(height, 1080)}-no`
-                    });
-                }
+                // Filter out likely non-photo resources (avatars, small icons which often have /a/ or are very short)
+                if (url.includes('/a/') || url.length < 50) continue;
+
+                // Remove parameters to get base URL
+                const baseUrl = url.split('=')[0];
+
+                if (seen.has(baseUrl)) continue;
+                seen.add(baseUrl);
+
+                // Construct high-quality URL
+                // Using w1920-h1080-no for Full HD by default
+                const src = `${baseUrl}=w1920-h1080-no`;
+
+                photos.push({
+                    id: baseUrl,
+                    src: src,
+                    width: 1920, // Placeholder
+                    height: 1080 // Placeholder
+                });
             }
 
-            // Deduplicate logic often needed because same URL appears multiple times in different contexts
             console.log(`📸 Extracted ${photos.length} photos`);
 
             if (photos.length === 0) {
-                console.warn("⚠️ No photos found. Google structure might have changed or album is empty.");
+                console.warn("⚠️ No photos found with new robust regex.");
             }
 
             return photos;
