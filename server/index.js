@@ -543,6 +543,8 @@ app.delete('/api/tables/:id', async (req, res) => {
 app.post('/api/fotowall/validate', async (req, res) => {
     try {
         const { url } = req.body;
+        console.log(`[FOTOWALL] Validate request for: ${url}`);
+
         if (!url) return res.status(400).json({ valid: false, message: "URL requerida" });
 
         // Basic check
@@ -551,13 +553,16 @@ app.post('/api/fotowall/validate', async (req, res) => {
 
         // Try to fetch to see if it exists
         const photos = await googlePhotosService.getAlbumPhotos(url);
+        console.log(`[FOTOWALL] Photos found: ${photos.length}`);
+
         if (photos.length > 0) {
             res.json({ valid: true, count: photos.length, preview: photos[0].src });
         } else {
             res.json({ valid: false, message: "Álbum vacío o inaccesible" });
         }
     } catch (error) {
-        res.status(500).json({ valid: false, message: error.message });
+        console.error(`[FOTOWALL] Validate error:`, error.message);
+        res.status(500).json({ valid: false, message: `Error: ${error.message}` });
     }
 });
 
