@@ -3,6 +3,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { InvitationData } from '../types';
 
+// Use the same API URL pattern as the rest of the app
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
+
 interface FotoWallPlayerProps {
   invitations: InvitationData[];
 }
@@ -28,7 +31,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
   const loadPhotos = useCallback(async () => {
     if (!initialUrl) return;
     try {
-      const res = await fetch('/api/fotowall/album', {
+      const res = await fetch(`${API_URL}/fotowall/album`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: initialUrl })
