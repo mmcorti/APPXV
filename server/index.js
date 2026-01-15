@@ -8,6 +8,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { notion as notionClient, DS, DB } from './notion.js';
 import { schema, KNOWN_PROPERTIES } from './schema_manager.js';
+import { googlePhotosService } from './services/googlePhotos.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -537,6 +538,41 @@ app.delete('/api/tables/:id', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+// --- FOTOWALL ---
+app.post('/api/fotowall/validate', async (req, res) => {
+    try {
+        const { url } = req.body;
+        if (!url) return res.status(400).json({ valid: false, message: "URL requerida" });
+
+        // Basic check
+        const isValid = url.includes('photos.app.goo.gl') || url.includes('photos.google.com');
+        if (!isValid) return res.json({ valid: false, message: "No es un link de Google Photos" });
+
+        // Try to fetch to see if it exists
+        const photos = await googlePhotosService.getAlbumPhotos(url);
+        if (photos.length > 0) {
+            res.json({ valid: true, count: photos.length, preview: photos[0].src });
+        } else {
+            res.json({ valid: false, message: "Álbum vacío o inaccesible" });
+        }
+    } catch (error) {
+        res.status(500).json({ valid: false, message: error.message });
+    }
+});
+
+app.post('/api/fotowall/album', async (req, res) => {
+    try {
+        const { url } = req.body;
+        if (!url) return res.status(400).json({ error: "URL requerida" });
+
+        const photos = await googlePhotosService.getAlbumPhotos(url);
+        res.json(photos);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 
 // Catch-all for frontend
 app.get(/.*/, (req, res) => {
