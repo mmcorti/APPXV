@@ -530,6 +530,36 @@ app.patch('/api/tables/:id/guests', async (req, res) => {
 });
 
 
+app.put('/api/tables/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, capacity } = req.body;
+        await schema.init();
+
+        console.log(`\n=== PUT /api/tables/${id} ===`);
+        console.log("Update data:", { name, capacity });
+
+        const properties = {};
+        const setProp = (key, value) => {
+            const propName = schema.get('TABLES', key);
+            if (propName) {
+                properties[propName] = value;
+            }
+        };
+
+        if (name) setProp('Name', { title: [{ text: { content: name } }] });
+        if (capacity !== undefined) setProp('Capacity', { number: Number(capacity) });
+
+        const result = await notionClient.pages.update({ page_id: id, properties });
+        console.log("✅ Table updated successfully");
+
+        res.json({ success: true, updated: result.id });
+    } catch (error) {
+        console.error("❌ Error updating table:", error.body || error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.delete('/api/tables/:id', async (req, res) => {
     try {
         await notionClient.pages.update({ page_id: req.params.id, archived: true });

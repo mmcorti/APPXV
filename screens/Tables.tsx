@@ -6,11 +6,12 @@ import { InvitationData, Table, SeatedGuest, Guest } from '../types';
 interface TablesScreenProps {
   invitations: InvitationData[];
   onAddTable: (eventId: string, name: string, capacity: number) => void;
+  onUpdateTable: (eventId: string, tableId: string, name: string, capacity: number) => void;
   onUpdateSeating: (eventId: string, tableId: string, assignments: { guestId: string | number, companionId?: string, companionIndex: number, companionName: string }[]) => void;
   onDeleteTable: (eventId: string, tableId: string) => void;
 }
 
-const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, onUpdateSeating, onDeleteTable }) => {
+const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, onUpdateTable, onUpdateSeating, onDeleteTable }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const invitation = invitations.find(inv => inv.id === id);
@@ -21,9 +22,64 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
   const [showAssignModal, setShowAssignModal] = useState<string | null>(null); // Table ID
   const [searchQuery, setSearchQuery] = useState(''); // Search filter for guest list
 
+  // Edit Modal State
+  const [showEditModal, setShowEditModal] = useState<string | null>(null); // Table ID being edited
+  const [editTableName, setEditTableName] = useState('');
+  const [editTableCapacity, setEditTableCapacity] = useState(10);
+
+  // Local table order (for reordering without backend persistence)
+  const [tableOrder, setTableOrder] = useState<string[]>([]);
+
   if (!invitation) return <div className="p-10 text-center font-bold">Evento no encontrado</div>;
 
   const tables = invitation.tables || [];
+
+  // Sorted tables based on local order (or original order if not set)
+  const sortedTables = useMemo(() => {
+    if (tableOrder.length === 0) return tables;
+    return [...tables].sort((a, b) => {
+      const aIdx = tableOrder.indexOf(a.id);
+      const bIdx = tableOrder.indexOf(b.id);
+      if (aIdx === -1 && bIdx === -1) return 0;
+      if (aIdx === -1) return 1;
+      if (bIdx === -1) return -1;
+      return aIdx - bIdx;
+    });
+  }, [tables, tableOrder]);
+
+  // Initialize table order when tables change
+  React.useEffect(() => {
+    if (tables.length > 0 && tableOrder.length === 0) {
+      setTableOrder(tables.map(t => t.id));
+    }
+  }, [tables]);
+
+  const openEditModal = (table: Table) => {
+    setEditTableName(table.name);
+    setEditTableCapacity(table.capacity);
+    setShowEditModal(table.id);
+  };
+
+  const handleEditTable = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!showEditModal || !editTableName.trim()) return;
+    onUpdateTable(invitation.id, showEditModal, editTableName, editTableCapacity);
+    setShowEditModal(null);
+  };
+
+  const moveTable = (tableId: string, direction: 'up' | 'down') => {
+    const currentOrder = tableOrder.length > 0 ? [...tableOrder] : tables.map(t => t.id);
+    const idx = currentOrder.indexOf(tableId);
+    if (idx === -1) return;
+
+    if (direction === 'up' && idx > 0) {
+      [currentOrder[idx], currentOrder[idx - 1]] = [currentOrder[idx - 1], currentOrder[idx]];
+    } else if (direction === 'down' && idx < currentOrder.length - 1) {
+      [currentOrder[idx], currentOrder[idx + 1]] = [currentOrder[idx + 1], currentOrder[idx]];
+    }
+    setTableOrder(currentOrder);
+  };
+
 
   // Lista de invitados disponibles (no declinados y que no estén ya sentados)
   const availablePool = useMemo(() => {
@@ -234,8 +290,8 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
 
         {/* Mesa Grid */}
         <div className="space-y-4">
-          {tables.length > 0 ? (
-            tables.map(table => (
+          {sortedTables.length > 0 ? (
+            sortedTables.map((table, tableIdx) => (
               <div key={table.id} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
                 <div className="p-4 border-b border-slate-50 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/30">
                   <div>
@@ -243,6 +299,24 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
                     <p className="text-[10px] text-slate-400 font-bold uppercase">Capacidad: {table.guests.length}/{table.capacity}</p>
                   </div>
                   <div className="flex gap-1">
+                    {/* Reorder buttons */}
+                    <button
+                      onClick={() => moveTable(table.id, 'up')}
+                      disabled={tableIdx === 0}
+                      className={`p-2 rounded-xl ${tableIdx === 0 ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                    >
+                      <span className="material-symbols-outlined text-lg">arrow_upward</span>
+                    </button>
+                    <button
+                      onClick={() => moveTable(table.id, 'down')}
+                      disabled={tableIdx === sortedTables.length - 1}
+                      className={`p-2 rounded-xl ${tableIdx === sortedTables.length - 1 ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                    >
+                      <span className="material-symbols-outlined text-lg">arrow_downward</span>
+                    </button>
+                    <div className="w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
+                    {/* Edit button */}
+                    <button onClick={() => openEditModal(table)} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl"><span className="material-symbols-outlined text-lg">edit</span></button>
                     <button onClick={() => setShowAssignModal(table.id)} className="p-2 text-primary bg-primary/5 rounded-xl"><span className="material-symbols-outlined text-lg">person_add</span></button>
                     <button onClick={() => handleRemoveTable(table.id)} className="p-2 text-slate-300 hover:text-red-500"><span className="material-symbols-outlined text-lg">delete</span></button>
                   </div>
@@ -304,6 +378,33 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
                 </div>
               </div>
               <button type="submit" className="w-full h-14 bg-primary text-white font-bold rounded-2xl shadow-lg">Crear Mesa</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Editar Mesa */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl p-6 shadow-2xl animate-in zoom-in duration-200 space-y-5">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold">Editar Mesa</h3>
+              <button onClick={() => setShowEditModal(null)}><span className="material-symbols-outlined">close</span></button>
+            </div>
+            <form onSubmit={handleEditTable} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre o Número</label>
+                <input required autoFocus value={editTableName} onChange={e => setEditTableName(e.target.value)} className="w-full rounded-2xl border-slate-200 dark:border-slate-700 dark:bg-slate-900 p-4" placeholder="Ej: Mesa 1, Mesa de Amigos..." />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Capacidad Máxima</label>
+                <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-900 p-2 rounded-2xl border border-slate-100 dark:border-slate-700">
+                  <button type="button" onClick={() => setEditTableCapacity(Math.max(1, editTableCapacity - 1))} className="size-10 bg-white dark:bg-slate-800 rounded-xl shadow-sm flex items-center justify-center">-</button>
+                  <span className="flex-1 text-center font-black text-lg">{editTableCapacity}</span>
+                  <button type="button" onClick={() => setEditTableCapacity(editTableCapacity + 1)} className="size-10 bg-primary text-white rounded-xl shadow-lg flex items-center justify-center">+</button>
+                </div>
+              </div>
+              <button type="submit" className="w-full h-14 bg-blue-500 text-white font-bold rounded-2xl shadow-lg">Guardar Cambios</button>
             </form>
           </div>
         </div>
