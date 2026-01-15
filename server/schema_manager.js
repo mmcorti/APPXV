@@ -32,6 +32,7 @@ const KNOWN_PROPERTIES = {
     TABLES: {
         Name: ["Name", "Nombre", "Mesa"],
         Capacity: ["Capacity", "Capacidad"],
+        Order: ["Order", "Orden", "Posición", "Position"],
         Guests: ["Guests", "Invitados"],
         Assignments: ["Assignments", "Asignaciones", "Detalle", "Json"],
         Event: ["Event", "Evento"]

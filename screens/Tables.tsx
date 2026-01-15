@@ -7,11 +7,12 @@ interface TablesScreenProps {
   invitations: InvitationData[];
   onAddTable: (eventId: string, name: string, capacity: number) => void;
   onUpdateTable: (eventId: string, tableId: string, name: string, capacity: number) => void;
+  onReorderTables: (eventId: string, orderedTableIds: string[]) => void;
   onUpdateSeating: (eventId: string, tableId: string, assignments: { guestId: string | number, companionId?: string, companionIndex: number, companionName: string }[]) => void;
   onDeleteTable: (eventId: string, tableId: string) => void;
 }
 
-const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, onUpdateTable, onUpdateSeating, onDeleteTable }) => {
+const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, onUpdateTable, onReorderTables, onUpdateSeating, onDeleteTable }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const invitation = invitations.find(inv => inv.id === id);
@@ -27,32 +28,13 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
   const [editTableName, setEditTableName] = useState('');
   const [editTableCapacity, setEditTableCapacity] = useState(10);
 
-  // Local table order (for reordering without backend persistence)
-  const [tableOrder, setTableOrder] = useState<string[]>([]);
+
+  // Drag and drop state
+  const [draggedId, setDraggedId] = useState<string | null>(null);
 
   if (!invitation) return <div className="p-10 text-center font-bold">Evento no encontrado</div>;
 
   const tables = invitation.tables || [];
-
-  // Sorted tables based on local order (or original order if not set)
-  const sortedTables = useMemo(() => {
-    if (tableOrder.length === 0) return tables;
-    return [...tables].sort((a, b) => {
-      const aIdx = tableOrder.indexOf(a.id);
-      const bIdx = tableOrder.indexOf(b.id);
-      if (aIdx === -1 && bIdx === -1) return 0;
-      if (aIdx === -1) return 1;
-      if (bIdx === -1) return -1;
-      return aIdx - bIdx;
-    });
-  }, [tables, tableOrder]);
-
-  // Initialize table order when tables change
-  React.useEffect(() => {
-    if (tables.length > 0 && tableOrder.length === 0) {
-      setTableOrder(tables.map(t => t.id));
-    }
-  }, [tables]);
 
   const openEditModal = (table: Table) => {
     setEditTableName(table.name);
@@ -67,17 +49,45 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
     setShowEditModal(null);
   };
 
-  const moveTable = (tableId: string, direction: 'up' | 'down') => {
-    const currentOrder = tableOrder.length > 0 ? [...tableOrder] : tables.map(t => t.id);
-    const idx = currentOrder.indexOf(tableId);
-    if (idx === -1) return;
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, tableId: string) => {
+    setDraggedId(tableId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', tableId);
+  };
 
-    if (direction === 'up' && idx > 0) {
-      [currentOrder[idx], currentOrder[idx - 1]] = [currentOrder[idx - 1], currentOrder[idx]];
-    } else if (direction === 'down' && idx < currentOrder.length - 1) {
-      [currentOrder[idx], currentOrder[idx + 1]] = [currentOrder[idx + 1], currentOrder[idx]];
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetTableId: string) => {
+    e.preventDefault();
+    if (!draggedId || draggedId === targetTableId) {
+      setDraggedId(null);
+      return;
     }
-    setTableOrder(currentOrder);
+
+    const currentOrder = tables.map(t => t.id);
+    const draggedIdx = currentOrder.indexOf(draggedId);
+    const targetIdx = currentOrder.indexOf(targetTableId);
+
+    if (draggedIdx === -1 || targetIdx === -1) {
+      setDraggedId(null);
+      return;
+    }
+
+    // Reorder array
+    currentOrder.splice(draggedIdx, 1);
+    currentOrder.splice(targetIdx, 0, draggedId);
+
+    // Call parent to persist order
+    onReorderTables(invitation.id, currentOrder);
+    setDraggedId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
   };
 
 
@@ -290,31 +300,29 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
 
         {/* Mesa Grid */}
         <div className="space-y-4">
-          {sortedTables.length > 0 ? (
-            sortedTables.map((table, tableIdx) => (
-              <div key={table.id} className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
+          {tables.length > 0 ? (
+            tables.map((table) => (
+              <div
+                key={table.id}
+                draggable
+                onDragStart={(e) => handleDragStart(e, table.id)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, table.id)}
+                onDragEnd={handleDragEnd}
+                className={`bg-white dark:bg-slate-800 rounded-3xl border shadow-sm overflow-hidden transition-all cursor-grab active:cursor-grabbing ${draggedId === table.id
+                    ? 'border-primary shadow-lg scale-[1.02] opacity-75'
+                    : 'border-slate-100 dark:border-slate-700'
+                  }`}
+              >
                 <div className="p-4 border-b border-slate-50 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/30">
-                  <div>
-                    <h3 className="font-bold text-sm">{table.name}</h3>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase">Capacidad: {table.guests.length}/{table.capacity}</p>
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-slate-300 cursor-grab">drag_indicator</span>
+                    <div>
+                      <h3 className="font-bold text-sm">{table.name}</h3>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">Capacidad: {table.guests.length}/{table.capacity}</p>
+                    </div>
                   </div>
                   <div className="flex gap-1">
-                    {/* Reorder buttons */}
-                    <button
-                      onClick={() => moveTable(table.id, 'up')}
-                      disabled={tableIdx === 0}
-                      className={`p-2 rounded-xl ${tableIdx === 0 ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
-                    >
-                      <span className="material-symbols-outlined text-lg">arrow_upward</span>
-                    </button>
-                    <button
-                      onClick={() => moveTable(table.id, 'down')}
-                      disabled={tableIdx === sortedTables.length - 1}
-                      className={`p-2 rounded-xl ${tableIdx === sortedTables.length - 1 ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
-                    >
-                      <span className="material-symbols-outlined text-lg">arrow_downward</span>
-                    </button>
-                    <div className="w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
                     {/* Edit button */}
                     <button onClick={() => openEditModal(table)} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl"><span className="material-symbols-outlined text-lg">edit</span></button>
                     <button onClick={() => setShowAssignModal(table.id)} className="p-2 text-primary bg-primary/5 rounded-xl"><span className="material-symbols-outlined text-lg">person_add</span></button>

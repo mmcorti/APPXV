@@ -108,6 +108,16 @@ export const notionService = {
         return await res.json();
     },
 
+    async reorderTables(orders: { tableId: string, order: number }[]) {
+        const res = await fetch(`${API_URL}/tables/reorder`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orders })
+        });
+        if (!res.ok) throw new Error('Failed to reorder tables');
+        return await res.json();
+    },
+
     async updateTableGuests(tableId: string, assignments: { guestId: string | number, companionId?: string, companionIndex: number, companionName: string }[]) {
         const res = await fetch(`${API_URL}/tables/${tableId}/guests`, {
             method: 'PATCH',

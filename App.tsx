@@ -294,6 +294,26 @@ const App: React.FC = () => {
     }
   };
 
+  const handleReorderTables = async (eventId: string, orderedTableIds: string[]) => {
+    // OPTIMISTIC UPDATE
+    setInvitations(prev => prev.map(inv => {
+      if (inv.id !== eventId) return inv;
+      const reorderedTables = orderedTableIds
+        .map(id => inv.tables?.find(t => t.id === id))
+        .filter(Boolean) as Table[];
+      return { ...inv, tables: reorderedTables };
+    }));
+
+    try {
+      const orders = orderedTableIds.map((tableId, index) => ({ tableId, order: index }));
+      await notionService.reorderTables(orders);
+      await refreshEventData(eventId);
+    } catch (e) {
+      console.error("Table reorder failed:", e);
+      refreshEventData(eventId);
+    }
+  };
+
   const addInvitation = async (data: InvitationData): Promise<InvitationData> => {
     try {
       // Remove the temporary ID so saving treats it as a new creation (POST)
@@ -417,7 +437,7 @@ const App: React.FC = () => {
         />
         <Route
           path="/tables/:id"
-          element={user ? <TablesScreen invitations={invitations} onAddTable={handleAddTable} onUpdateTable={handleUpdateTable} onUpdateSeating={handleUpdateTableGuests} onDeleteTable={handleDeleteTable} /> : <Navigate to="/login" />}
+          element={user ? <TablesScreen invitations={invitations} onAddTable={handleAddTable} onUpdateTable={handleUpdateTable} onReorderTables={handleReorderTables} onUpdateSeating={handleUpdateTableGuests} onDeleteTable={handleDeleteTable} /> : <Navigate to="/login" />}
         />
         <Route
           path="/fotowall/:id"
