@@ -655,10 +655,20 @@ const moderationCache = new Map();
 
 app.post('/api/fotowall/album/moderated', async (req, res) => {
     try {
-        const { url } = req.body;
+        const { url, moderationSettings } = req.body;
         if (!url) return res.status(400).json({ error: "URL requerida" });
 
         console.log(`[FOTOWALL] Getting moderated album: ${url}`);
+        console.log(`[FOTOWALL] Moderation settings:`, moderationSettings);
+
+        // If moderation mode is 'off', just return all photos
+        if (moderationSettings?.mode === 'off') {
+            const photos = await googlePhotosService.getAlbumPhotos(url);
+            return res.json({
+                photos: photos.map(p => ({ ...p, moderation: { safe: true, mode: 'off' } })),
+                stats: { total: photos.length, safe: photos.length, blocked: 0, pending: 0 }
+            });
+        }
 
         // Get photos from album
         const photos = await googlePhotosService.getAlbumPhotos(url);
@@ -684,7 +694,8 @@ app.post('/api/fotowall/album/moderated', async (req, res) => {
         for (let i = 0; i < Math.min(newPhotosToAnalyze.length, batchSize); i++) {
             const photo = newPhotosToAnalyze[i];
             try {
-                const result = await moderationService.analyzeImage(photo.src);
+                // Pass moderation settings to analyze function
+                const result = await moderationService.analyzeImage(photo.src, moderationSettings);
                 cachedResults[photo.id] = result;
                 moderatedPhotos.push({ ...photo, moderation: result });
             } catch (error) {

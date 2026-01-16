@@ -13,6 +13,7 @@ import TablesScreen from './screens/Tables';
 import FotoWallConfigScreen from './screens/FotoWallConfig';
 import FotoWallPlayerScreen from './screens/FotoWallPlayer';
 import FotoWallAdminScreen from './screens/FotoWallAdmin';
+import FotoWallModerationSettingsScreen from './screens/FotoWallModerationSettings';
 import { InvitationData, User, Guest, Table, SeatedGuest } from './types';
 import { notionService } from './services/notion';
 
@@ -451,6 +452,10 @@ const App: React.FC = () => {
         <Route
           path="/fotowall-admin/:id"
           element={user ? <FotoWallAdminScreen /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/fotowall-moderation-settings/:id"
+          element={user ? <FotoWallModerationSettingsScreen /> : <Navigate to="/login" />}
         />
         <Route
           path="/location/:id"

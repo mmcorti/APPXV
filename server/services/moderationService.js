@@ -15,16 +15,33 @@ const OFFENSIVE_WORDS = [
 export const moderationService = {
     /**
      * Analyze an image for inappropriate content
+     * @param {string} imageUrl - URL of the image to analyze
+     * @param {object} settings - Filter settings from frontend
      * Returns: { safe: boolean, confidence: number, labels: string[], provider: string }
      */
-    analyzeImage: async (imageUrl) => {
+    analyzeImage: async (imageUrl, settings = null) => {
         console.log(`[Moderation] Analyzing image: ${imageUrl.substring(0, 80)}...`);
+        console.log(`[Moderation] Settings:`, settings);
+
+        // If mode is 'off', return safe immediately (no filtering)
+        if (settings?.mode === 'off') {
+            return { safe: true, confidence: 1.0, labels: [], provider: 'none', mode: 'off' };
+        }
+
+        // If mode is 'manual', return unsafe immediately (all blocked for manual review)
+        if (settings?.mode === 'manual') {
+            return { safe: false, confidence: 1.0, labels: ['manual_review'], provider: 'manual', mode: 'manual' };
+        }
+
+        // AI mode - use OpenAI or Google Vision
+        const filters = settings?.filters || {};
+        const confidenceThreshold = filters.confidenceThreshold || 70;
 
         // Try OpenAI first
         if (process.env.OPENAI_API_KEY) {
             try {
-                const result = await moderationService.analyzeWithOpenAI(imageUrl);
-                if (result) return { ...result, provider: 'openai' };
+                const result = await moderationService.analyzeWithOpenAI(imageUrl, filters, confidenceThreshold);
+                if (result) return { ...result, provider: 'openai', mode: 'ai' };
             } catch (error) {
                 console.warn(`[Moderation] OpenAI failed, trying fallback:`, error.message);
             }
@@ -33,28 +50,74 @@ export const moderationService = {
         // Fallback to Google Vision
         if (process.env.GOOGLE_VISION_API_KEY) {
             try {
-                const result = await moderationService.analyzeWithGoogleVision(imageUrl);
-                if (result) return { ...result, provider: 'google' };
+                const result = await moderationService.analyzeWithGoogleVision(imageUrl, filters);
+                if (result) return { ...result, provider: 'google', mode: 'ai' };
             } catch (error) {
                 console.warn(`[Moderation] Google Vision failed:`, error.message);
             }
         }
 
-        // If no API available, default to safe (or unsafe based on preference)
+        // If no API available, default to unsafe
         console.warn(`[Moderation] No moderation API available, defaulting to UNSAFE`);
         return {
             safe: false,
             confidence: 0,
             labels: ['no_api_configured'],
             provider: 'none',
+            mode: 'ai',
             error: 'No moderation API configured'
         };
     },
 
     /**
-     * OpenAI Vision Analysis
+     * OpenAI Vision Analysis with dynamic filters
      */
-    analyzeWithOpenAI: async (imageUrl) => {
+    analyzeWithOpenAI: async (imageUrl, filters = {}, confidenceThreshold = 70) => {
+        // Build dynamic prompt based on enabled filters
+        const unsafeRules = [];
+
+        if (filters.nudity !== false) {
+            unsafeRules.push('- Nudity, sexual content, or suggestive poses');
+        }
+        if (filters.violence !== false) {
+            unsafeRules.push('- Violence, blood, injuries, weapons');
+        }
+        if (filters.drugs !== false) {
+            unsafeRules.push('- Drugs, alcohol bottles/cans prominently displayed');
+        }
+        if (filters.hateSymbols !== false) {
+            unsafeRules.push('- Hate symbols, discriminatory or extremist content');
+        }
+        if (filters.offensiveLanguage !== false) {
+            unsafeRules.push('- Offensive gestures (middle finger, etc.)');
+            unsafeRules.push('- Memes or text with offensive language, insults, or slurs');
+        }
+        if (filters.hateSpeech !== false) {
+            unsafeRules.push('- Hate speech, discriminatory, or threatening text');
+        }
+        if (filters.personalData !== false) {
+            unsafeRules.push('- Visible personal data: phone numbers, addresses, IDs, credit cards');
+        }
+
+        // Default rules always applied
+        unsafeRules.push('- Disturbing or inappropriate content');
+        unsafeRules.push('- Content not suitable for all ages at a family event');
+
+        const systemPrompt = `You are a content moderation system for a party photo slideshow.
+Analyze images and respond ONLY with a JSON object, no other text.
+
+Flag as UNSAFE if the image contains:
+${unsafeRules.join('\n')}
+
+Flag as SAFE if the image is:
+- Normal party/event photos (people smiling, dancing, eating)
+- Decorations, venue, food, cake
+- Group photos, selfies
+- Appropriate content for all audiences
+
+Response format:
+{"safe": true/false, "confidence": 0.0-1.0, "labels": ["label1", "label2"]}`;
+
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -64,30 +127,7 @@ export const moderationService = {
             body: JSON.stringify({
                 model: 'gpt-4o-mini',
                 messages: [
-                    {
-                        role: 'system',
-                        content: `You are a content moderation system for a party photo slideshow. 
-Analyze images and respond ONLY with a JSON object, no other text.
-
-Flag as UNSAFE if the image contains:
-- Nudity, sexual content, or suggestive poses
-- Violence, blood, injuries, weapons
-- Drugs, alcohol bottles/cans prominently displayed
-- Offensive gestures (middle finger, etc.)
-- Disturbing or inappropriate content
-- Memes with offensive text
-- Screenshots with inappropriate content
-- Content not suitable for all ages at a family event
-
-Flag as SAFE if the image is:
-- Normal party/event photos (people smiling, dancing, eating)
-- Decorations, venue, food, cake
-- Group photos, selfies
-- Appropriate content for all audiences
-
-Response format:
-{"safe": true/false, "confidence": 0.0-1.0, "labels": ["label1", "label2"]}`
-                    },
+                    { role: 'system', content: systemPrompt },
                     {
                         role: 'user',
                         content: [
