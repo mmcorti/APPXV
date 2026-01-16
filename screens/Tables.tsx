@@ -90,6 +90,23 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
     setDraggedId(null);
   };
 
+  // Move table with arrow buttons
+  const moveTable = (tableId: string, direction: 'up' | 'down') => {
+    const currentOrder = tables.map(t => t.id);
+    const idx = currentOrder.indexOf(tableId);
+    if (idx === -1) return;
+
+    if (direction === 'up' && idx > 0) {
+      [currentOrder[idx], currentOrder[idx - 1]] = [currentOrder[idx - 1], currentOrder[idx]];
+    } else if (direction === 'down' && idx < currentOrder.length - 1) {
+      [currentOrder[idx], currentOrder[idx + 1]] = [currentOrder[idx + 1], currentOrder[idx]];
+    } else {
+      return; // No change needed
+    }
+
+    onReorderTables(invitation.id, currentOrder);
+  };
+
 
   // Lista de invitados disponibles (no declinados y que no estén ya sentados)
   const availablePool = useMemo(() => {
@@ -310,8 +327,8 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
                 onDrop={(e) => handleDrop(e, table.id)}
                 onDragEnd={handleDragEnd}
                 className={`bg-white dark:bg-slate-800 rounded-3xl border shadow-sm overflow-hidden transition-all cursor-grab active:cursor-grabbing ${draggedId === table.id
-                    ? 'border-primary shadow-lg scale-[1.02] opacity-75'
-                    : 'border-slate-100 dark:border-slate-700'
+                  ? 'border-primary shadow-lg scale-[1.02] opacity-75'
+                  : 'border-slate-100 dark:border-slate-700'
                   }`}
               >
                 <div className="p-4 border-b border-slate-50 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/30">
@@ -323,6 +340,22 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
                     </div>
                   </div>
                   <div className="flex gap-1">
+                    {/* Reorder buttons */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); moveTable(table.id, 'up'); }}
+                      disabled={tables.indexOf(table) === 0}
+                      className={`p-2 rounded-xl ${tables.indexOf(table) === 0 ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                    >
+                      <span className="material-symbols-outlined text-lg">arrow_upward</span>
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); moveTable(table.id, 'down'); }}
+                      disabled={tables.indexOf(table) === tables.length - 1}
+                      className={`p-2 rounded-xl ${tables.indexOf(table) === tables.length - 1 ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                    >
+                      <span className="material-symbols-outlined text-lg">arrow_downward</span>
+                    </button>
+                    <div className="w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
                     {/* Edit button */}
                     <button onClick={() => openEditModal(table)} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl"><span className="material-symbols-outlined text-lg">edit</span></button>
                     <button onClick={() => setShowAssignModal(table.id)} className="p-2 text-primary bg-primary/5 rounded-xl"><span className="material-symbols-outlined text-lg">person_add</span></button>
