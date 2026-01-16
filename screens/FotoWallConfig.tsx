@@ -19,6 +19,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
   const [interval, setInterval] = useState(5);
   const [shuffle, setShuffle] = useState(false);
   const [prioritizeNew, setPrioritizeNew] = useState(true);
+  const [moderationEnabled, setModerationEnabled] = useState(true);
 
   // Real Data State
   const [isValidating, setIsValidating] = useState(false);
@@ -218,6 +219,23 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                     <div className={`absolute top-1 size-5 bg-white rounded-full shadow-md transition-transform ${prioritizeNew ? 'left-6' : 'left-1'}`}></div>
                   </button>
                 </div>
+
+                {/* AI Moderation Toggle */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700">
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold">Moderación IA</span>
+                      <span className="text-[8px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white px-1.5 py-0.5 rounded-full">AI</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400">Filtrar contenido inapropiado automáticamente</span>
+                  </div>
+                  <button
+                    onClick={() => setModerationEnabled(!moderationEnabled)}
+                    className={`w-12 h-7 rounded-full transition-colors relative ${moderationEnabled ? 'bg-gradient-to-r from-pink-500 to-purple-600' : 'bg-slate-200 dark:bg-slate-700'}`}
+                  >
+                    <div className={`absolute top-1 size-5 bg-white rounded-full shadow-md transition-transform ${moderationEnabled ? 'left-6' : 'left-1'}`}></div>
+                  </button>
+                </div>
               </div>
 
             </div>
@@ -269,12 +287,23 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
         </div>
 
         {/* Action Button */}
-        <div className="sticky bottom-0 p-6 bg-gradient-to-t from-background-light dark:from-background-dark via-background-light dark:via-background-dark to-transparent">
+        <div className="sticky bottom-0 p-6 bg-gradient-to-t from-background-light dark:from-background-dark via-background-light dark:via-background-dark to-transparent space-y-3">
+          {/* Admin Panel Link (only when moderation enabled and valid) */}
+          {moderationEnabled && linkStatus === 'valid' && (
+            <button
+              onClick={() => navigate(`/fotowall-admin/${id}`, { state: { url: albumUrl } })}
+              className="w-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold h-12 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            >
+              <span className="material-symbols-outlined text-xl">shield</span>
+              Panel de Moderación
+            </button>
+          )}
+
           <button
             onClick={() => navigate(`/fotowall-player/${id}`, {
               state: {
                 url: albumUrl,
-                config: { interval, shuffle, prioritizeNew }
+                config: { interval, shuffle, prioritizeNew, moderationEnabled }
               }
             })}
             disabled={linkStatus !== 'valid'}
