@@ -673,8 +673,8 @@ app.post('/api/fotowall/album/moderated', async (req, res) => {
         // Get photos from album
         const photos = await googlePhotosService.getAlbumPhotos(url);
 
-        // Check cache
-        const cacheKey = url;
+        // Include mode in cache key so switching modes doesn't return stale results
+        const cacheKey = `${url}_${moderationSettings?.mode || 'ai'}`;
         let cachedResults = moderationCache.get(cacheKey) || {};
 
         const moderatedPhotos = [];
