@@ -15,7 +15,32 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigate = useNavigate();
   const location = useLocation();
-  const { url: initialUrl, config } = location.state || {}; // Get URL passed from config
+
+  // Try to get config from localStorage first (new tab case), fallback to navigation state
+  const getPlayerConfig = () => {
+    const storageKey = `fotowall_player_${id}`;
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Error parsing saved player config:", e);
+      }
+    }
+    // Fallback to navigation state
+    const navState = location.state as any;
+    return {
+      url: navState?.url,
+      interval: navState?.config?.interval || 5,
+      shuffle: navState?.config?.shuffle || false,
+      prioritizeNew: navState?.config?.prioritizeNew || true,
+      moderationEnabled: navState?.config?.moderationEnabled ?? false
+    };
+  };
+
+  const playerConfig = getPlayerConfig();
+  const initialUrl = playerConfig.url;
+  const config = playerConfig;
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const event = invitations.find(i => i.id === id);
