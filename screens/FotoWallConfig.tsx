@@ -15,6 +15,9 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
   const { id } = useParams<{ id: string }>();
   const event = invitations.find(i => i.id === id);
 
+  // Storage key for this event's FotoWall config
+  const storageKey = `fotowall_config_${id}`;
+
   const [albumUrl, setAlbumUrl] = useState('');
   const [interval, setInterval] = useState(5);
   const [shuffle, setShuffle] = useState(false);
@@ -28,10 +31,43 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
   const [previewPhotos, setPreviewPhotos] = useState<any[]>([]);
   const [isPaused, setIsPaused] = useState(false);
 
-  // Check saved config on mount (if we persist it later, for now we just check URL if exists)
+  // Load saved config on mount
   useEffect(() => {
-    // If we had persistence we would load it here
-  }, []);
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        const config = JSON.parse(saved);
+        if (config.albumUrl) {
+          setAlbumUrl(config.albumUrl);
+          setLinkStatus('valid'); // Assume valid since it was saved before
+          // Auto-fetch photos
+          fetchPhotos(config.albumUrl);
+        }
+        if (config.interval) setInterval(config.interval);
+        if (config.shuffle !== undefined) setShuffle(config.shuffle);
+        if (config.prioritizeNew !== undefined) setPrioritizeNew(config.prioritizeNew);
+        if (config.moderationEnabled !== undefined) setModerationEnabled(config.moderationEnabled);
+      } catch (e) {
+        console.error("Error loading saved config:", e);
+      }
+    }
+    // Also save URL separately for admin panel access
+    const urlKey = `fotowall_url_${id}`;
+    const savedUrl = localStorage.getItem(urlKey);
+    if (savedUrl && !albumUrl) {
+      setAlbumUrl(savedUrl);
+    }
+  }, [id]);
+
+  // Save config whenever it changes
+  useEffect(() => {
+    if (albumUrl && linkStatus === 'valid') {
+      const config = { albumUrl, interval, shuffle, prioritizeNew, moderationEnabled };
+      localStorage.setItem(storageKey, JSON.stringify(config));
+      // Also save URL separately for admin panel
+      localStorage.setItem(`fotowall_url_${id}`, albumUrl);
+    }
+  }, [albumUrl, interval, shuffle, prioritizeNew, moderationEnabled, linkStatus, id]);
 
   if (!event) return null;
 
@@ -300,17 +336,19 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
           )}
 
           <button
-            onClick={() => navigate(`/fotowall-player/${id}`, {
-              state: {
-                url: albumUrl,
-                config: { interval, shuffle, prioritizeNew, moderationEnabled }
-              }
-            })}
+            onClick={() => {
+              // Save config to localStorage so player can read it
+              const playerConfig = { url: albumUrl, interval, shuffle, prioritizeNew, moderationEnabled };
+              localStorage.setItem(`fotowall_player_${id}`, JSON.stringify(playerConfig));
+              // Open player in new tab
+              window.open(`/#/fotowall-player/${id}`, '_blank');
+            }}
             disabled={linkStatus !== 'valid'}
             className={`w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold h-14 rounded-2xl shadow-xl shadow-pink-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 ${linkStatus !== 'valid' ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
           >
             <span className="material-symbols-outlined text-2xl">rocket_launch</span>
             Lanzar Pantalla Completa
+            <span className="material-symbols-outlined text-lg">open_in_new</span>
           </button>
         </div>
 
