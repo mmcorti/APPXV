@@ -24,28 +24,41 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showNewBadge, setShowNewBadge] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [moderationStats, setModerationStats] = useState<{ total: number, safe: number, blocked: number, pending: number } | null>(null);
 
   const intervalTime = (config?.interval || 5) * 1000;
+  const moderationEnabled = config?.moderationEnabled ?? false;
 
   // Fetch photos helper
   const loadPhotos = useCallback(async () => {
     if (!initialUrl) return;
     try {
-      const res = await fetch(`${API_URL}/fotowall/album`, {
+      // Use moderated endpoint if moderation is enabled
+      const endpoint = moderationEnabled
+        ? `${API_URL}/fotowall/album/moderated`
+        : `${API_URL}/fotowall/album`;
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: initialUrl })
       });
       const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
+
+      // Handle moderated response format
+      const photosArray = moderationEnabled ? data.photos : data;
+
+      if (moderationEnabled && data.stats) {
+        setModerationStats(data.stats);
+      }
+
+      if (Array.isArray(photosArray) && photosArray.length > 0) {
         setPhotos(prev => {
           // Naive "New Photo" detection: if length increased
-          if (data.length > prev.length && prev.length > 0) {
-            setShowNewBadge(true); // Will show on *next* cycle potentially
-            // If we want to jump to new photo immediately, logic would be complex with shuffle
-            // For now, just updating the list is enough, shuffle/cycle handles it
+          if (photosArray.length > prev.length && prev.length > 0) {
+            setShowNewBadge(true);
           }
-          return data;
+          return photosArray;
         });
       }
     } catch (e) {
@@ -53,7 +66,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
     } finally {
       setIsLoading(false);
     }
-  }, [initialUrl]);
+  }, [initialUrl, moderationEnabled]);
 
 
   // Initial load
