@@ -67,30 +67,32 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
     return { mode: 'ai', filters: {} }; // Default to AI mode
   };
 
-  const moderationSettings = getModerationSettings();
-  const moderationEnabled = moderationSettings.mode !== 'off';
-
   // Fetch photos helper
   const loadPhotos = useCallback(async () => {
     if (!initialUrl) return;
     try {
       // Always use moderated endpoint, it handles mode internally
       const endpoint = `${API_URL}/fotowall/album/moderated`;
+      const currentSettings = getModerationSettings();
+
+      console.log('[FotoWallPlayer] Loading photos with settings:', currentSettings);
 
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url: initialUrl,
-          moderationSettings: getModerationSettings()
+          moderationSettings: currentSettings
         })
       });
       const data = await res.json();
 
-      // Handle moderated response format
-      const photosArray = moderationEnabled ? data.photos : data;
+      console.log('[FotoWallPlayer] API Response:', data);
 
-      if (moderationEnabled && data.stats) {
+      // The moderated endpoint ALWAYS returns { photos: [], stats: {} }
+      const photosArray = data.photos || [];
+
+      if (data.stats) {
         setModerationStats(data.stats);
       }
 
@@ -108,7 +110,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
     } finally {
       setIsLoading(false);
     }
-  }, [initialUrl, moderationEnabled]);
+  }, [initialUrl, id]);
 
 
   // Initial load
