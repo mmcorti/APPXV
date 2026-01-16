@@ -256,20 +256,31 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                   </button>
                 </div>
 
-                {/* AI Moderation Toggle */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700">
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold">Moderación IA</span>
-                      <span className="text-[8px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white px-1.5 py-0.5 rounded-full">AI</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400">Filtrar contenido inapropiado automáticamente</span>
-                  </div>
+                {/* AI Moderation Settings */}
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
                   <button
-                    onClick={() => setModerationEnabled(!moderationEnabled)}
-                    className={`w-12 h-7 rounded-full transition-colors relative ${moderationEnabled ? 'bg-gradient-to-r from-pink-500 to-purple-600' : 'bg-slate-200 dark:bg-slate-700'}`}
+                    onClick={() => navigate(`/fotowall-moderation-settings/${id}`)}
+                    className="w-full flex items-center justify-between py-2 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl transition-colors -mx-2 px-2"
                   >
-                    <div className={`absolute top-1 size-5 bg-white rounded-full shadow-md transition-transform ${moderationEnabled ? 'left-6' : 'left-1'}`}></div>
+                    <div className="flex flex-col text-left">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold">Moderación de Contenido</span>
+                        <span className="text-[8px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white px-1.5 py-0.5 rounded-full">AI</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400">
+                        {(() => {
+                          const saved = localStorage.getItem(`fotowall_moderation_settings_${id}`);
+                          if (saved) {
+                            const parsed = JSON.parse(saved);
+                            if (parsed.mode === 'off') return 'Sin moderación';
+                            if (parsed.mode === 'manual') return 'Moderación manual';
+                            return 'Moderación IA activada';
+                          }
+                          return 'Configurar filtros';
+                        })()}
+                      </span>
+                    </div>
+                    <span className="material-symbols-outlined text-slate-400">chevron_right</span>
                   </button>
                 </div>
               </div>

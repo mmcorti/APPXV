@@ -52,21 +52,38 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
   const [moderationStats, setModerationStats] = useState<{ total: number, safe: number, blocked: number, pending: number } | null>(null);
 
   const intervalTime = (config?.interval || 5) * 1000;
-  const moderationEnabled = config?.moderationEnabled ?? false;
+
+  // Get moderation settings from localStorage
+  const getModerationSettings = () => {
+    const key = `fotowall_moderation_settings_${id}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return { mode: 'ai', filters: {} };
+      }
+    }
+    return { mode: 'ai', filters: {} }; // Default to AI mode
+  };
+
+  const moderationSettings = getModerationSettings();
+  const moderationEnabled = moderationSettings.mode !== 'off';
 
   // Fetch photos helper
   const loadPhotos = useCallback(async () => {
     if (!initialUrl) return;
     try {
-      // Use moderated endpoint if moderation is enabled
-      const endpoint = moderationEnabled
-        ? `${API_URL}/fotowall/album/moderated`
-        : `${API_URL}/fotowall/album`;
+      // Always use moderated endpoint, it handles mode internally
+      const endpoint = `${API_URL}/fotowall/album/moderated`;
 
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: initialUrl })
+        body: JSON.stringify({
+          url: initialUrl,
+          moderationSettings: getModerationSettings()
+        })
       });
       const data = await res.json();
 
