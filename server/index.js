@@ -782,18 +782,27 @@ app.post('/api/fotowall/approve', async (req, res) => {
         const { url, photoId } = req.body;
         if (!url || !photoId) return res.status(400).json({ error: "URL y photoId requeridos" });
 
-        const cachedResults = moderationCache.get(url) || {};
-        if (cachedResults[photoId]) {
-            cachedResults[photoId] = {
-                ...cachedResults[photoId],
-                safe: true,
-                manuallyApproved: true,
-                labels: [...(cachedResults[photoId].labels || []), 'manually_approved']
-            };
-            moderationCache.set(url, cachedResults);
+        // Update ALL cache keys for this URL (all modes)
+        const modes = ['ai', 'manual', 'off', ''];
+        let found = false;
+
+        for (const mode of modes) {
+            const cacheKey = mode ? `${url}_${mode}` : url;
+            const cachedResults = moderationCache.get(cacheKey);
+            if (cachedResults && cachedResults[photoId]) {
+                cachedResults[photoId] = {
+                    ...cachedResults[photoId],
+                    safe: true,
+                    manuallyApproved: true,
+                    labels: [...(cachedResults[photoId].labels || []).filter(l => l !== 'manual_review'), 'manually_approved']
+                };
+                moderationCache.set(cacheKey, cachedResults);
+                found = true;
+                console.log(`[FOTOWALL] Approved photo ${photoId} in cache key: ${cacheKey}`);
+            }
         }
 
-        res.json({ success: true });
+        res.json({ success: true, found });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

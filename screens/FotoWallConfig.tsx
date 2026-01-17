@@ -19,7 +19,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
   const storageKey = `fotowall_config_${id}`;
 
   const [albumUrl, setAlbumUrl] = useState('');
-  const [interval, setInterval] = useState(5);
+  const [intervalValue, setIntervalValue] = useState(5);
   const [shuffle, setShuffle] = useState(false);
   const [prioritizeNew, setPrioritizeNew] = useState(true);
   const [moderationEnabled, setModerationEnabled] = useState(true);
@@ -43,7 +43,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
           // Auto-fetch photos
           fetchPhotos(config.albumUrl);
         }
-        if (config.interval) setInterval(config.interval);
+        if (config.interval) setIntervalValue(config.interval);
         if (config.shuffle !== undefined) setShuffle(config.shuffle);
         if (config.prioritizeNew !== undefined) setPrioritizeNew(config.prioritizeNew);
         if (config.moderationEnabled !== undefined) setModerationEnabled(config.moderationEnabled);
@@ -62,12 +62,12 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
   // Save config whenever it changes
   useEffect(() => {
     if (albumUrl && linkStatus === 'valid') {
-      const config = { albumUrl, interval, shuffle, prioritizeNew, moderationEnabled };
+      const config = { albumUrl, interval: intervalValue, shuffle, prioritizeNew, moderationEnabled };
       localStorage.setItem(storageKey, JSON.stringify(config));
       // Also save URL separately for admin panel
       localStorage.setItem(`fotowall_url_${id}`, albumUrl);
     }
-  }, [albumUrl, interval, shuffle, prioritizeNew, moderationEnabled, linkStatus, id]);
+  }, [albumUrl, intervalValue, shuffle, prioritizeNew, moderationEnabled, linkStatus, id]);
 
   if (!event) return null;
 
@@ -214,7 +214,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-sm font-bold">Intervalo</label>
                   <span className="text-xs font-bold text-pink-500 bg-pink-50 dark:bg-pink-900/20 px-2 py-1 rounded-lg">
-                    {interval}s
+                    {intervalValue}s
                   </span>
                 </div>
                 <input
@@ -222,8 +222,8 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                   min="3"
                   max="30"
                   step="1"
-                  value={interval}
-                  onChange={(e) => setInterval(parseInt(e.target.value))}
+                  value={intervalValue}
+                  onChange={(e) => setIntervalValue(parseInt(e.target.value))}
                   className="w-full accent-pink-500 h-2 bg-slate-100 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
@@ -349,7 +349,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
           <button
             onClick={() => {
               // Save config to localStorage so player can read it
-              const playerConfig = { url: albumUrl, interval, shuffle, prioritizeNew, moderationEnabled };
+              const playerConfig = { url: albumUrl, interval: intervalValue, shuffle, prioritizeNew, moderationEnabled };
               localStorage.setItem(`fotowall_player_${id}`, JSON.stringify(playerConfig));
               // Open player in new tab
               window.open(`/#/fotowall-player/${id}`, '_blank');
