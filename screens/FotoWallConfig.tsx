@@ -62,6 +62,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
   const [isLoadingBlocked, setIsLoadingBlocked] = useState(false);
   const [showImages, setShowImages] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showQRModal, setShowQRModal] = useState(false);
 
   // Storage keys
   const configKey = `fotowall_config_${id}`;
@@ -217,7 +218,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
     icon: string;
   }) => {
     const isOn = filters[filterKey] as boolean;
-    const disabled = mode === 'off';
+    const disabled = mode === 'off' || mode === 'manual';
 
     return (
       <div className={`flex items-center justify-between py-3 ${disabled ? 'opacity-40' : ''}`}>
@@ -340,6 +341,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                   <button
                     onClick={() => validateLink(albumUrl)}
                     className="bg-pink-100 dark:bg-pink-900/30 text-pink-600 rounded-xl px-4"
+                    title="Validar link"
                   >
                     {isValidating ? (
                       <span className="material-symbols-outlined animate-spin">refresh</span>
@@ -352,6 +354,25 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                   <p className={`text-xs mt-2 ${linkStatus === 'valid' ? 'text-green-500' : 'text-red-500'}`}>
                     {statusMessage}
                   </p>
+                )}
+                {/* Quick action buttons */}
+                {linkStatus === 'valid' && albumUrl && (
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={() => window.open(albumUrl, '_blank')}
+                      className="flex-1 flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold py-2 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-sm">open_in_new</span>
+                      Abrir Álbum
+                    </button>
+                    <button
+                      onClick={() => setShowQRModal(true)}
+                      className="flex-1 flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold py-2 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-sm">qr_code_2</span>
+                      Código QR
+                    </button>
+                  </div>
                 )}
               </section>
 
@@ -620,6 +641,47 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
           </div>
         </div>
       </div>
+
+      {/* QR Code Modal */}
+      {showQRModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-6" onClick={() => setShowQRModal(false)}>
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Código QR del Álbum</h3>
+              <button
+                onClick={() => setShowQRModal(false)}
+                className="size-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl flex items-center justify-center">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(albumUrl)}`}
+                alt="QR Code"
+                className="w-full max-w-[250px]"
+              />
+            </div>
+
+            <p className="text-xs text-slate-500 text-center mt-4">
+              Escanea este código para acceder al álbum de fotos
+            </p>
+
+            <div className="flex gap-2 mt-4">
+              <a
+                href={`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(albumUrl)}`}
+                download="album-qr.png"
+                target="_blank"
+                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white text-sm font-bold py-3 rounded-xl"
+              >
+                <span className="material-symbols-outlined text-lg">download</span>
+                Descargar QR
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
