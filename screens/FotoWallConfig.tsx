@@ -48,6 +48,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
   const [albumUrl, setAlbumUrl] = useState('');
   const [intervalValue, setIntervalValue] = useState(5);
   const [shuffle, setShuffle] = useState(false);
+  const [overlayTitle, setOverlayTitle] = useState('');  // Custom overlay text for player
   const [isValidating, setIsValidating] = useState(false);
   const [linkStatus, setLinkStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
@@ -81,6 +82,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
         }
         if (config.interval) setIntervalValue(config.interval);
         if (config.shuffle !== undefined) setShuffle(config.shuffle);
+        if (config.overlayTitle) setOverlayTitle(config.overlayTitle);
       } catch (e) {
         console.error("Error loading config:", e);
       }
@@ -158,7 +160,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
   // Save all settings
   const handleSave = () => {
     // Save config
-    const config = { albumUrl, interval: intervalValue, shuffle };
+    const config = { albumUrl, interval: intervalValue, shuffle, overlayTitle };
     localStorage.setItem(configKey, JSON.stringify(config));
     localStorage.setItem(`fotowall_url_${id}`, albumUrl);
 
@@ -492,6 +494,21 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                   onChange={(e) => setIntervalValue(parseInt(e.target.value))}
                   className="w-full accent-pink-500"
                 />
+              </section>
+
+              {/* Overlay Title */}
+              <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-4">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Texto en Pantalla</h2>
+                <input
+                  type="text"
+                  value={overlayTitle}
+                  onChange={(e) => setOverlayTitle(e.target.value)}
+                  placeholder={event?.eventName || 'Fiesta'}
+                  className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-transparent rounded-xl px-4 py-3 text-sm focus:border-pink-500 transition-colors"
+                />
+                <p className="text-[10px] text-slate-400 mt-2">
+                  El nombre que aparece en la esquina inferior izquierda del player. Vacío usa el nombre del evento.
+                </p>
               </section>
             </div>
           ) : (
