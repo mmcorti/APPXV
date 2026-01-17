@@ -251,9 +251,11 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
     'hate_symbols': 'Símbolos de odio',
     'drugs': 'Drogas/Alcohol',
     'offensive': 'Contenido ofensivo',
-    'no_api_configured': '⚠️ API no configurada',
+    'no_api_configured': '⚠️ Falta API Key',
+    'api_error': '⚠️ Error de API',
     'pending': 'Pendiente',
-    'error': 'Error'
+    'error': 'Error',
+    'manually_approved': '✅ Aprobado'
   };
 
   if (!event) return null;
