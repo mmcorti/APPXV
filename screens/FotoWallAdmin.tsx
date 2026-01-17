@@ -21,13 +21,28 @@ const FotoWallAdminScreen: React.FC = () => {
     const [showImages, setShowImages] = useState(false); // Toggle to reveal images
     const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null); // For full preview modal
 
+    // Get current moderation mode from localStorage
+    const getCurrentMode = () => {
+        const key = `fotowall_moderation_settings_${id}`;
+        const saved = localStorage.getItem(key);
+        if (saved) {
+            try {
+                return JSON.parse(saved).mode || 'ai';
+            } catch (e) {
+                return 'ai';
+            }
+        }
+        return 'ai';
+    };
+
     const loadBlockedPhotos = async () => {
         if (!url) return;
         try {
+            const currentMode = getCurrentMode();
             const res = await fetch(`${API_URL}/fotowall/blocked`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url })
+                body: JSON.stringify({ url, mode: currentMode })
             });
             const data = await res.json();
             setBlockedPhotos(Array.isArray(data) ? data : []);
@@ -142,8 +157,8 @@ const FotoWallAdminScreen: React.FC = () => {
                                     <button
                                         onClick={() => setShowImages(!showImages)}
                                         className={`text-xs font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors ${showImages
-                                                ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                                                : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                                            ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                                            : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
                                             }`}
                                     >
                                         <span className="material-symbols-outlined text-base">
@@ -204,11 +219,39 @@ const FotoWallAdminScreen: React.FC = () => {
                                         {/* Labels */}
                                         <div className="p-3 space-y-2">
                                             <div className="flex flex-wrap gap-1">
-                                                {photo.moderation?.labels?.map((label: string, idx: number) => (
-                                                    <span key={idx} className="text-[8px] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded-full">
-                                                        {label}
-                                                    </span>
-                                                ))}
+                                                {photo.moderation?.labels?.map((label: string, idx: number) => {
+                                                    // Translate labels to user-friendly Spanish
+                                                    const labelMap: Record<string, string> = {
+                                                        'manual_review': 'Revisión manual',
+                                                        'nudity': 'Desnudez',
+                                                        'suggestive': 'Contenido sugerente',
+                                                        'violence': 'Violencia',
+                                                        'hate_symbols': 'Símbolos de odio',
+                                                        'drugs': 'Drogas/Alcohol',
+                                                        'offensive': 'Contenido ofensivo',
+                                                        'adult': 'Contenido adulto',
+                                                        'racy': 'Contenido sugerente',
+                                                        'offensive_text': 'Texto ofensivo',
+                                                        'personal_data': 'Datos personales',
+                                                        'pending': 'Pendiente',
+                                                        'error': 'Error de análisis',
+                                                        'manually_approved': 'Aprobado manualmente'
+                                                    };
+                                                    const displayLabel = labelMap[label] || label;
+                                                    const isManual = label === 'manual_review';
+
+                                                    return (
+                                                        <span
+                                                            key={idx}
+                                                            className={`text-[8px] px-1.5 py-0.5 rounded-full ${isManual
+                                                                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-300'
+                                                                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                                                }`}
+                                                        >
+                                                            {displayLabel}
+                                                        </span>
+                                                    );
+                                                })}
                                             </div>
 
                                             {/* Actions */}
