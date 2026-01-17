@@ -16,7 +16,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Try to get config from localStorage first (new tab case), fallback to navigation state
+  // Helper to get player config from localStorage
   const getPlayerConfig = () => {
     const storageKey = `fotowall_player_${id}`;
     const saved = localStorage.getItem(storageKey);
@@ -38,12 +38,13 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
     };
   };
 
-  const playerConfig = getPlayerConfig();
-  const initialUrl = playerConfig.url;
-  const config = playerConfig;
-
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const event = invitations.find(i => i.id === id);
+
+  // REACTIVE STATE - updates when localStorage changes
+  const [albumUrl, setAlbumUrl] = useState(() => getPlayerConfig().url);
+  const [intervalSeconds, setIntervalSeconds] = useState(() => getPlayerConfig().interval || 5);
+  const [shuffle, setShuffle] = useState(() => getPlayerConfig().shuffle || false);
 
   const [photos, setPhotos] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -51,7 +52,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
   const [isLoading, setIsLoading] = useState(true);
   const [moderationStats, setModerationStats] = useState<{ total: number, safe: number, blocked: number, pending: number } | null>(null);
 
-  const intervalTime = (config?.interval || 5) * 1000;
+  const intervalTime = intervalSeconds * 1000;
 
   // Get moderation settings from localStorage
   const getModerationSettings = () => {
@@ -69,7 +70,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
 
   // Fetch photos helper
   const loadPhotos = useCallback(async () => {
-    if (!initialUrl) return;
+    if (!albumUrl) return;
     try {
       // Always use moderated endpoint, it handles mode internally
       const endpoint = `${API_URL}/fotowall/album/moderated`;
@@ -81,7 +82,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          url: initialUrl,
+          url: albumUrl,
           moderationSettings: currentSettings
         })
       });
@@ -96,7 +97,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
         setModerationStats(data.stats);
       }
 
-      if (Array.isArray(photosArray) && photosArray.length > 0) {
+      if (Array.isArray(photosArray)) {
         setPhotos(prev => {
           // Naive "New Photo" detection: if length increased
           if (photosArray.length > prev.length && prev.length > 0) {
@@ -110,7 +111,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
     } finally {
       setIsLoading(false);
     }
-  }, [initialUrl, id]);
+  }, [albumUrl, id]);
 
 
   // Initial load
@@ -121,11 +122,19 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
   // Listen for settings changes from config screen (in another tab)
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      // Reload photos if moderation settings or player config changed
+      // Update reactive state when moderation settings, player config, or general config changes
       if (e.key === `fotowall_moderation_settings_${id}` ||
         e.key === `fotowall_player_${id}` ||
         e.key === `fotowall_config_${id}`) {
-        console.log('[FotoWallPlayer] Settings changed, reloading photos...');
+        console.log('[FotoWallPlayer] Settings changed, updating config...');
+
+        // Re-read config and update state
+        const newConfig = getPlayerConfig();
+        if (newConfig.url) setAlbumUrl(newConfig.url);
+        if (newConfig.interval) setIntervalSeconds(newConfig.interval);
+        if (newConfig.shuffle !== undefined) setShuffle(newConfig.shuffle);
+
+        // Reload photos with new settings
         loadPhotos();
       }
     };
@@ -142,14 +151,13 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
     return () => clearInterval(poll);
   }, [loadPhotos]);
 
-
   // Slideshow Logic
   useEffect(() => {
     if (photos.length === 0) return;
 
     const timer = setInterval(() => {
       setCurrentIndex((prev) => {
-        if (config?.shuffle) {
+        if (shuffle) {
           // Basic random (can be improved to avoid repeats)
           return Math.floor(Math.random() * photos.length);
         }
@@ -159,7 +167,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
     }, intervalTime);
 
     return () => clearInterval(timer);
-  }, [photos.length, intervalTime, config?.shuffle]);
+  }, [photos.length, intervalTime, shuffle]);
 
 
   // Full Screen & Controls
