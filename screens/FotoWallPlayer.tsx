@@ -69,6 +69,8 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
   const [isLoading, setIsLoading] = useState(true);
   const [moderationStats, setModerationStats] = useState<{ total: number, safe: number, blocked: number, pending: number } | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showControls, setShowControls] = useState(false);
+  const [isBlocking, setIsBlocking] = useState(false);
 
   const intervalTime = intervalSeconds * 1000;
 
@@ -221,8 +223,33 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
     )
   }
 
+  // Block current photo
+  const handleBlockPhoto = async () => {
+    if (!currentPhoto || !albumUrl || isBlocking) return;
+    setIsBlocking(true);
+    try {
+      await fetch(`${API_URL}/fotowall/block`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: albumUrl, photoId: currentPhoto.id })
+      });
+      // Remove from local list and advance
+      setPhotos(prev => prev.filter(p => p.id !== currentPhoto.id));
+      setCurrentIndex(prev => Math.min(prev, photos.length - 2));
+    } catch (e) {
+      console.error('Error blocking photo:', e);
+    } finally {
+      setIsBlocking(false);
+      setShowControls(false);
+    }
+  };
+
   return (
-    <div className="bg-black w-screen h-screen overflow-hidden relative flex items-center justify-center cursor-none">
+    <div
+      className="bg-black w-screen h-screen overflow-hidden relative flex items-center justify-center cursor-none"
+      onMouseMove={() => { setShowControls(true); setTimeout(() => setShowControls(false), 3000); }}
+      onClick={() => setShowControls(!showControls)}
+    >
 
       {/* Background Blur Layer for Vertical/Aspect Ratio fill */}
       <div
@@ -292,6 +319,24 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
           {currentTime.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: true })}
         </p>
       </div>
+
+      {/* Block Button (appears on mouse move/click) */}
+      {showControls && (
+        <div className="absolute top-6 right-6 z-50 animate-in fade-in slide-in-from-top-2 duration-300">
+          <button
+            onClick={(e) => { e.stopPropagation(); handleBlockPhoto(); }}
+            disabled={isBlocking}
+            className="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-3 rounded-2xl shadow-lg shadow-red-600/40 flex items-center gap-2 transition-all active:scale-95"
+          >
+            {isBlocking ? (
+              <span className="material-symbols-outlined text-xl animate-spin">refresh</span>
+            ) : (
+              <span className="material-symbols-outlined text-xl">block</span>
+            )}
+            <span>Bloquear Foto</span>
+          </button>
+        </div>
+      )}
 
     </div>
   );

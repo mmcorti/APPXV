@@ -759,7 +759,12 @@ app.post('/api/fotowall/blocked', async (req, res) => {
             .filter(p => cachedResults[p.id] && cachedResults[p.id].safe === false)
             .map(p => ({ ...p, moderation: cachedResults[p.id] }));
 
-        res.json(blockedPhotos);
+        // Return with total count
+        res.json({
+            photos: blockedPhotos,
+            total: photos.length,
+            blocked: blockedPhotos.length
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

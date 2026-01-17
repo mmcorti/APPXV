@@ -60,6 +60,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
 
   // Review panel state
   const [blockedPhotos, setBlockedPhotos] = useState<any[]>([]);
+  const [totalPhotos, setTotalPhotos] = useState(0);
   const [isLoadingBlocked, setIsLoadingBlocked] = useState(false);
   const [showImages, setShowImages] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -149,7 +150,16 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
         body: JSON.stringify({ url: albumUrl, mode })
       });
       const data = await res.json();
-      setBlockedPhotos(Array.isArray(data) ? data : []);
+
+      // Handle both old format (array) and new format (object with photos and total)
+      if (Array.isArray(data)) {
+        setBlockedPhotos(data);
+      } else if (data.photos) {
+        setBlockedPhotos(data.photos);
+        if (data.total) setTotalPhotos(data.total);
+      } else {
+        setBlockedPhotos([]);
+      }
     } catch (e) {
       console.error("Error loading blocked photos:", e);
     } finally {
@@ -540,7 +550,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
               {/* Controls */}
               <div className="flex items-center justify-between">
                 <p className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                  {blockedPhotos.length} fotos bloqueadas
+                  {blockedPhotos.length}/{totalPhotos} fotos bloqueadas
                 </p>
                 <div className="flex gap-2">
                   <button
