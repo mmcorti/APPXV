@@ -142,15 +142,21 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
 
   // Load ALL photos with moderation status
   const loadAllPhotos = async () => {
-    if (!albumUrl) return;
+    console.log('[FOTOWALL] loadAllPhotos called, albumUrl:', albumUrl);
+    if (!albumUrl) {
+      console.log('[FOTOWALL] No albumUrl, skipping load');
+      return;
+    }
     setIsLoadingPhotos(true);
     try {
+      console.log('[FOTOWALL] Fetching photos from:', `${API_URL}/fotowall/all-photos`);
       const res = await fetch(`${API_URL}/fotowall/all-photos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: albumUrl })
       });
       const data = await res.json();
+      console.log('[FOTOWALL] Response:', data);
 
       if (data.photos) {
         setAllPhotos(data.photos);
