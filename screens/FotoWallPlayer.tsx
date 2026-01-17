@@ -34,7 +34,8 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
       interval: navState?.config?.interval || 5,
       shuffle: navState?.config?.shuffle || false,
       prioritizeNew: navState?.config?.prioritizeNew || true,
-      moderationEnabled: navState?.config?.moderationEnabled ?? false
+      moderationEnabled: navState?.config?.moderationEnabled ?? false,
+      overlayTitle: ''
     };
   };
 
@@ -45,6 +46,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
   const [albumUrl, setAlbumUrl] = useState(() => getPlayerConfig().url);
   const [intervalSeconds, setIntervalSeconds] = useState(() => getPlayerConfig().interval || 5);
   const [shuffle, setShuffle] = useState(() => getPlayerConfig().shuffle || false);
+  const [overlayTitle, setOverlayTitle] = useState(() => getPlayerConfig().overlayTitle || '');
 
   const [photos, setPhotos] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -133,6 +135,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
         if (newConfig.url) setAlbumUrl(newConfig.url);
         if (newConfig.interval) setIntervalSeconds(newConfig.interval);
         if (newConfig.shuffle !== undefined) setShuffle(newConfig.shuffle);
+        if (newConfig.overlayTitle !== undefined) setOverlayTitle(newConfig.overlayTitle);
 
         // Reload photos with new settings
         loadPhotos();
@@ -233,7 +236,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
 
       {/* Event Branding Overlay (Bottom Left) */}
       <div className="absolute bottom-10 left-10 z-30 opacity-60 backdrop-blur-md bg-black/40 p-6 rounded-3xl border border-white/10">
-        <h2 className="text-white text-3xl font-bold mb-1">{event?.eventName || 'Fiesta'}</h2>
+        <h2 className="text-white text-3xl font-bold mb-1">{overlayTitle || event?.eventName || 'Fiesta'}</h2>
         <p className="text-white/70 text-sm font-medium flex items-center gap-2">
           <span className="size-2 bg-green-500 rounded-full animate-pulse"></span>
           En Vivo
