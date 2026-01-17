@@ -266,6 +266,25 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
     }
   };
 
+  // Clear cache and re-analyze
+  const handleClearCache = async () => {
+    if (!confirm('¿Estás seguro? Esto borrará todas las decisiones de moderación y re-analizará todas las fotos.')) return;
+
+    setIsLoadingPhotos(true);
+    try {
+      await fetch(`${API_URL}/fotowall/clear-cache`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: albumUrl })
+      });
+      // Correctly reload photos after clearing cache
+      await loadAllPhotos();
+    } catch (e) {
+      console.error("Error clearing cache:", e);
+      setIsLoadingPhotos(false);
+    }
+  };
+
   // Approve ALL photos (No Moderar)
   const handleApproveAll = async () => {
     if (!albumUrl) return;
@@ -606,6 +625,14 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                   >
                     <span className="material-symbols-outlined text-sm">refresh</span>
                     Actualizar
+                  </button>
+                  <button
+                    onClick={handleClearCache}
+                    className="flex items-center gap-1 text-xs font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-xl"
+                    title="Borrar memoria y re-analizar todo"
+                  >
+                    <span className="material-symbols-outlined text-sm">delete_history</span>
+                    Resetear
                   </button>
                 </div>
               </div>

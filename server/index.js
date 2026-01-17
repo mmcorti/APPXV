@@ -671,10 +671,13 @@ app.post('/api/fotowall/album/moderated', async (req, res) => {
         const moderatedPhotos = [];
         const newPhotosToAnalyze = [];
 
-        // Separate cached vs new photos
+        // Separate cached vs new photos (retry errors)
         for (const photo of photos) {
-            if (cachedResults[photo.id]) {
-                moderatedPhotos.push({ ...photo, moderation: cachedResults[photo.id] });
+            const cached = cachedResults[photo.id];
+            const hasError = cached?.labels?.includes('error') || cached?.labels?.includes('api_error');
+
+            if (cached && !hasError) {
+                moderatedPhotos.push({ ...photo, moderation: cached });
             } else {
                 newPhotosToAnalyze.push(photo);
             }
@@ -775,19 +778,24 @@ app.post('/api/fotowall/approve', async (req, res) => {
         const { url, photoId } = req.body;
         if (!url || !photoId) return res.status(400).json({ error: "URL y photoId requeridos" });
 
-        // Use manual mode cache key
-        const cacheKey = `${url}_manual`;
-        const cachedResults = moderationCache.get(cacheKey) || {};
+        // Apply approval to ALL modes so it persists across mode switches
+        const modes = ['manual', 'ai'];
 
-        cachedResults[photoId] = {
-            safe: true,
-            confidence: 1,
-            labels: ['manually_approved'],
-            manuallyApproved: true
-        };
+        for (const mode of modes) {
+            const cacheKey = `${url}_${mode}`;
+            const cachedResults = moderationCache.get(cacheKey) || {};
 
-        moderationCache.set(cacheKey, cachedResults);
-        console.log(`[FOTOWALL] Approved photo ${photoId}`);
+            cachedResults[photoId] = {
+                safe: true,
+                confidence: 1,
+                labels: ['manually_approved'],
+                manuallyApproved: true
+            };
+
+            moderationCache.set(cacheKey, cachedResults);
+        }
+
+        console.log(`[FOTOWALL] Approved photo ${photoId} for all modes`);
 
         res.json({ success: true });
     } catch (error) {
@@ -801,19 +809,24 @@ app.post('/api/fotowall/block', async (req, res) => {
         const { url, photoId } = req.body;
         if (!url || !photoId) return res.status(400).json({ error: "URL y photoId requeridos" });
 
-        // Use manual mode cache key
-        const cacheKey = `${url}_manual`;
-        const cachedResults = moderationCache.get(cacheKey) || {};
+        // Apply block to ALL modes
+        const modes = ['manual', 'ai'];
 
-        cachedResults[photoId] = {
-            safe: false,
-            confidence: 1,
-            labels: ['manually_blocked'],
-            manuallyBlocked: true
-        };
+        for (const mode of modes) {
+            const cacheKey = `${url}_${mode}`;
+            const cachedResults = moderationCache.get(cacheKey) || {};
 
-        moderationCache.set(cacheKey, cachedResults);
-        console.log(`[FOTOWALL] Blocked photo ${photoId}`);
+            cachedResults[photoId] = {
+                safe: false,
+                confidence: 1,
+                labels: ['manually_blocked'],
+                manuallyBlocked: true
+            };
+
+            moderationCache.set(cacheKey, cachedResults);
+        }
+
+        console.log(`[FOTOWALL] Blocked photo ${photoId} for all modes`);
 
         res.json({ success: true });
     } catch (error) {
@@ -858,9 +871,14 @@ app.post('/api/fotowall/all-photos', async (req, res) => {
         const cacheKey = `${url}_${mode}`;
         let cachedResults = moderationCache.get(cacheKey) || {};
 
-        // If AI mode, analyze any photos not in cache
+        // If AI mode, analyze any photos not in cache or with errors
         if (mode === 'ai') {
-            const newPhotos = photos.filter(p => !cachedResults[p.id]);
+            const newPhotos = photos.filter(p => {
+                const cached = cachedResults[p.id];
+                const hasError = cached?.labels?.includes('error') || cached?.labels?.includes('api_error');
+                return !cached || hasError;
+            });
+
             if (newPhotos.length > 0) {
                 const batchSize = 5;
                 for (let i = 0; i < Math.min(newPhotos.length, batchSize); i++) {
