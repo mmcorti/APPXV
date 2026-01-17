@@ -57,15 +57,18 @@ export const moderationService = {
             }
         }
 
-        // If no API available, default to unsafe
-        console.warn(`[Moderation] No moderation API available, defaulting to UNSAFE`);
+        // If no API available, default to unsafe with clear message
+        const openaiConfigured = !!process.env.OPENAI_API_KEY;
+        const googleConfigured = !!process.env.GOOGLE_VISION_API_KEY;
+        console.warn(`[Moderation] No moderation API available. OpenAI configured: ${openaiConfigured}, Google configured: ${googleConfigured}`);
+
         return {
             safe: false,
             confidence: 0,
-            labels: ['no_api_configured'],
+            labels: ['api_error'],
             provider: 'none',
             mode: 'ai',
-            error: 'No moderation API configured'
+            error: openaiConfigured ? 'Error al conectar con la API' : 'OPENAI_API_KEY no configurada en el servidor'
         };
     },
 
@@ -159,10 +162,18 @@ Response format:
             if (jsonMatch) {
                 const result = JSON.parse(jsonMatch[0]);
 
-                // Apply confidence threshold
-                if (result.confidence < 0.7) {
-                    result.safe = false;
-                    result.labels = [...(result.labels || []), 'low_confidence'];
+                // Convert threshold from percentage (0-100) to decimal (0-1)
+                const thresholdDecimal = confidenceThreshold / 100;
+
+                console.log(`[Moderation] Parsed result: safe=${result.safe}, confidence=${result.confidence}, threshold=${thresholdDecimal}`);
+
+                // Apply confidence threshold - ONLY mark as unsafe if it's unsafe AND confidence is high enough
+                // If safe=true, keep it safe
+                // If safe=false but confidence is below threshold, mark as safe (not confident enough to block)
+                if (result.safe === false && result.confidence < thresholdDecimal) {
+                    console.log(`[Moderation] Overriding to SAFE: confidence ${result.confidence} is below threshold ${thresholdDecimal}`);
+                    result.safe = true;
+                    result.labels = [...(result.labels || []), 'low_confidence_override'];
                 }
 
                 return result;
