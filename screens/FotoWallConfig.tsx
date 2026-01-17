@@ -103,12 +103,12 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
     }
   }, [id]);
 
-  // Load all photos when moderation tab is active
+  // Load all photos when moderation tab is active or mode changes
   useEffect(() => {
     if (activeTab === 'moderation' && albumUrl && linkStatus === 'valid') {
       loadAllPhotos();
     }
-  }, [activeTab, albumUrl, linkStatus]);
+  }, [activeTab, albumUrl, linkStatus, mode]);
 
   // Validate link
   const validateLink = async (url: string) => {
@@ -142,7 +142,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
 
   // Load ALL photos with moderation status
   const loadAllPhotos = async () => {
-    console.log('[FOTOWALL] loadAllPhotos called, albumUrl:', albumUrl);
+    console.log('[FOTOWALL] loadAllPhotos called, albumUrl:', albumUrl, 'mode:', mode);
     if (!albumUrl) {
       console.log('[FOTOWALL] No albumUrl, skipping load');
       return;
@@ -153,7 +153,10 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
       const res = await fetch(`${API_URL}/fotowall/all-photos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: albumUrl })
+        body: JSON.stringify({
+          url: albumUrl,
+          moderationSettings: { mode, filters }
+        })
       });
       const data = await res.json();
       console.log('[FOTOWALL] Response:', data);
