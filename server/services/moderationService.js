@@ -77,7 +77,10 @@ export const moderationService = {
         const unsafeRules = [];
 
         if (filters.nudity !== false) {
-            unsafeRules.push('- Nudity, sexual content, or suggestive poses');
+            unsafeRules.push('- Nudity: full or partial nudity, exposed genitals, exposed breasts');
+        }
+        if (filters.suggestivePoses === true) {
+            unsafeRules.push('- Suggestive poses: provocative poses, seductive posing (NOT normal party dancing or selfies)');
         }
         if (filters.violence !== false) {
             unsafeRules.push('- Violence, blood, injuries, weapons');

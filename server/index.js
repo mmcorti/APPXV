@@ -747,11 +747,28 @@ app.post('/api/fotowall/blocked', async (req, res) => {
         if (!url) return res.status(400).json({ error: "URL requerida" });
 
         const photos = await googlePhotosService.getAlbumPhotos(url);
-        const cachedResults = moderationCache.get(url) || {};
+
+        // Check ALL cache keys for this URL (ai, manual, off modes)
+        const modes = ['ai', 'manual', 'off'];
+        const allCachedResults = {};
+
+        for (const mode of modes) {
+            const cacheKey = `${url}_${mode}`;
+            const cached = moderationCache.get(cacheKey);
+            if (cached) {
+                Object.assign(allCachedResults, cached);
+            }
+        }
+
+        // Also check legacy cache key (just url without mode)
+        const legacyCached = moderationCache.get(url);
+        if (legacyCached) {
+            Object.assign(allCachedResults, legacyCached);
+        }
 
         const blockedPhotos = photos
-            .filter(p => cachedResults[p.id] && cachedResults[p.id].safe === false)
-            .map(p => ({ ...p, moderation: cachedResults[p.id] }));
+            .filter(p => allCachedResults[p.id] && allCachedResults[p.id].safe === false)
+            .map(p => ({ ...p, moderation: allCachedResults[p.id] }));
 
         res.json(blockedPhotos);
     } catch (error) {
