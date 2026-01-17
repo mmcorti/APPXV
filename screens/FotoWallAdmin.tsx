@@ -235,7 +235,10 @@ const FotoWallAdminScreen: React.FC = () => {
                                                         'personal_data': 'Datos personales',
                                                         'pending': 'Pendiente',
                                                         'error': 'Error de análisis',
-                                                        'manually_approved': 'Aprobado manualmente'
+                                                        'manually_approved': 'Aprobado manualmente',
+                                                        'no_api_configured': '⚠️ API no configurada',
+                                                        'low_confidence': 'Baja confianza',
+                                                        'parse_error': 'Error de análisis'
                                                     };
                                                     const displayLabel = labelMap[label] || label;
                                                     const isManual = label === 'manual_review';

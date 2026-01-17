@@ -823,9 +823,16 @@ app.post('/api/fotowall/clear-cache', async (req, res) => {
     try {
         const { url } = req.body;
         if (url) {
-            moderationCache.delete(url);
+            // Clear all mode-specific cache keys for this URL
+            const modes = ['ai', 'manual', 'off', ''];
+            for (const mode of modes) {
+                const cacheKey = mode ? `${url}_${mode}` : url;
+                moderationCache.delete(cacheKey);
+            }
+            console.log(`[FOTOWALL] Cleared cache for URL: ${url}`);
         } else {
             moderationCache.clear();
+            console.log(`[FOTOWALL] Cleared entire cache`);
         }
         res.json({ success: true });
     } catch (error) {
