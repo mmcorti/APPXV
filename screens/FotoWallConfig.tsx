@@ -496,6 +496,27 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                 />
               </section>
 
+              {/* Shuffle Toggle */}
+              <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-start gap-3">
+                    <span className="material-symbols-outlined text-xl text-pink-500">shuffle</span>
+                    <div>
+                      <p className="font-bold text-sm">Muestra Aleatoria</p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                        {shuffle ? 'Las fotos se muestran en orden aleatorio' : 'Las fotos se muestran en orden secuencial, priorizando las nuevas'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShuffle(!shuffle)}
+                    className={`w-12 h-7 rounded-full transition-colors relative ${shuffle ? 'bg-pink-500' : 'bg-slate-200 dark:bg-slate-700'}`}
+                  >
+                    <div className={`absolute top-1 size-5 bg-white rounded-full shadow-md transition-transform ${shuffle ? 'left-6' : 'left-1'}`}></div>
+                  </button>
+                </div>
+              </section>
+
               {/* Overlay Title */}
               <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-4">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Texto en Pantalla</h2>
