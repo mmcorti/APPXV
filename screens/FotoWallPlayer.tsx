@@ -118,6 +118,22 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
     loadPhotos();
   }, [loadPhotos]);
 
+  // Listen for settings changes from config screen (in another tab)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      // Reload photos if moderation settings or player config changed
+      if (e.key === `fotowall_moderation_settings_${id}` ||
+        e.key === `fotowall_player_${id}` ||
+        e.key === `fotowall_config_${id}`) {
+        console.log('[FotoWallPlayer] Settings changed, reloading photos...');
+        loadPhotos();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [id, loadPhotos]);
+
   // Polling for new photos (every 20s)
   useEffect(() => {
     const poll = setInterval(() => {

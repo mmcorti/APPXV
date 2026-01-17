@@ -6,6 +6,7 @@ type ModerationMode = 'off' | 'ai' | 'manual';
 interface FilterSettings {
     // Visual Filters
     nudity: boolean;
+    suggestivePoses: boolean;
     violence: boolean;
     hateSymbols: boolean;
     drugs: boolean;
@@ -19,6 +20,7 @@ interface FilterSettings {
 
 const DEFAULT_FILTERS: FilterSettings = {
     nudity: true,
+    suggestivePoses: false, // Off by default - party photos often have suggestive poses
     violence: true,
     hateSymbols: true,
     drugs: true,
@@ -140,8 +142,8 @@ const FotoWallModerationSettingsScreen: React.FC = () => {
                             <button
                                 onClick={() => setMode('off')}
                                 className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${mode === 'off'
-                                        ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20'
-                                        : 'border-slate-100 dark:border-slate-700 hover:border-slate-200'
+                                    ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20'
+                                    : 'border-slate-100 dark:border-slate-700 hover:border-slate-200'
                                     }`}
                             >
                                 <div className={`size-10 rounded-xl flex items-center justify-center ${mode === 'off' ? 'bg-pink-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
@@ -163,8 +165,8 @@ const FotoWallModerationSettingsScreen: React.FC = () => {
                             <button
                                 onClick={() => setMode('ai')}
                                 className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${mode === 'ai'
-                                        ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20'
-                                        : 'border-slate-100 dark:border-slate-700 hover:border-slate-200'
+                                    ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20'
+                                    : 'border-slate-100 dark:border-slate-700 hover:border-slate-200'
                                     }`}
                             >
                                 <div className={`size-10 rounded-xl flex items-center justify-center ${mode === 'ai' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
@@ -189,8 +191,8 @@ const FotoWallModerationSettingsScreen: React.FC = () => {
                             <button
                                 onClick={() => setMode('manual')}
                                 className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${mode === 'manual'
-                                        ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20'
-                                        : 'border-slate-100 dark:border-slate-700 hover:border-slate-200'
+                                    ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20'
+                                    : 'border-slate-100 dark:border-slate-700 hover:border-slate-200'
                                     }`}
                             >
                                 <div className={`size-10 rounded-xl flex items-center justify-center ${mode === 'manual' ? 'bg-pink-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
@@ -222,9 +224,15 @@ const FotoWallModerationSettingsScreen: React.FC = () => {
                         <div className="divide-y divide-slate-100 dark:divide-slate-700">
                             <FilterToggle
                                 filterKey="nudity"
-                                title="Desnudez y Contenido Explícito"
-                                description="Desnudez total o parcial, poses sugerentes"
+                                title="Desnudez"
+                                description="Desnudez total o parcial"
                                 icon="no_adult_content"
+                            />
+                            <FilterToggle
+                                filterKey="suggestivePoses"
+                                title="Poses Sugerentes"
+                                description="Poses provocativas (común en fiestas)"
+                                icon="accessibility_new"
                             />
                             <FilterToggle
                                 filterKey="violence"
@@ -314,8 +322,8 @@ const FotoWallModerationSettingsScreen: React.FC = () => {
                         <button
                             onClick={handleSave}
                             className={`w-full font-bold h-14 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 ${saved
-                                    ? 'bg-green-500 text-white shadow-green-500/20'
-                                    : 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-pink-500/20 active:scale-[0.98]'
+                                ? 'bg-green-500 text-white shadow-green-500/20'
+                                : 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-pink-500/20 active:scale-[0.98]'
                                 }`}
                         >
                             {saved ? (
