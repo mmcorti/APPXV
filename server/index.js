@@ -655,75 +655,34 @@ const moderationCache = new Map();
 
 app.post('/api/fotowall/album/moderated', async (req, res) => {
     try {
-        const { url, moderationSettings } = req.body;
+        const { url } = req.body;
         if (!url) return res.status(400).json({ error: "URL requerida" });
 
         console.log(`[FOTOWALL] Getting moderated album: ${url}`);
-        console.log(`[FOTOWALL] Moderation settings:`, moderationSettings);
-
-        // If moderation mode is 'off', just return all photos
-        if (moderationSettings?.mode === 'off') {
-            const photos = await googlePhotosService.getAlbumPhotos(url);
-            return res.json({
-                photos: photos.map(p => ({ ...p, moderation: { safe: true, mode: 'off' } })),
-                stats: { total: photos.length, safe: photos.length, blocked: 0, pending: 0 }
-            });
-        }
 
         // Get photos from album
         const photos = await googlePhotosService.getAlbumPhotos(url);
 
-        // Include mode in cache key so switching modes doesn't return stale results
-        const cacheKey = `${url}_${moderationSettings?.mode || 'ai'}`;
-        let cachedResults = moderationCache.get(cacheKey) || {};
+        // Use manual mode cache key (simplified - no AI modes)
+        const cacheKey = `${url}_manual`;
+        const cachedResults = moderationCache.get(cacheKey) || {};
 
-        const moderatedPhotos = [];
-        const newPhotosToAnalyze = [];
-
-        // Separate cached vs new photos
-        for (const photo of photos) {
-            if (cachedResults[photo.id]) {
-                moderatedPhotos.push({ ...photo, moderation: cachedResults[photo.id] });
-            } else {
-                newPhotosToAnalyze.push(photo);
-            }
-        }
-
-        // Analyze new photos (limit to 5 at a time to avoid timeout)
-        const batchSize = 5;
-        for (let i = 0; i < Math.min(newPhotosToAnalyze.length, batchSize); i++) {
-            const photo = newPhotosToAnalyze[i];
-            try {
-                // Pass moderation settings to analyze function
-                const result = await moderationService.analyzeImage(photo.src, moderationSettings);
-                cachedResults[photo.id] = result;
-                moderatedPhotos.push({ ...photo, moderation: result });
-            } catch (error) {
-                console.error(`[FOTOWALL] Moderation error for ${photo.id}:`, error.message);
-                // Default to unsafe on error
-                const errorResult = { safe: false, confidence: 0, labels: ['error'], error: error.message };
-                cachedResults[photo.id] = errorResult;
-                moderatedPhotos.push({ ...photo, moderation: errorResult });
-            }
-        }
-
-        // Add remaining unanalyzed photos as pending (will be analyzed on next request)
-        for (let i = batchSize; i < newPhotosToAnalyze.length; i++) {
-            moderatedPhotos.push({
-                ...newPhotosToAnalyze[i],
-                moderation: { safe: false, confidence: 0, labels: ['pending'], pending: true }
-            });
-        }
-
-        // Update cache
-        moderationCache.set(cacheKey, cachedResults);
+        // Map photos with their moderation status
+        const moderatedPhotos = photos.map(photo => {
+            const cached = cachedResults[photo.id];
+            // Default to approved if not in cache
+            const isSafe = cached ? cached.safe : true;
+            return {
+                ...photo,
+                moderation: cached || { safe: true, labels: [] }
+            };
+        });
 
         // Return only safe photos
-        const safePhotos = moderatedPhotos.filter(p => p.moderation?.safe === true);
-        const blockedCount = moderatedPhotos.filter(p => p.moderation?.safe === false && !p.moderation?.pending).length;
-        const pendingCount = moderatedPhotos.filter(p => p.moderation?.pending).length;
+        const safePhotos = moderatedPhotos.filter(p => p.moderation?.safe !== false);
+        const blockedCount = moderatedPhotos.filter(p => p.moderation?.safe === false).length;
 
-        console.log(`[FOTOWALL] Moderation result: ${safePhotos.length} safe, ${blockedCount} blocked, ${pendingCount} pending`);
+        console.log(`[FOTOWALL] Result: ${safePhotos.length} safe, ${blockedCount} blocked`);
 
         res.json({
             photos: safePhotos,
@@ -731,7 +690,7 @@ app.post('/api/fotowall/album/moderated', async (req, res) => {
                 total: photos.length,
                 safe: safePhotos.length,
                 blocked: blockedCount,
-                pending: pendingCount
+                pending: 0
             }
         });
     } catch (error) {
@@ -776,46 +735,45 @@ app.post('/api/fotowall/approve', async (req, res) => {
         const { url, photoId } = req.body;
         if (!url || !photoId) return res.status(400).json({ error: "URL y photoId requeridos" });
 
-        // Update ALL cache keys for this URL (all modes)
-        const modes = ['ai', 'manual', 'off', ''];
-        let found = false;
+        // Use manual mode cache key
+        const cacheKey = `${url}_manual`;
+        const cachedResults = moderationCache.get(cacheKey) || {};
 
-        for (const m of modes) {
-            const cacheKey = m ? `${url}_${m}` : url;
-            const cachedResults = moderationCache.get(cacheKey);
-            if (cachedResults && cachedResults[photoId]) {
-                cachedResults[photoId] = {
-                    ...cachedResults[photoId],
-                    safe: true,
-                    manuallyApproved: true,
-                    labels: [...(cachedResults[photoId].labels || []).filter(l => l !== 'manual_review'), 'manually_approved']
-                };
-                moderationCache.set(cacheKey, cachedResults);
-                found = true;
-                console.log(`[FOTOWALL] Approved photo ${photoId} in cache key: ${cacheKey}`);
-            }
-        }
+        cachedResults[photoId] = {
+            safe: true,
+            confidence: 1,
+            labels: ['manually_approved'],
+            manuallyApproved: true
+        };
 
-        res.json({ success: true, found });
+        moderationCache.set(cacheKey, cachedResults);
+        console.log(`[FOTOWALL] Approved photo ${photoId}`);
+
+        res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// Permanently block a photo (even if AI said safe)
+// Permanently block a photo
 app.post('/api/fotowall/block', async (req, res) => {
     try {
         const { url, photoId } = req.body;
         if (!url || !photoId) return res.status(400).json({ error: "URL y photoId requeridos" });
 
-        const cachedResults = moderationCache.get(url) || {};
+        // Use manual mode cache key
+        const cacheKey = `${url}_manual`;
+        const cachedResults = moderationCache.get(cacheKey) || {};
+
         cachedResults[photoId] = {
             safe: false,
             confidence: 1,
             labels: ['manually_blocked'],
             manuallyBlocked: true
         };
-        moderationCache.set(url, cachedResults);
+
+        moderationCache.set(cacheKey, cachedResults);
+        console.log(`[FOTOWALL] Blocked photo ${photoId}`);
 
         res.json({ success: true });
     } catch (error) {
@@ -840,6 +798,96 @@ app.post('/api/fotowall/clear-cache', async (req, res) => {
             console.log(`[FOTOWALL] Cleared entire cache`);
         }
         res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get ALL photos with their moderation status
+app.post('/api/fotowall/all-photos', async (req, res) => {
+    try {
+        const { url } = req.body;
+        if (!url) return res.status(400).json({ error: "URL requerida" });
+
+        const photos = await googlePhotosService.getAlbumPhotos(url);
+
+        // Get cached moderation results (use manual mode key or default)
+        const cacheKey = `${url}_manual`;
+        const cachedResults = moderationCache.get(cacheKey) || {};
+
+        // Map photos with their moderation status
+        const photosWithStatus = photos.map(photo => ({
+            ...photo,
+            moderation: cachedResults[photo.id] || { safe: true, labels: [] },
+            isBlocked: cachedResults[photo.id]?.safe === false,
+            isApproved: cachedResults[photo.id]?.safe === true || !cachedResults[photo.id]
+        }));
+
+        res.json({
+            photos: photosWithStatus,
+            total: photos.length,
+            blocked: photosWithStatus.filter(p => p.isBlocked).length,
+            approved: photosWithStatus.filter(p => p.isApproved).length
+        });
+    } catch (error) {
+        console.error('[FOTOWALL] Error getting all photos:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Approve ALL photos (No Moderar)
+app.post('/api/fotowall/approve-all', async (req, res) => {
+    try {
+        const { url } = req.body;
+        if (!url) return res.status(400).json({ error: "URL requerida" });
+
+        const photos = await googlePhotosService.getAlbumPhotos(url);
+        const cacheKey = `${url}_manual`;
+        const cachedResults = {};
+
+        // Mark all photos as safe/approved
+        for (const photo of photos) {
+            cachedResults[photo.id] = {
+                safe: true,
+                confidence: 1,
+                labels: ['approved_all'],
+                manuallyApproved: true
+            };
+        }
+
+        moderationCache.set(cacheKey, cachedResults);
+        console.log(`[FOTOWALL] Approved all ${photos.length} photos for ${url}`);
+
+        res.json({ success: true, count: photos.length });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Block ALL photos (Bloquear Todo)
+app.post('/api/fotowall/block-all', async (req, res) => {
+    try {
+        const { url } = req.body;
+        if (!url) return res.status(400).json({ error: "URL requerida" });
+
+        const photos = await googlePhotosService.getAlbumPhotos(url);
+        const cacheKey = `${url}_manual`;
+        const cachedResults = {};
+
+        // Mark all photos as blocked
+        for (const photo of photos) {
+            cachedResults[photo.id] = {
+                safe: false,
+                confidence: 1,
+                labels: ['blocked_all'],
+                manuallyBlocked: true
+            };
+        }
+
+        moderationCache.set(cacheKey, cachedResults);
+        console.log(`[FOTOWALL] Blocked all ${photos.length} photos for ${url}`);
+
+        res.json({ success: true, count: photos.length });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
