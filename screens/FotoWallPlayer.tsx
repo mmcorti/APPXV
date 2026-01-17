@@ -18,24 +18,39 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
 
   // Helper to get player config from localStorage
   const getPlayerConfig = () => {
-    const storageKey = `fotowall_player_${id}`;
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
+    // First try player-specific key
+    const playerKey = `fotowall_player_${id}`;
+    const playerSaved = localStorage.getItem(playerKey);
+    let playerConfig: any = {};
+    if (playerSaved) {
       try {
-        return JSON.parse(saved);
+        playerConfig = JSON.parse(playerSaved);
       } catch (e) {
         console.error("Error parsing saved player config:", e);
       }
     }
-    // Fallback to navigation state
+
+    // Also check config key for overlayTitle and other settings
+    const configKey = `fotowall_config_${id}`;
+    const configSaved = localStorage.getItem(configKey);
+    let fullConfig: any = {};
+    if (configSaved) {
+      try {
+        fullConfig = JSON.parse(configSaved);
+      } catch (e) {
+        console.error("Error parsing config:", e);
+      }
+    }
+
+    // Merge both, with config taking precedence for shared keys
     const navState = location.state as any;
     return {
-      url: navState?.url,
-      interval: navState?.config?.interval || 5,
-      shuffle: navState?.config?.shuffle || false,
-      prioritizeNew: navState?.config?.prioritizeNew || true,
-      moderationEnabled: navState?.config?.moderationEnabled ?? false,
-      overlayTitle: ''
+      url: playerConfig.url || fullConfig.albumUrl || navState?.url,
+      interval: playerConfig.interval || fullConfig.interval || navState?.config?.interval || 5,
+      shuffle: playerConfig.shuffle ?? fullConfig.shuffle ?? navState?.config?.shuffle ?? false,
+      prioritizeNew: playerConfig.prioritizeNew ?? navState?.config?.prioritizeNew ?? true,
+      moderationEnabled: playerConfig.moderationEnabled ?? navState?.config?.moderationEnabled ?? false,
+      overlayTitle: fullConfig.overlayTitle || playerConfig.overlayTitle || ''
     };
   };
 
@@ -53,6 +68,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
   const [showNewBadge, setShowNewBadge] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [moderationStats, setModerationStats] = useState<{ total: number, safe: number, blocked: number, pending: number } | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   const intervalTime = intervalSeconds * 1000;
 
@@ -184,6 +200,14 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Clock update every minute
+  useEffect(() => {
+    const clockTimer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+    return () => clearInterval(clockTimer);
+  }, []);
+
   const currentPhoto = photos[currentIndex];
 
   if (isLoading || !currentPhoto) {
@@ -235,22 +259,39 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
       )}
 
       {/* Event Branding Overlay (Bottom Left) */}
-      <div className="absolute bottom-10 left-10 z-30 opacity-60 backdrop-blur-md bg-black/40 p-6 rounded-3xl border border-white/10">
-        <h2 className="text-white text-3xl font-bold mb-1">{overlayTitle || event?.eventName || 'Fiesta'}</h2>
-        <p className="text-white/70 text-sm font-medium flex items-center gap-2">
+      <div className="absolute bottom-6 left-6 z-30 backdrop-blur-xl bg-black/60 px-6 py-5 rounded-3xl border border-white/10">
+        {/* Title */}
+        <h2 className="text-white text-2xl font-bold mb-0.5">{overlayTitle || event?.eventName || 'Fiesta'}</h2>
+        <p className="text-white/70 text-xs font-medium flex items-center gap-2 mb-4">
           <span className="size-2 bg-green-500 rounded-full animate-pulse"></span>
           En Vivo
         </p>
-      </div>
 
-      {/* QR Code Placeholder (Bottom Right) */}
-      {/* 
-         <div className="absolute bottom-8 right-8 z-30 bg-white p-2 rounded-xl shadow-xl">
-             <div className="size-24 bg-slate-200 flex items-center justify-center">
-                 <span className="material-symbols-outlined text-4xl text-slate-400">qr_code_2</span>
-             </div>
+        {/* Photo Count */}
+        <div className="mb-4">
+          <p className="text-white text-4xl font-bold">{photos.length}</p>
+          <p className="text-white/60 text-xs">Fotos</p>
         </div>
-        */}
+
+        {/* QR Code */}
+        {albumUrl && (
+          <div className="mb-4">
+            <div className="bg-white p-2 rounded-lg inline-block">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(albumUrl)}`}
+                alt="QR Code"
+                className="w-16 h-16"
+              />
+            </div>
+            <p className="text-white/60 text-[10px] mt-1">Scan to Upload</p>
+          </div>
+        )}
+
+        {/* Time */}
+        <p className="text-white text-lg font-bold">
+          {currentTime.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: true })}
+        </p>
+      </div>
 
     </div>
   );
