@@ -5,8 +5,8 @@ import { InvitationData } from '../types';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
 
 // Types
-type ModerationMode = 'off' | 'ai' | 'manual';
-type TabType = 'rules' | 'review';
+type ModerationMode = 'ai' | 'manual';
+type TabType = 'rules' | 'moderation';
 
 interface FilterSettings {
   nudity: boolean;
@@ -48,19 +48,21 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
   const [albumUrl, setAlbumUrl] = useState('');
   const [intervalValue, setIntervalValue] = useState(5);
   const [shuffle, setShuffle] = useState(false);
-  const [overlayTitle, setOverlayTitle] = useState('');  // Custom overlay text for player
+  const [overlayTitle, setOverlayTitle] = useState('');
   const [isValidating, setIsValidating] = useState(false);
   const [linkStatus, setLinkStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
-
-  // Moderation settings state
-  const [mode, setMode] = useState<ModerationMode>('ai');
-  const [filters, setFilters] = useState<FilterSettings>(DEFAULT_FILTERS);
   const [saved, setSaved] = useState(false);
 
-  // Review panel state
-  const [blockedPhotos, setBlockedPhotos] = useState<any[]>([]);
-  const [isLoadingBlocked, setIsLoadingBlocked] = useState(false);
+  // Moderation settings state
+  const [mode, setMode] = useState<ModerationMode>('manual');
+  const [filters, setFilters] = useState<FilterSettings>(DEFAULT_FILTERS);
+
+  // Moderation panel state
+  const [allPhotos, setAllPhotos] = useState<any[]>([]);
+  const [totalPhotos, setTotalPhotos] = useState(0);
+  const [blockedCount, setBlockedCount] = useState(0);
+  const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
   const [showImages, setShowImages] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
@@ -101,12 +103,12 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
     }
   }, [id]);
 
-  // Load blocked photos when tab changes or settings update
+  // Load all photos when moderation tab is active
   useEffect(() => {
-    if (activeTab === 'review' && albumUrl && linkStatus === 'valid') {
-      loadBlockedPhotos();
+    if (activeTab === 'moderation' && albumUrl && linkStatus === 'valid') {
+      loadAllPhotos();
     }
-  }, [activeTab, albumUrl, linkStatus, mode]);
+  }, [activeTab, albumUrl, linkStatus]);
 
   // Validate link
   const validateLink = async (url: string) => {
@@ -138,26 +140,37 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
     }
   };
 
-  // Load blocked photos
-  const loadBlockedPhotos = async () => {
-    if (!albumUrl) return;
-    setIsLoadingBlocked(true);
+  // Load ALL photos with moderation status
+  const loadAllPhotos = async () => {
+    console.log('[FOTOWALL] loadAllPhotos called, albumUrl:', albumUrl);
+    if (!albumUrl) {
+      console.log('[FOTOWALL] No albumUrl, skipping load');
+      return;
+    }
+    setIsLoadingPhotos(true);
     try {
-      const res = await fetch(`${API_URL}/fotowall/blocked`, {
+      console.log('[FOTOWALL] Fetching photos from:', `${API_URL}/fotowall/all-photos`);
+      const res = await fetch(`${API_URL}/fotowall/all-photos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: albumUrl, mode })
+        body: JSON.stringify({ url: albumUrl })
       });
       const data = await res.json();
-      setBlockedPhotos(Array.isArray(data) ? data : []);
+      console.log('[FOTOWALL] Response:', data);
+
+      if (data.photos) {
+        setAllPhotos(data.photos);
+        setTotalPhotos(data.total || data.photos.length);
+        setBlockedCount(data.blocked || 0);
+      }
     } catch (e) {
-      console.error("Error loading blocked photos:", e);
+      console.error("Error loading photos:", e);
     } finally {
-      setIsLoadingBlocked(false);
+      setIsLoadingPhotos(false);
     }
   };
 
-  // Save all settings
+  // Save config settings
   const handleSave = () => {
     // Save config
     const config = { albumUrl, interval: intervalValue, shuffle, overlayTitle };
@@ -170,40 +183,6 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
 
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  };
-
-  // Approve photo
-  const handleApprove = async (photoId: string) => {
-    setActionLoading(photoId);
-    try {
-      await fetch(`${API_URL}/fotowall/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: albumUrl, photoId })
-      });
-      setBlockedPhotos(prev => prev.filter(p => p.id !== photoId));
-    } catch (e) {
-      console.error("Error approving photo:", e);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  // Delete/Block photo permanently
-  const handleDelete = async (photoId: string) => {
-    setActionLoading(photoId);
-    try {
-      await fetch(`${API_URL}/fotowall/block`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: albumUrl, photoId })
-      });
-      setBlockedPhotos(prev => prev.filter(p => p.id !== photoId));
-    } catch (e) {
-      console.error("Error blocking photo:", e);
-    } finally {
-      setActionLoading(null);
-    }
   };
 
   // Toggle filter
@@ -220,7 +199,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
     icon: string;
   }) => {
     const isOn = filters[filterKey] as boolean;
-    const disabled = mode === 'off' || mode === 'manual';
+    const disabled = mode !== 'ai';
 
     return (
       <div className={`flex items-center justify-between py-3 ${disabled ? 'opacity-40' : ''}`}>
@@ -242,20 +221,94 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
     );
   };
 
-  // Label translation map
+  // Approve single photo
+  const handleApprove = async (photoId: string) => {
+    setActionLoading(photoId);
+    try {
+      await fetch(`${API_URL}/fotowall/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: albumUrl, photoId })
+      });
+      // Update local state
+      setAllPhotos(prev => prev.map(p =>
+        p.id === photoId ? { ...p, isBlocked: false, isApproved: true } : p
+      ));
+      setBlockedCount(prev => Math.max(0, prev - 1));
+    } catch (e) {
+      console.error("Error approving photo:", e);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Block single photo
+  const handleBlock = async (photoId: string) => {
+    setActionLoading(photoId);
+    try {
+      await fetch(`${API_URL}/fotowall/block`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: albumUrl, photoId })
+      });
+      // Update local state
+      setAllPhotos(prev => prev.map(p =>
+        p.id === photoId ? { ...p, isBlocked: true, isApproved: false } : p
+      ));
+      setBlockedCount(prev => prev + 1);
+    } catch (e) {
+      console.error("Error blocking photo:", e);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Approve ALL photos (No Moderar)
+  const handleApproveAll = async () => {
+    if (!albumUrl) return;
+    setActionLoading('all');
+    try {
+      await fetch(`${API_URL}/fotowall/approve-all`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: albumUrl })
+      });
+      // Update local state - all photos approved
+      setAllPhotos(prev => prev.map(p => ({ ...p, isBlocked: false, isApproved: true })));
+      setBlockedCount(0);
+    } catch (e) {
+      console.error("Error approving all:", e);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Block ALL photos (Bloquear Todo)
+  const handleBlockAll = async () => {
+    if (!albumUrl) return;
+    setActionLoading('all');
+    try {
+      await fetch(`${API_URL}/fotowall/block-all`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: albumUrl })
+      });
+      // Update local state - all photos blocked
+      setAllPhotos(prev => prev.map(p => ({ ...p, isBlocked: true, isApproved: false })));
+      setBlockedCount(totalPhotos);
+    } catch (e) {
+      console.error("Error blocking all:", e);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Label translation map for moderation status
   const labelMap: Record<string, string> = {
-    'manual_review': 'Revisión manual',
-    'nudity': 'Desnudez',
-    'suggestive': 'Contenido sugerente',
-    'violence': 'Violencia',
-    'hate_symbols': 'Símbolos de odio',
-    'drugs': 'Drogas/Alcohol',
-    'offensive': 'Contenido ofensivo',
-    'no_api_configured': '⚠️ Falta API Key',
-    'api_error': '⚠️ Error de API',
-    'pending': 'Pendiente',
-    'error': 'Error',
-    'manually_approved': '✅ Aprobado'
+    'manually_blocked': 'Bloqueado',
+    'blocked_all': 'Bloqueado',
+    'manually_approved': 'Aprobado',
+    'approved_all': 'Aprobado'
   };
 
   if (!event) return null;
@@ -281,21 +334,6 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
           </p>
         </div>
 
-        {/* Safety Level Badge */}
-        <div className="px-6 mb-4">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 flex items-center gap-4">
-            <div className="size-12 bg-pink-100 dark:bg-pink-900/30 rounded-xl flex items-center justify-center">
-              <span className="material-symbols-outlined text-2xl text-pink-500">tune</span>
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-bold">Nivel de Seguridad: <span className="text-pink-500">{filters.confidenceThreshold}%</span></p>
-              <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mt-1">
-                <div className="bg-gradient-to-r from-pink-500 to-purple-600 h-2 rounded-full transition-all" style={{ width: `${filters.confidenceThreshold}%` }}></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Tabs */}
         <div className="px-6 mb-4">
           <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl p-1 flex">
@@ -309,16 +347,16 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
               Reglas
             </button>
             <button
-              onClick={() => setActiveTab('review')}
-              className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${activeTab === 'review'
+              onClick={() => setActiveTab('moderation')}
+              className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${activeTab === 'moderation'
                 ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
                 : 'text-slate-500 dark:text-slate-400'
                 }`}
             >
-              Revisión
-              {blockedPhotos.length > 0 && (
+              Panel de Moderación
+              {blockedCount > 0 && (
                 <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                  {blockedPhotos.length}
+                  {blockedCount}
                 </span>
               )}
             </button>
@@ -384,21 +422,6 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
               <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-4">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Modo de Moderación</h2>
                 <div className="space-y-2">
-                  {/* Off */}
-                  <button
-                    onClick={() => setMode('off')}
-                    className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${mode === 'off' ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20' : 'border-slate-100 dark:border-slate-700'}`}
-                  >
-                    <div className={`size-10 rounded-xl flex items-center justify-center ${mode === 'off' ? 'bg-pink-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>
-                      <span className="material-symbols-outlined">visibility_off</span>
-                    </div>
-                    <div className="text-left flex-1">
-                      <p className="font-bold">Sin Moderación</p>
-                      <p className="text-[10px] text-slate-500">Mostrar todas las fotos sin filtrar</p>
-                    </div>
-                    {mode === 'off' && <span className="material-symbols-outlined text-pink-500">check_circle</span>}
-                  </button>
-
                   {/* AI */}
                   <button
                     onClick={() => setMode('ai')}
@@ -434,35 +457,39 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                 </div>
               </section>
 
-              {/* Visual Filters */}
-              <section className={`bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-4 ${mode === 'off' ? 'opacity-50' : ''}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="material-symbols-outlined text-pink-500">visibility</span>
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Filtros Visuales</h2>
-                </div>
-                <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                  <FilterToggle filterKey="nudity" title="Desnudez" description="Desnudez total o parcial" icon="no_adult_content" />
-                  <FilterToggle filterKey="suggestivePoses" title="Poses Sugerentes" description="Poses provocativas (común en fiestas)" icon="accessibility_new" />
-                  <FilterToggle filterKey="violence" title="Violencia y Gore" description="Armas, peleas, sangre, accidentes" icon="swords" />
-                  <FilterToggle filterKey="hateSymbols" title="Símbolos de Odio" description="Símbolos discriminatorios o extremistas" icon="block" />
-                  <FilterToggle filterKey="drugs" title="Drogas y Sustancias" description="Drogas, parafernalia, consumo de alcohol" icon="medication" />
-                </div>
-              </section>
+              {/* Visual Filters - Only show when AI mode */}
+              {mode === 'ai' && (
+                <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="material-symbols-outlined text-pink-500">visibility</span>
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Filtros Visuales</h2>
+                  </div>
+                  <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                    <FilterToggle filterKey="nudity" title="Desnudez" description="Desnudez total o parcial" icon="no_adult_content" />
+                    <FilterToggle filterKey="suggestivePoses" title="Poses Sugerentes" description="Poses provocativas (común en fiestas)" icon="accessibility_new" />
+                    <FilterToggle filterKey="violence" title="Violencia y Gore" description="Armas, peleas, sangre, accidentes" icon="swords" />
+                    <FilterToggle filterKey="hateSymbols" title="Símbolos de Odio" description="Símbolos discriminatorios o extremistas" icon="block" />
+                    <FilterToggle filterKey="drugs" title="Drogas y Sustancias" description="Drogas, parafernalia, consumo de alcohol" icon="medication" />
+                  </div>
+                </section>
+              )}
 
-              {/* Text Filters */}
-              <section className={`bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-4 ${mode === 'off' ? 'opacity-50' : ''}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="material-symbols-outlined text-pink-500">text_fields</span>
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Filtros de Texto</h2>
-                </div>
-                <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                  <FilterToggle filterKey="offensiveLanguage" title="Lenguaje Ofensivo" description="Insultos, groserías, palabras vulgares" icon="sentiment_very_dissatisfied" />
-                  <FilterToggle filterKey="hateSpeech" title="Discurso de Odio" description="Contenido discriminatorio o amenazante" icon="warning" />
-                  <FilterToggle filterKey="personalData" title="Datos Personales" description="Teléfonos, direcciones, información sensible" icon="lock" />
-                </div>
-              </section>
+              {/* Text Filters - Only show when AI mode */}
+              {mode === 'ai' && (
+                <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="material-symbols-outlined text-pink-500">text_fields</span>
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Filtros de Texto</h2>
+                  </div>
+                  <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                    <FilterToggle filterKey="offensiveLanguage" title="Lenguaje Ofensivo" description="Insultos, groserías, palabras vulgares" icon="sentiment_very_dissatisfied" />
+                    <FilterToggle filterKey="hateSpeech" title="Discurso de Odio" description="Contenido discriminatorio o amenazante" icon="warning" />
+                    <FilterToggle filterKey="personalData" title="Datos Personales" description="Teléfonos, direcciones, información sensible" icon="lock" />
+                  </div>
+                </section>
+              )}
 
-              {/* Confidence Threshold */}
+              {/* Confidence Threshold - Only show when AI mode */}
               {mode === 'ai' && (
                 <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-4">
                   <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Umbral de Confianza</h2>
@@ -535,12 +562,32 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
               </section>
             </div>
           ) : (
-            /* REVIEW TAB */
+            /* MODERATION PANEL */
             <div className="space-y-4">
-              {/* Controls */}
+              {/* Bulk Actions */}
+              <div className="flex gap-2">
+                <button
+                  onClick={handleApproveAll}
+                  disabled={actionLoading === 'all'}
+                  className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                >
+                  <span className="material-symbols-outlined">check_circle</span>
+                  No Moderar
+                </button>
+                <button
+                  onClick={handleBlockAll}
+                  disabled={actionLoading === 'all'}
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                >
+                  <span className="material-symbols-outlined">block</span>
+                  Bloquear Todo
+                </button>
+              </div>
+
+              {/* Stats & Controls */}
               <div className="flex items-center justify-between">
                 <p className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                  {blockedPhotos.length} fotos bloqueadas
+                  {blockedCount}/{totalPhotos} fotos bloqueadas
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -551,7 +598,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                     {showImages ? 'Ocultar' : 'Mostrar'}
                   </button>
                   <button
-                    onClick={loadBlockedPhotos}
+                    onClick={loadAllPhotos}
                     className="flex items-center gap-1 text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-700 px-3 py-2 rounded-xl"
                   >
                     <span className="material-symbols-outlined text-sm">refresh</span>
@@ -560,75 +607,68 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                 </div>
               </div>
 
-              {/* Warning */}
-              {!showImages && blockedPhotos.length > 0 && (
-                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex items-start gap-3">
-                  <span className="material-symbols-outlined text-amber-500">warning</span>
-                  <p className="text-xs text-amber-700 dark:text-amber-300">
-                    Las imágenes están ocultas por seguridad. Haz clic en "Mostrar" para ver las fotos bloqueadas.
-                  </p>
-                </div>
-              )}
-
-              {/* Blocked Photos Grid */}
-              {isLoadingBlocked ? (
+              {/* Photos Grid */}
+              {isLoadingPhotos ? (
                 <div className="flex items-center justify-center py-12">
                   <span className="material-symbols-outlined text-4xl text-pink-500 animate-spin">refresh</span>
                 </div>
-              ) : blockedPhotos.length === 0 ? (
+              ) : allPhotos.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                  <span className="material-symbols-outlined text-5xl mb-2">check_circle</span>
-                  <p className="font-bold">Sin fotos bloqueadas</p>
-                  <p className="text-xs">Todas las fotos han sido aprobadas</p>
+                  <span className="material-symbols-outlined text-5xl mb-2">photo_library</span>
+                  <p className="font-bold">Sin fotos</p>
+                  <p className="text-xs">Configura una fuente de fotos primero</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  {blockedPhotos.map(photo => (
+                  {allPhotos.map(photo => (
                     <div key={photo.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
                       {/* Image */}
                       <div className="aspect-square relative">
                         <img
                           src={photo.src}
-                          alt="Blocked"
+                          alt="Photo"
                           className={`w-full h-full object-cover ${showImages ? '' : 'blur-xl brightness-50'}`}
                         />
-                        {!showImages && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="bg-red-500/80 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                        {/* Status Badge */}
+                        <div className="absolute top-2 right-2">
+                          {photo.isBlocked ? (
+                            <span className="bg-red-500/90 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
                               <span className="material-symbols-outlined text-sm">block</span>
                               Bloqueado
                             </span>
-                          </div>
-                        )}
+                          ) : (
+                            <span className="bg-green-500/90 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                              <span className="material-symbols-outlined text-sm">check</span>
+                              Aprobado
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Labels */}
-                      <div className="p-3 space-y-2">
-                        <div className="flex flex-wrap gap-1">
-                          {photo.moderation?.labels?.map((label: string, idx: number) => (
-                            <span key={idx} className={`text-[8px] px-1.5 py-0.5 rounded-full ${label === 'manual_review' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'bg-slate-100 dark:bg-slate-700 text-slate-600'}`}>
-                              {labelMap[label] || label}
-                            </span>
-                          ))}
-                        </div>
-
-                        {/* Actions */}
+                      {/* Actions */}
+                      <div className="p-3">
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleApprove(photo.id)}
-                            disabled={actionLoading === photo.id}
-                            className="flex-1 bg-green-500 text-white text-xs font-bold py-2 rounded-xl flex items-center justify-center gap-1"
+                            disabled={actionLoading === photo.id || photo.isApproved}
+                            className={`flex-1 text-xs font-bold py-2 rounded-xl flex items-center justify-center gap-1 transition-all ${photo.isApproved
+                              ? 'bg-green-100 text-green-400 cursor-not-allowed'
+                              : 'bg-green-500 hover:bg-green-600 text-white'
+                              }`}
                           >
                             <span className="material-symbols-outlined text-sm">check</span>
                             Aprobar
                           </button>
                           <button
-                            onClick={() => handleDelete(photo.id)}
-                            disabled={actionLoading === photo.id}
-                            className="flex-1 bg-red-500 text-white text-xs font-bold py-2 rounded-xl flex items-center justify-center gap-1"
+                            onClick={() => handleBlock(photo.id)}
+                            disabled={actionLoading === photo.id || photo.isBlocked}
+                            className={`flex-1 text-xs font-bold py-2 rounded-xl flex items-center justify-center gap-1 transition-all ${photo.isBlocked
+                              ? 'bg-red-100 text-red-400 cursor-not-allowed'
+                              : 'bg-red-500 hover:bg-red-600 text-white'
+                              }`}
                           >
-                            <span className="material-symbols-outlined text-sm">delete</span>
-                            Eliminar
+                            <span className="material-symbols-outlined text-sm">block</span>
+                            Bloquear
                           </button>
                         </div>
                       </div>
