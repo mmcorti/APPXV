@@ -743,32 +743,21 @@ app.post('/api/fotowall/album/moderated', async (req, res) => {
 // Get blocked photos for admin review
 app.post('/api/fotowall/blocked', async (req, res) => {
     try {
-        const { url } = req.body;
+        const { url, mode } = req.body;
         if (!url) return res.status(400).json({ error: "URL requerida" });
 
         const photos = await googlePhotosService.getAlbumPhotos(url);
 
-        // Check ALL cache keys for this URL (ai, manual, off modes)
-        const modes = ['ai', 'manual', 'off'];
-        const allCachedResults = {};
+        // Only check cache for the CURRENT mode (or default to 'ai')
+        const currentMode = mode || 'ai';
+        const cacheKey = `${url}_${currentMode}`;
+        const cachedResults = moderationCache.get(cacheKey) || {};
 
-        for (const mode of modes) {
-            const cacheKey = `${url}_${mode}`;
-            const cached = moderationCache.get(cacheKey);
-            if (cached) {
-                Object.assign(allCachedResults, cached);
-            }
-        }
-
-        // Also check legacy cache key (just url without mode)
-        const legacyCached = moderationCache.get(url);
-        if (legacyCached) {
-            Object.assign(allCachedResults, legacyCached);
-        }
+        console.log(`[FOTOWALL] Getting blocked photos for mode: ${currentMode}, cache key: ${cacheKey}`);
 
         const blockedPhotos = photos
-            .filter(p => allCachedResults[p.id] && allCachedResults[p.id].safe === false)
-            .map(p => ({ ...p, moderation: allCachedResults[p.id] }));
+            .filter(p => cachedResults[p.id] && cachedResults[p.id].safe === false)
+            .map(p => ({ ...p, moderation: cachedResults[p.id] }));
 
         res.json(blockedPhotos);
     } catch (error) {
@@ -786,8 +775,8 @@ app.post('/api/fotowall/approve', async (req, res) => {
         const modes = ['ai', 'manual', 'off', ''];
         let found = false;
 
-        for (const mode of modes) {
-            const cacheKey = mode ? `${url}_${mode}` : url;
+        for (const m of modes) {
+            const cacheKey = m ? `${url}_${m}` : url;
             const cachedResults = moderationCache.get(cacheKey);
             if (cachedResults && cachedResults[photoId]) {
                 cachedResults[photoId] = {
