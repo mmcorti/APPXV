@@ -5,7 +5,32 @@ import { InvitationData } from '../types';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
 
 // Types
+type ModerationMode = 'ai' | 'manual';
 type TabType = 'rules' | 'moderation';
+
+interface FilterSettings {
+  nudity: boolean;
+  suggestivePoses: boolean;
+  violence: boolean;
+  hateSymbols: boolean;
+  drugs: boolean;
+  offensiveLanguage: boolean;
+  hateSpeech: boolean;
+  personalData: boolean;
+  confidenceThreshold: number;
+}
+
+const DEFAULT_FILTERS: FilterSettings = {
+  nudity: true,
+  suggestivePoses: false,
+  violence: true,
+  hateSymbols: true,
+  drugs: true,
+  offensiveLanguage: true,
+  hateSpeech: true,
+  personalData: false,
+  confidenceThreshold: 70
+};
 
 interface FotoWallConfigProps {
   invitations: InvitationData[];
@@ -29,6 +54,10 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
   const [statusMessage, setStatusMessage] = useState('');
   const [saved, setSaved] = useState(false);
 
+  // Moderation settings state
+  const [mode, setMode] = useState<ModerationMode>('manual');
+  const [filters, setFilters] = useState<FilterSettings>(DEFAULT_FILTERS);
+
   // Moderation panel state
   const [allPhotos, setAllPhotos] = useState<any[]>([]);
   const [totalPhotos, setTotalPhotos] = useState(0);
@@ -40,6 +69,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
 
   // Storage keys
   const configKey = `fotowall_config_${id}`;
+  const moderationKey = `fotowall_moderation_settings_${id}`;
 
   // Load saved config on mount
   useEffect(() => {
@@ -57,6 +87,18 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
         if (config.overlayTitle) setOverlayTitle(config.overlayTitle);
       } catch (e) {
         console.error("Error loading config:", e);
+      }
+    }
+
+    // Load moderation settings
+    const savedModeration = localStorage.getItem(moderationKey);
+    if (savedModeration) {
+      try {
+        const settings = JSON.parse(savedModeration);
+        if (settings.mode) setMode(settings.mode);
+        if (settings.filters) setFilters(prev => ({ ...prev, ...settings.filters }));
+      } catch (e) {
+        console.error("Error loading moderation settings:", e);
       }
     }
   }, [id]);
@@ -124,12 +166,53 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
 
   // Save config settings
   const handleSave = () => {
+    // Save config
     const config = { albumUrl, interval: intervalValue, shuffle, overlayTitle };
     localStorage.setItem(configKey, JSON.stringify(config));
     localStorage.setItem(`fotowall_url_${id}`, albumUrl);
 
+    // Save moderation settings
+    const moderationSettings = { mode, filters };
+    localStorage.setItem(moderationKey, JSON.stringify(moderationSettings));
+
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  // Toggle filter
+  const toggleFilter = (key: keyof FilterSettings) => {
+    if (key === 'confidenceThreshold') return;
+    setFilters(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // Filter Toggle Component
+  const FilterToggle = ({ filterKey, title, description, icon }: {
+    filterKey: keyof FilterSettings;
+    title: string;
+    description: string;
+    icon: string;
+  }) => {
+    const isOn = filters[filterKey] as boolean;
+    const disabled = mode !== 'ai';
+
+    return (
+      <div className={`flex items-center justify-between py-3 ${disabled ? 'opacity-40' : ''}`}>
+        <div className="flex items-start gap-3">
+          <span className="material-symbols-outlined text-xl text-pink-500">{icon}</span>
+          <div className="flex-1">
+            <p className="font-bold text-sm">{title}</p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400">{description}</p>
+          </div>
+        </div>
+        <button
+          onClick={() => toggleFilter(filterKey)}
+          disabled={disabled}
+          className={`w-12 h-7 rounded-full transition-colors relative ${isOn && !disabled ? 'bg-pink-500' : 'bg-slate-200 dark:bg-slate-700'}`}
+        >
+          <div className={`absolute top-1 size-5 bg-white rounded-full shadow-md transition-transform ${isOn ? 'left-6' : 'left-1'}`}></div>
+        </button>
+      </div>
+    );
   };
 
   // Approve single photo
@@ -329,6 +412,97 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                 )}
               </section>
 
+              {/* Moderation Mode */}
+              <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-4">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Modo de Moderación</h2>
+                <div className="space-y-2">
+                  {/* AI */}
+                  <button
+                    onClick={() => setMode('ai')}
+                    className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${mode === 'ai' ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20' : 'border-slate-100 dark:border-slate-700'}`}
+                  >
+                    <div className={`size-10 rounded-xl flex items-center justify-center ${mode === 'ai' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>
+                      <span className="material-symbols-outlined">smart_toy</span>
+                    </div>
+                    <div className="text-left flex-1">
+                      <p className="font-bold flex items-center gap-2">
+                        Moderación IA
+                        <span className="text-[8px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white px-1.5 py-0.5 rounded-full">AI</span>
+                      </p>
+                      <p className="text-[10px] text-slate-500">Análisis automático con IA (usa API)</p>
+                    </div>
+                    {mode === 'ai' && <span className="material-symbols-outlined text-pink-500">check_circle</span>}
+                  </button>
+
+                  {/* Manual */}
+                  <button
+                    onClick={() => setMode('manual')}
+                    className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${mode === 'manual' ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20' : 'border-slate-100 dark:border-slate-700'}`}
+                  >
+                    <div className={`size-10 rounded-xl flex items-center justify-center ${mode === 'manual' ? 'bg-pink-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>
+                      <span className="material-symbols-outlined">pan_tool</span>
+                    </div>
+                    <div className="text-left flex-1">
+                      <p className="font-bold">Moderación Manual</p>
+                      <p className="text-[10px] text-slate-500">Bloquear todo y aprobar manualmente (sin API)</p>
+                    </div>
+                    {mode === 'manual' && <span className="material-symbols-outlined text-pink-500">check_circle</span>}
+                  </button>
+                </div>
+              </section>
+
+              {/* Visual Filters - Only show when AI mode */}
+              {mode === 'ai' && (
+                <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="material-symbols-outlined text-pink-500">visibility</span>
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Filtros Visuales</h2>
+                  </div>
+                  <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                    <FilterToggle filterKey="nudity" title="Desnudez" description="Desnudez total o parcial" icon="no_adult_content" />
+                    <FilterToggle filterKey="suggestivePoses" title="Poses Sugerentes" description="Poses provocativas (común en fiestas)" icon="accessibility_new" />
+                    <FilterToggle filterKey="violence" title="Violencia y Gore" description="Armas, peleas, sangre, accidentes" icon="swords" />
+                    <FilterToggle filterKey="hateSymbols" title="Símbolos de Odio" description="Símbolos discriminatorios o extremistas" icon="block" />
+                    <FilterToggle filterKey="drugs" title="Drogas y Sustancias" description="Drogas, parafernalia, consumo de alcohol" icon="medication" />
+                  </div>
+                </section>
+              )}
+
+              {/* Text Filters - Only show when AI mode */}
+              {mode === 'ai' && (
+                <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="material-symbols-outlined text-pink-500">text_fields</span>
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Filtros de Texto</h2>
+                  </div>
+                  <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                    <FilterToggle filterKey="offensiveLanguage" title="Lenguaje Ofensivo" description="Insultos, groserías, palabras vulgares" icon="sentiment_very_dissatisfied" />
+                    <FilterToggle filterKey="hateSpeech" title="Discurso de Odio" description="Contenido discriminatorio o amenazante" icon="warning" />
+                    <FilterToggle filterKey="personalData" title="Datos Personales" description="Teléfonos, direcciones, información sensible" icon="lock" />
+                  </div>
+                </section>
+              )}
+
+              {/* Confidence Threshold - Only show when AI mode */}
+              {mode === 'ai' && (
+                <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-4">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Umbral de Confianza</h2>
+                  <input
+                    type="range"
+                    min="50"
+                    max="95"
+                    value={filters.confidenceThreshold}
+                    onChange={(e) => setFilters(prev => ({ ...prev, confidenceThreshold: parseInt(e.target.value) }))}
+                    className="w-full accent-pink-500"
+                  />
+                  <div className="flex justify-between text-xs text-slate-500 mt-2">
+                    <span>Permisivo</span>
+                    <span className="font-bold text-pink-500">{filters.confidenceThreshold}%</span>
+                    <span>Estricto</span>
+                  </div>
+                </section>
+              )}
+
               {/* Interval */}
               <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-4">
                 <div className="flex justify-between items-center mb-2">
@@ -472,8 +646,8 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                             onClick={() => handleApprove(photo.id)}
                             disabled={actionLoading === photo.id || photo.isApproved}
                             className={`flex-1 text-xs font-bold py-2 rounded-xl flex items-center justify-center gap-1 transition-all ${photo.isApproved
-                                ? 'bg-green-100 text-green-400 cursor-not-allowed'
-                                : 'bg-green-500 hover:bg-green-600 text-white'
+                              ? 'bg-green-100 text-green-400 cursor-not-allowed'
+                              : 'bg-green-500 hover:bg-green-600 text-white'
                               }`}
                           >
                             <span className="material-symbols-outlined text-sm">check</span>
@@ -483,8 +657,8 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                             onClick={() => handleBlock(photo.id)}
                             disabled={actionLoading === photo.id || photo.isBlocked}
                             className={`flex-1 text-xs font-bold py-2 rounded-xl flex items-center justify-center gap-1 transition-all ${photo.isBlocked
-                                ? 'bg-red-100 text-red-400 cursor-not-allowed'
-                                : 'bg-red-500 hover:bg-red-600 text-white'
+                              ? 'bg-red-100 text-red-400 cursor-not-allowed'
+                              : 'bg-red-500 hover:bg-red-600 text-white'
                               }`}
                           >
                             <span className="material-symbols-outlined text-sm">block</span>
