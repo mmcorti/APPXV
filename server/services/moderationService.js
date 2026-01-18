@@ -78,51 +78,78 @@ export const moderationService = {
     analyzeWithOpenAI: async (imageUrl, filters = {}, confidenceThreshold = 70) => {
         // Build dynamic prompt based on enabled filters
         const unsafeRules = [];
+        const allowedContent = []; /* Explicitly allow content if filter is OFF */
 
         if (filters.nudity !== false) {
             unsafeRules.push('- Nudity: full or partial nudity, exposed genitals, exposed breasts');
+        } else {
+            allowedContent.push('- Partial nudity, artistic nudity, fashion, or swimwear');
         }
+
         if (filters.suggestivePoses === true) {
             unsafeRules.push('- Suggestive poses: provocative poses, seductive posing (NOT normal party dancing or selfies)');
+        } else {
+            allowedContent.push('- Poses, dancing, or selfies');
         }
+
         if (filters.violence !== false) {
-            unsafeRules.push('- Violence, blood, injuries, weapons');
+            unsafeRules.push('- Violence, blood, severe injuries, weapons');
         }
+
         if (filters.drugs !== false) {
-            unsafeRules.push('- Drugs, alcohol bottles/cans prominently displayed');
+            unsafeRules.push('- Illegal drugs, drug paraphernalia');
+            // Note: Alcohol is usually fine at parties unless specifically flagged
+            if (filters.alcohol === true) unsafeRules.push('- Excessive alcohol consumption');
         }
+
         if (filters.hateSymbols !== false) {
-            unsafeRules.push('- Hate symbols, discriminatory or extremist content');
+            unsafeRules.push('- Hate symbols, swastikas, extremist imagery');
         }
+
         if (filters.offensiveLanguage !== false) {
-            unsafeRules.push('- Offensive gestures (middle finger, etc.)');
-            unsafeRules.push('- Memes or text with offensive language, insults, or slurs');
+            unsafeRules.push('- Middle finger or offensive hand gestures');
+            unsafeRules.push('- Text containing heavy profanity or insults');
         }
+
         if (filters.hateSpeech !== false) {
-            unsafeRules.push('- Hate speech, discriminatory, or threatening text');
+            unsafeRules.push('- Text containing hate speech or discrimination');
         }
+
         if (filters.personalData !== false) {
-            unsafeRules.push('- Visible personal data: phone numbers, addresses, IDs, credit cards');
+            unsafeRules.push('- Clearly visible private documents (IDs, credit cards)');
         }
 
-        // Default rules always applied
-        unsafeRules.push('- Disturbing or inappropriate content');
-        unsafeRules.push('- Content not suitable for all ages at a family event');
+        // Generic fallback - make it less aggressive so it doesn't override specific "OFF" settings
+        unsafeRules.push('- Extremely disturbing gore or hardcore pornography');
 
-        const systemPrompt = `You are a content moderation system for a party photo slideshow.
-Analyze images and respond ONLY with a JSON object, no other text.
+        const systemPrompt = `You are a strict content moderation system for a private party photo feed.
+Analyze images and respond ONLY with a JSON object.
 
-Flag as UNSAFE if the image contains:
+RULES FOR "UNSAFE":
+Flag as UNSAFE (safe: false) ONLY if the image matches one of these strict criteria:
 ${unsafeRules.join('\n')}
 
-Flag as SAFE if the image is:
-- Normal party/event photos (people smiling, dancing, eating)
-- Decorations, venue, food, cake
+RULES FOR "SAFE":
+Flag as SAFE (safe: true) if the image DOES NOT match the strict criteria above, or if it contains:
+${allowedContent.join('\n')}
+- Normal party/event photos (people smiling, dancing, eating, drinking)
+- Funny faces, joking posing
 - Group photos, selfies
-- Appropriate content for all audiences
+- Food, cake, decorations
 
-Response format:
-{"safe": true/false, "confidence": 0.0-1.0, "labels": ["label1", "label2"]}`;
+REQUIRED JSON FORMAT:
+{"safe": boolean, "confidence": 0.0-1.0, "labels": ["label_code"]}
+
+Label Codes (use only these):
+- "nudity" (for Nudity)
+- "suggestive" (for Suggestive poses)
+- "violence" (for Violence)
+- "drugs" (for Drugs)
+- "hate" (for Hate symbols/speech)
+- "offensive" (for Offensive language/gestures)
+- "personal_data" (for Personal Data)
+- "gore" (for generic disturbing content)
+`;
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -137,13 +164,13 @@ Response format:
                     {
                         role: 'user',
                         content: [
-                            { type: 'text', text: 'Analyze this image for content moderation:' },
+                            { type: 'text', text: 'Analyze this image and return the JSON decision:' },
                             { type: 'image_url', image_url: { url: imageUrl, detail: 'low' } }
                         ]
                     }
                 ],
                 max_tokens: 150,
-                temperature: 0.1
+                temperature: 0.0
             })
         });
 
@@ -235,7 +262,7 @@ Response format:
 
         // Check each category
         if (dangerLevels.includes(safeSearch.adult)) {
-            labels.push('adult');
+            labels.push('nudity'); // Standardize label
             safe = false;
         }
         if (dangerLevels.includes(safeSearch.violence)) {
@@ -243,16 +270,17 @@ Response format:
             safe = false;
         }
         if (dangerLevels.includes(safeSearch.racy)) {
-            labels.push('racy');
-            // Racy alone doesn't block, but combined with others does
+            labels.push('suggestive'); // Standardize label
+            // Racy alone doesn't block unless very likely? Or based on config?
+            // Existing logic was permissive on racy, keeping it for now but applying label.
         }
         if (dangerLevels.includes(safeSearch.medical)) {
-            labels.push('medical');
+            labels.push('gore'); // Standardize label
             safe = false;
         }
 
         if (hasOffensiveText) {
-            labels.push('offensive_text');
+            labels.push('offensive');
             safe = false;
         }
 

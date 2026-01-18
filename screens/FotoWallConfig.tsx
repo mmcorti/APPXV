@@ -665,20 +665,25 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                     .filter(p => viewFilter === 'all' || (viewFilter === 'blocked' ? p.isBlocked : !p.isBlocked))
                     .map(photo => {
                       // Helper to get friendly label
+                      // Helper to get friendly label
                       const getLabel = () => {
                         if (!photo.moderation?.labels) return '';
                         const l = photo.moderation.labels;
-                        if (l.includes('nudity')) return 'Desnudez';
-                        if (l.includes('suggestive')) return 'Poses';
+
+                        if (l.includes('manual_review') || l.includes('manually_blocked')) return 'Bloqueo Manual';
+                        if (l.includes('api_error') || l.includes('error')) return 'Error IA';
+
+                        if (l.includes('nudity') || l.includes('adult')) return 'Desnudez';
+                        if (l.includes('suggestive') || l.includes('racy')) return 'Poses';
                         if (l.includes('violence')) return 'Violencia';
                         if (l.includes('weapons')) return 'Armas';
-                        if (l.includes('alcohol') || l.includes('drugs')) return 'Drogas';
+                        if (l.includes('drugs') || l.includes('alcohol')) return 'Drogas/Alcohol';
                         if (l.includes('hate')) return 'Odio';
-                        if (l.includes('offensive')) return 'Contenido Ofensivo';
-                        if (l.includes('text') || l.includes('profanity') || l.includes('offensiveLanguage')) return 'Texto Ofensivo';
-                        if (l.includes('manual_review') || l.includes('manually_blocked')) return 'Manual';
-                        if (l.includes('api_error') || l.includes('error')) return 'Error IA';
-                        return 'Contenido';
+                        if (l.includes('offensive') || l.includes('offensive_text')) return 'Ofensivo';
+                        if (l.includes('personal_data')) return 'Datos Personales';
+                        if (l.includes('gore') || l.includes('medical')) return 'Violencia Extrema';
+
+                        return 'Contenido Inapropiado';
                       };
                       const label = getLabel();
 
