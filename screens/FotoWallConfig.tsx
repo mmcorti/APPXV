@@ -72,37 +72,49 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
   const configKey = `fotowall_config_${id}`;
   const moderationKey = `fotowall_moderation_settings_${id}`;
 
-  // Load saved config on mount
+  // Load data from event or localStorage on mount
   useEffect(() => {
-    // Load config
-    const savedConfig = localStorage.getItem(configKey);
-    if (savedConfig) {
-      try {
-        const config = JSON.parse(savedConfig);
-        if (config.albumUrl) {
-          setAlbumUrl(config.albumUrl);
-          setLinkStatus('valid');
+    if (event?.fotowall) {
+      const fw = event.fotowall;
+      if (fw.albumUrl) {
+        setAlbumUrl(fw.albumUrl);
+        setLinkStatus('valid');
+      }
+      if (fw.interval) setIntervalValue(fw.interval);
+      if (fw.shuffle !== undefined) setShuffle(fw.shuffle);
+      if (fw.overlayTitle) setOverlayTitle(fw.overlayTitle);
+      if (fw.mode) setMode(fw.mode);
+      if (fw.filters) setFilters(prev => ({ ...prev, ...fw.filters }));
+    } else {
+      // Fallback to localStorage for migration or if not yet in DB
+      const savedConfig = localStorage.getItem(configKey);
+      if (savedConfig) {
+        try {
+          const config = JSON.parse(savedConfig);
+          if (config.albumUrl) {
+            setAlbumUrl(config.albumUrl);
+            setLinkStatus('valid');
+          }
+          if (config.interval) setIntervalValue(config.interval);
+          if (config.shuffle !== undefined) setShuffle(config.shuffle);
+          if (config.overlayTitle) setOverlayTitle(config.overlayTitle);
+        } catch (e) {
+          console.error("Error loading config:", e);
         }
-        if (config.interval) setIntervalValue(config.interval);
-        if (config.shuffle !== undefined) setShuffle(config.shuffle);
-        if (config.overlayTitle) setOverlayTitle(config.overlayTitle);
-      } catch (e) {
-        console.error("Error loading config:", e);
       }
-    }
 
-    // Load moderation settings
-    const savedModeration = localStorage.getItem(moderationKey);
-    if (savedModeration) {
-      try {
-        const settings = JSON.parse(savedModeration);
-        if (settings.mode) setMode(settings.mode);
-        if (settings.filters) setFilters(prev => ({ ...prev, ...settings.filters }));
-      } catch (e) {
-        console.error("Error loading moderation settings:", e);
+      const savedModeration = localStorage.getItem(moderationKey);
+      if (savedModeration) {
+        try {
+          const settings = JSON.parse(savedModeration);
+          if (settings.mode) setMode(settings.mode);
+          if (settings.filters) setFilters(prev => ({ ...prev, ...settings.filters }));
+        } catch (e) {
+          console.error("Error loading moderation settings:", e);
+        }
       }
     }
-  }, [id]);
+  }, [event, id]);
 
   // Load all photos when moderation tab is active or mode changes
   useEffect(() => {
@@ -175,18 +187,42 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
   };
 
   // Save config settings
-  const handleSave = () => {
-    // Save config
-    const config = { albumUrl, interval: intervalValue, shuffle, overlayTitle };
-    localStorage.setItem(configKey, JSON.stringify(config));
-    localStorage.setItem(`fotowall_url_${id}`, albumUrl);
+  const handleSave = async () => {
+    if (!id) return;
+    setSaved(false);
 
-    // Save moderation settings
-    const moderationSettings = { mode, filters };
-    localStorage.setItem(moderationKey, JSON.stringify(moderationSettings));
+    const fotowall = {
+      albumUrl,
+      interval: intervalValue,
+      shuffle,
+      overlayTitle,
+      mode,
+      filters
+    };
 
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      // 1. Persist to Notion via Backend API
+      const res = await fetch(`${API_URL}/events/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fotowall })
+      });
+
+      if (!res.ok) throw new Error('Error al guardar en la base de datos');
+
+      // 2. Keep localStorage for immediate local access/player fallback
+      localStorage.setItem(configKey, JSON.stringify({ albumUrl, interval: intervalValue, shuffle, overlayTitle }));
+      localStorage.setItem(`fotowall_url_${id}`, albumUrl);
+      localStorage.setItem(moderationKey, JSON.stringify({ mode, filters }));
+
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+
+      // Optionally trigger a global state update if needed, but the parent should handle it on next fetch
+    } catch (e) {
+      console.error("Error saving FotoWall config:", e);
+      alert("Hubo un error al guardar los cambios en la nube.");
+    }
   };
 
   // Toggle filter

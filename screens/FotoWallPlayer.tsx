@@ -16,41 +16,27 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Helper to get player config from localStorage
+  // Helper to get player config from event (Notion) with localStorage/navState fallbacks
   const getPlayerConfig = () => {
-    // First try player-specific key
-    const playerKey = `fotowall_player_${id}`;
-    const playerSaved = localStorage.getItem(playerKey);
-    let playerConfig: any = {};
-    if (playerSaved) {
-      try {
-        playerConfig = JSON.parse(playerSaved);
-      } catch (e) {
-        console.error("Error parsing saved player config:", e);
-      }
-    }
+    const navState = location.state as any;
 
-    // Also check config key for overlayTitle and other settings
+    // Priority: 1. Event (Notion), 2. navState, 3. localStorage (fallback)
+    const fw = event?.fotowall;
+
+    // Check config key for transition/fallback
     const configKey = `fotowall_config_${id}`;
     const configSaved = localStorage.getItem(configKey);
-    let fullConfig: any = {};
+    let localConfig: any = {};
     if (configSaved) {
-      try {
-        fullConfig = JSON.parse(configSaved);
-      } catch (e) {
-        console.error("Error parsing config:", e);
-      }
+      try { localConfig = JSON.parse(configSaved); } catch (e) { }
     }
 
-    // Merge both, with config taking precedence for shared keys
-    const navState = location.state as any;
     return {
-      url: playerConfig.url || fullConfig.albumUrl || navState?.url,
-      interval: playerConfig.interval || fullConfig.interval || navState?.config?.interval || 5,
-      shuffle: playerConfig.shuffle ?? fullConfig.shuffle ?? navState?.config?.shuffle ?? false,
-      prioritizeNew: playerConfig.prioritizeNew ?? navState?.config?.prioritizeNew ?? true,
-      moderationEnabled: playerConfig.moderationEnabled ?? navState?.config?.moderationEnabled ?? false,
-      overlayTitle: fullConfig.overlayTitle || playerConfig.overlayTitle || ''
+      url: fw?.albumUrl || navState?.url || localConfig.albumUrl || '',
+      interval: fw?.interval || navState?.config?.interval || localConfig.interval || 5,
+      shuffle: fw?.shuffle ?? navState?.config?.shuffle ?? localConfig.shuffle ?? false,
+      prioritizeNew: true, // Internal behavior
+      overlayTitle: fw?.overlayTitle || localConfig.overlayTitle || ''
     };
   };
 
@@ -72,18 +58,25 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
 
   const intervalTime = intervalSeconds * 1000;
 
-  // Get moderation settings from localStorage
+  // Get moderation settings from event (Notion) or localStorage
   const getModerationSettings = () => {
+    if (event?.fotowall) {
+      return {
+        mode: event.fotowall.mode,
+        filters: event.fotowall.filters
+      };
+    }
+
     const key = `fotowall_moderation_settings_${id}`;
     const saved = localStorage.getItem(key);
     if (saved) {
       try {
         return JSON.parse(saved);
       } catch (e) {
-        return { mode: 'ai', filters: {} };
+        return { mode: 'manual', filters: {} };
       }
     }
-    return { mode: 'ai', filters: {} }; // Default to AI mode
+    return { mode: 'manual', filters: {} }; // Default to manual if nothing found
   };
 
   // Fetch photos helper

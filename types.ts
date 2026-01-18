@@ -61,6 +61,14 @@ export interface InvitationData {
   giftDetail: string;
   guests: Guest[];
   tables?: Table[]; // Nueva propiedad para el armado de mesas
+  fotowall?: {
+    albumUrl: string;
+    interval: number;
+    shuffle: boolean;
+    overlayTitle: string;
+    mode: 'ai' | 'manual';
+    filters: any;
+  };
 }
 
 export interface User {

@@ -11,7 +11,13 @@ const KNOWN_PROPERTIES = {
         Time: ["Time", "Hora", "Horario"],
         Host: ["Host Name", "Anfitrión", "Anfitrion", "Hosts"],
         GiftType: ["Gift Type", "Tipo de Regalo"],
-        GiftDetail: ["Gift Detail", "Alias", "CBU", "URL Regalo"]
+        GiftDetail: ["Gift Detail", "Alias", "CBU", "URL Regalo"],
+        FW_AlbumUrl: ["FotoWall Album URL", "FW_AlbumUrl"],
+        FW_Interval: ["FotoWall Interval", "FW_Interval"],
+        FW_Shuffle: ["FotoWall Shuffle", "FW_Shuffle"],
+        FW_OverlayTitle: ["FotoWall Overlay Title", "FW_OverlayTitle"],
+        FW_ModerationMode: ["FotoWall Moderation Mode", "FW_ModerationMode"],
+        FW_Filters: ["FotoWall Filters", "FW_Filters"]
     },
     GUESTS: {
         Name: ["Name", "Nombre"],
