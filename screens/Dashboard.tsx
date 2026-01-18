@@ -91,7 +91,7 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
   };
 
   return (
-    <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white pb-24 min-h-screen relative max-w-[480px] mx-auto overflow-x-hidden">
+    <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white pb-24 min-h-screen relative max-w-[480px] md:max-w-7xl mx-auto overflow-x-hidden">
       <div className="sticky top-0 z-40 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md px-4 pt-6 pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -127,7 +127,7 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
         ) : invitations.length > 0 ? (
           <div>
             <h2 className="text-slate-900 dark:text-white text-lg font-bold mb-4 px-1">Tus Eventos</h2>
-            <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {invitations.map((inv) => (
                 <div
                   key={inv.id}

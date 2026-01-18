@@ -45,7 +45,7 @@ const WelcomeScreen: React.FC = () => {
             Planificación integral para celebraciones personales y eventos corporativos. Todo en un solo lugar.
           </p>
         </div>
-        <div className="flex flex-col gap-3 px-6 pb-10 w-full max-w-[480px] mx-auto">
+        <div className="flex flex-col gap-3 px-6 pb-10 w-full max-w-[480px] md:max-w-md mx-auto">
           <button onClick={() => navigate('/login')} className="group flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl h-14 px-5 bg-primary text-white text-base font-bold leading-normal tracking-wide shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200">
             <span className="truncate">Comenzar a Planear</span>
           </button>

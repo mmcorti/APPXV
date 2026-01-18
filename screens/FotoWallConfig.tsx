@@ -338,7 +338,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
 
   return (
     <div className="bg-background-light dark:bg-background-dark min-h-screen text-slate-900 dark:text-white font-display">
-      <div className="max-w-[480px] mx-auto min-h-screen flex flex-col relative">
+      <div className="max-w-[480px] md:max-w-6xl mx-auto min-h-screen flex flex-col relative">
         {/* Header */}
         <div className="px-6 pt-8 pb-4">
           <button
@@ -660,7 +660,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                   <p className="text-xs">Configura una fuente de fotos primero</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3 pb-24">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-32">
                   {allPhotos
                     .filter(p => viewFilter === 'all' || (viewFilter === 'blocked' ? p.isBlocked : !p.isBlocked))
                     .map(photo => {
@@ -755,11 +755,11 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
 
         {/* Bottom Actions */}
         <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background-light dark:from-background-dark via-background-light dark:via-background-dark to-transparent">
-          <div className="max-w-[480px] mx-auto space-y-3">
+          <div className="max-w-[480px] md:max-w-6xl mx-auto flex flex-col md:flex-row-reverse gap-3">
             {activeTab === 'rules' && (
               <button
                 onClick={handleSave}
-                className={`w-full font-bold h-14 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 ${saved
+                className={`w-full md:w-auto md:px-8 font-bold h-14 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 ${saved
                   ? 'bg-green-500 text-white shadow-green-500/20'
                   : 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-pink-500/20 active:scale-[0.98]'
                   }`}
@@ -786,7 +786,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                 window.open(`/#/fotowall-player/${id}`, '_blank');
               }}
               disabled={linkStatus !== 'valid'}
-              className={`w-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold h-12 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2 ${linkStatus !== 'valid' ? 'opacity-50' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+              className={`w-full md:w-auto md:px-8 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold h-14 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2 ${linkStatus !== 'valid' ? 'opacity-50' : 'hover:bg-slate-200 dark:hover:bg-slate-700'}`}
             >
               <span className="material-symbols-outlined text-xl">rocket_launch</span>
               Lanzar Presentación
