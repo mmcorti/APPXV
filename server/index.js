@@ -130,7 +130,20 @@ app.get('/api/events', async (req, res) => {
                 hostName: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Host)),
                 giftType: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.GiftType)),
                 giftDetail: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.GiftDetail)),
-                status: 'published'
+                status: 'published',
+                fotowall: {
+                    albumUrl: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.FW_AlbumUrl)),
+                    interval: Number(getText(findProp(props, KNOWN_PROPERTIES.EVENTS.FW_Interval))) || 5,
+                    shuffle: findProp(props, KNOWN_PROPERTIES.EVENTS.FW_Shuffle)?.checkbox || false,
+                    overlayTitle: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.FW_OverlayTitle)),
+                    mode: findProp(props, KNOWN_PROPERTIES.EVENTS.FW_ModerationMode)?.select?.name || 'manual',
+                    filters: (() => {
+                        try {
+                            const f = getText(findProp(props, KNOWN_PROPERTIES.EVENTS.FW_Filters));
+                            return f ? JSON.parse(f) : null;
+                        } catch (e) { return null; }
+                    })()
+                }
             };
 
             if (index === 0) {
@@ -169,6 +182,17 @@ app.post('/api/events', async (req, res) => {
         if (giftType) properties[schema.get('EVENTS', 'GiftType')] = { select: { name: giftType } };
         properties[schema.get('EVENTS', 'GiftDetail')] = { rich_text: [{ text: { content: giftDetail || "" } }] };
 
+        // FotoWall initial config (optional)
+        const { fotowall } = req.body;
+        if (fotowall) {
+            properties[schema.get('EVENTS', 'FW_AlbumUrl')] = { url: fotowall.albumUrl || null };
+            properties[schema.get('EVENTS', 'FW_Interval')] = { number: Number(fotowall.interval) || 5 };
+            properties[schema.get('EVENTS', 'FW_Shuffle')] = { checkbox: !!fotowall.shuffle };
+            properties[schema.get('EVENTS', 'FW_OverlayTitle')] = { rich_text: [{ text: { content: fotowall.overlayTitle || "" } }] };
+            properties[schema.get('EVENTS', 'FW_ModerationMode')] = { select: { name: fotowall.mode || 'manual' } };
+            properties[schema.get('EVENTS', 'FW_Filters')] = { rich_text: [{ text: { content: JSON.stringify(fotowall.filters || {}) } }] };
+        }
+
         const newPage = await notionClient.pages.create({
             parent: { database_id: DB.EVENTS },
             properties
@@ -183,25 +207,46 @@ app.post('/api/events', async (req, res) => {
 
 app.put('/api/events/:id', async (req, res) => {
     try {
+        await schema.init();
         const { id } = req.params;
-        const { eventName, date, location, message, image, time, hostName, giftType, giftDetail } = req.body;
+        const { eventName, date, location, message, image, time, hostName, giftType, giftDetail, fotowall } = req.body;
+
+        console.log(`📝 Updating event ${id}. Request body keys:`, Object.keys(req.body));
 
         const properties = {};
-        if (eventName) properties[schema.get('EVENTS', 'Name')] = { title: [{ text: { content: eventName } }] };
-        if (date) properties[schema.get('EVENTS', 'Date')] = { date: { start: date } };
+        if (eventName !== undefined) properties[schema.get('EVENTS', 'Name')] = { title: [{ text: { content: eventName } }] };
+        if (date !== undefined) properties[schema.get('EVENTS', 'Date')] = { date: { start: date } };
+        if (location !== undefined) properties[schema.get('EVENTS', 'Location')] = { rich_text: [{ text: { content: location || "" } }] };
+        if (message !== undefined) properties[schema.get('EVENTS', 'Message')] = { rich_text: [{ text: { content: message || "" } }] };
+        if (image !== undefined) properties[schema.get('EVENTS', 'Image')] = { url: image || null };
+        if (time !== undefined) properties[schema.get('EVENTS', 'Time')] = { rich_text: [{ text: { content: time || "" } }] };
+        if (hostName !== undefined) properties[schema.get('EVENTS', 'Host')] = { rich_text: [{ text: { content: hostName || "" } }] };
+        if (giftType !== undefined) properties[schema.get('EVENTS', 'GiftType')] = { select: { name: giftType } };
+        if (giftDetail !== undefined) properties[schema.get('EVENTS', 'GiftDetail')] = { rich_text: [{ text: { content: giftDetail || "" } }] };
 
-        // Always try update optional fields
-        properties[schema.get('EVENTS', 'Location')] = { rich_text: [{ text: { content: location || "" } }] };
-        properties[schema.get('EVENTS', 'Message')] = { rich_text: [{ text: { content: message || "" } }] };
-        properties[schema.get('EVENTS', 'Image')] = { url: image || null };
-        properties[schema.get('EVENTS', 'Time')] = { rich_text: [{ text: { content: time || "" } }] };
-        properties[schema.get('EVENTS', 'Host')] = { rich_text: [{ text: { content: hostName || "" } }] };
-        if (giftType) properties[schema.get('EVENTS', 'GiftType')] = { select: { name: giftType } };
-        properties[schema.get('EVENTS', 'GiftDetail')] = { rich_text: [{ text: { content: giftDetail || "" } }] };
+        // FotoWall update
+        if (fotowall) {
+            console.log("📸 Updating FotoWall settings:", JSON.stringify(fotowall));
+            properties[schema.get('EVENTS', 'FW_AlbumUrl')] = { url: fotowall.albumUrl || null };
+            properties[schema.get('EVENTS', 'FW_Interval')] = { number: Number(fotowall.interval) || 5 };
+            properties[schema.get('EVENTS', 'FW_Shuffle')] = { checkbox: !!fotowall.shuffle };
+            properties[schema.get('EVENTS', 'FW_OverlayTitle')] = { rich_text: [{ text: { content: fotowall.overlayTitle || "" } }] };
+            properties[schema.get('EVENTS', 'FW_ModerationMode')] = { select: { name: fotowall.mode || 'manual' } };
+            properties[schema.get('EVENTS', 'FW_Filters')] = { rich_text: [{ text: { content: JSON.stringify(fotowall.filters || {}) } }] };
 
+            console.log("🛠️ Mapped Properties for FotoWall:", {
+                albumUrl: schema.get('EVENTS', 'FW_AlbumUrl'),
+                interval: schema.get('EVENTS', 'FW_Interval'),
+                mode: schema.get('EVENTS', 'FW_ModerationMode')
+            });
+        }
+
+        console.log("📤 Sending update to Notion for page:", id);
         await notionClient.pages.update({ page_id: id, properties });
+        console.log("✅ Notion update successful");
         res.json({ success: true });
     } catch (error) {
+        console.error("❌ Error updating event:", error);
         res.status(500).json({ error: error.message });
     }
 });
