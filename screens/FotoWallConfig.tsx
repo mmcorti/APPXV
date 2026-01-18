@@ -66,6 +66,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
   const [showImages, setShowImages] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [viewFilter, setViewFilter] = useState<'all' | 'blocked' | 'approved'>('all');
 
   // Storage keys
   const configKey = `fotowall_config_${id}`;
@@ -375,12 +376,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                 : 'text-slate-500 dark:text-slate-400'
                 }`}
             >
-              Panel de Moderación
-              {blockedCount > 0 && (
-                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                  {blockedCount}
-                </span>
-              )}
+              Panel de Moderación ({blockedCount})
             </button>
           </div>
         </div>
@@ -606,29 +602,44 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                 </button>
               </div>
 
-              {/* Stats & Controls */}
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                  {blockedCount}/{totalPhotos} fotos bloqueadas
-                </p>
-                <div className="flex gap-2">
+              {/* Advanced Filter & Tools Toolbar */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2 mr-auto">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">MOSTRAR</span>
+                  <div className="relative">
+                    <select
+                      value={viewFilter}
+                      onChange={(e) => setViewFilter(e.target.value as any)}
+                      className="appearance-none bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs pl-3 pr-8 py-2 rounded-xl border-none focus:ring-2 focus:ring-pink-500 cursor-pointer outline-none"
+                    >
+                      <option value="all">TODAS ({allPhotos.length})</option>
+                      <option value="blocked">BLOQUEADAS ({allPhotos.filter(p => p.isBlocked).length})</option>
+                      <option value="approved">APROBADAS ({allPhotos.filter(p => !p.isBlocked).length})</option>
+                    </select>
+                    <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 text-sm pointer-events-none">expand_more</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => setShowImages(!showImages)}
-                    className="flex items-center gap-1 text-xs font-bold text-pink-500 bg-pink-50 dark:bg-pink-900/30 px-3 py-2 rounded-xl"
+                    className={`flex items-center gap-1 text-xs font-bold px-3 py-2 rounded-xl transition-colors ${!showImages
+                      ? 'bg-red-50 text-red-500 dark:bg-red-900/20'
+                      : 'bg-slate-100 text-slate-500 dark:bg-slate-700'}`}
                   >
                     <span className="material-symbols-outlined text-sm">{showImages ? 'visibility_off' : 'visibility'}</span>
                     {showImages ? 'Ocultar' : 'Mostrar'}
                   </button>
                   <button
                     onClick={loadAllPhotos}
-                    className="flex items-center gap-1 text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-700 px-3 py-2 rounded-xl"
+                    className="flex items-center gap-1 text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-700 px-3 py-2 rounded-xl active:scale-95 transition-transform"
                   >
                     <span className="material-symbols-outlined text-sm">refresh</span>
                     Actualizar
                   </button>
                   <button
                     onClick={handleClearCache}
-                    className="flex items-center gap-1 text-xs font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-xl"
+                    className="flex items-center gap-1 text-xs font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-xl active:scale-95 transition-transform"
                     title="Borrar memoria y re-analizar todo"
                   >
                     <span className="material-symbols-outlined text-sm">delete_history</span>
@@ -649,61 +660,88 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                   <p className="text-xs">Configura una fuente de fotos primero</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {allPhotos.map(photo => (
-                    <div key={photo.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden">
-                      {/* Image */}
-                      <div className="aspect-square relative">
-                        <img
-                          src={photo.src}
-                          alt="Photo"
-                          className={`w-full h-full object-cover ${showImages ? '' : 'blur-xl brightness-50'}`}
-                        />
-                        {/* Status Badge */}
-                        <div className="absolute top-2 right-2">
-                          {photo.isBlocked ? (
-                            <span className="bg-red-500/90 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                              <span className="material-symbols-outlined text-sm">block</span>
-                              Bloqueado
-                            </span>
-                          ) : (
-                            <span className="bg-green-500/90 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                              <span className="material-symbols-outlined text-sm">check</span>
-                              Aprobado
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                <div className="grid grid-cols-2 gap-3 pb-24">
+                  {allPhotos
+                    .filter(p => viewFilter === 'all' || (viewFilter === 'blocked' ? p.isBlocked : !p.isBlocked))
+                    .map(photo => {
+                      // Helper to get friendly label
+                      const getLabel = () => {
+                        if (!photo.moderation?.labels) return '';
+                        const l = photo.moderation.labels;
+                        if (l.includes('nudity')) return 'Desnudez';
+                        if (l.includes('suggestive')) return 'Poses';
+                        if (l.includes('violence')) return 'Violencia';
+                        if (l.includes('weapons')) return 'Armas';
+                        if (l.includes('alcohol') || l.includes('drugs')) return 'Drogas';
+                        if (l.includes('hate')) return 'Odio';
+                        if (l.includes('offensive')) return 'Contenido Ofensivo';
+                        if (l.includes('text') || l.includes('profanity') || l.includes('offensiveLanguage')) return 'Texto Ofensivo';
+                        if (l.includes('manual_review') || l.includes('manually_blocked')) return 'Manual';
+                        if (l.includes('api_error') || l.includes('error')) return 'Error IA';
+                        return 'Contenido';
+                      };
+                      const label = getLabel();
 
-                      {/* Actions */}
-                      <div className="p-3">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleApprove(photo.id)}
-                            disabled={actionLoading === photo.id || photo.isApproved}
-                            className={`flex-1 text-xs font-bold py-2 rounded-xl flex items-center justify-center gap-1 transition-all ${photo.isApproved
-                              ? 'bg-green-100 text-green-400 cursor-not-allowed'
-                              : 'bg-green-500 hover:bg-green-600 text-white'
-                              }`}
-                          >
-                            <span className="material-symbols-outlined text-sm">check</span>
-                            Aprobar
-                          </button>
-                          <button
-                            onClick={() => handleBlock(photo.id)}
-                            disabled={actionLoading === photo.id || photo.isBlocked}
-                            className={`flex-1 text-xs font-bold py-2 rounded-xl flex items-center justify-center gap-1 transition-all ${photo.isBlocked
-                              ? 'bg-red-100 text-red-400 cursor-not-allowed'
-                              : 'bg-red-500 hover:bg-red-600 text-white'
-                              }`}
-                          >
-                            <span className="material-symbols-outlined text-sm">block</span>
-                            Bloquear
-                          </button>
+                      return (
+                        <div
+                          key={photo.id}
+                          className={`bg-white dark:bg-slate-800 rounded-2xl border-2 overflow-hidden transition-all ${photo.isBlocked ? 'border-red-500/50' : 'border-green-500/50'
+                            }`}
+                        >
+                          {/* Image */}
+                          <div className="aspect-square relative group">
+                            <img
+                              src={photo.src}
+                              alt="Photo"
+                              className={`w-full h-full object-cover transition-all duration-300 ${showImages ? (photo.isBlocked ? 'grayscale-[0.3]' : '') : 'blur-xl brightness-50'}`}
+                              onContextMenu={(e) => e.preventDefault()}
+                            />
+
+                            {/* Top Badges */}
+                            <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+                              {photo.isBlocked ? (
+                                <div className="bg-white/90 backdrop-blur-sm border border-red-200 text-red-600 text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                                  <span className="material-symbols-outlined text-sm font-bold">close</span>
+                                  {label || 'Bloqueado'}
+                                </div>
+                              ) : (
+                                <div className="bg-green-500 text-white shadow-lg shadow-green-500/30 p-1.5 rounded-full flex items-center justify-center">
+                                  <span className="material-symbols-outlined text-sm font-bold">check</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="p-2">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleApprove(photo.id)}
+                                disabled={actionLoading === photo.id}
+                                className={`flex-1 text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-1 transition-all active:scale-95 ${!photo.isBlocked
+                                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                  : 'bg-green-500 hover:bg-green-600 text-white shadow-md shadow-green-500/20'
+                                  }`}
+                              >
+                                <span className="material-symbols-outlined text-lg">check</span>
+                                Aprobar
+                              </button>
+                              <button
+                                onClick={() => handleBlock(photo.id)}
+                                disabled={actionLoading === photo.id}
+                                className={`flex-1 text-xs font-bold py-2.5 rounded-xl flex items-center justify-center gap-1 transition-all active:scale-95 ${photo.isBlocked
+                                  ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                  : 'bg-red-500 hover:bg-red-600 text-white shadow-md shadow-red-500/20'
+                                  }`}
+                              >
+                                <span className="material-symbols-outlined text-lg">block</span>
+                                Bloquear
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    })}
                 </div>
               )}
             </div>
