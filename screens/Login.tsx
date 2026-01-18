@@ -2,9 +2,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { notionService } from '../services/notion';
+import { StaffPermissions } from '../types';
 
 interface LoginProps {
-  onLogin: (name: string, email: string) => void;
+  onLogin: (name: string, email: string, role?: string, permissions?: StaffPermissions, eventId?: string) => void;
 }
 
 const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
@@ -23,7 +24,7 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
     try {
       // Intenta iniciar sesión contra el backend de Notion
       const user = await notionService.login(email, password);
-      onLogin(user.name, user.email, user.role);
+      onLogin(user.name, user.email, user.role, user.permissions, user.eventId);
       navigate('/dashboard');
     } catch (err: any) {
       console.error(err);

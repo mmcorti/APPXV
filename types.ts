@@ -71,11 +71,28 @@ export interface InvitationData {
   };
 }
 
+export interface StaffPermissions {
+  access_invitados: boolean;
+  access_mesas: boolean;
+  access_link: boolean;
+  access_fotowall: boolean;
+}
+
+export interface StaffMember {
+  id: string;
+  name: string;
+  email: string;
+  permissions: StaffPermissions;
+}
+
 export interface User {
+  id?: string;
   name: string;
   email: string;
   avatar: string;
-  role?: string;
+  role: 'admin' | 'staff';
+  permissions?: StaffPermissions;
+  eventId?: string; // For staff, the specific event they have access to
 }
 
 export enum ImageSize {

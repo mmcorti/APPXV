@@ -161,35 +161,60 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className={`grid gap-2 ${user.role === 'admin' ? 'grid-cols-5' : 'grid-cols-4'}`}>
                       <button
                         onClick={() => navigate(`/guests/${inv.id}`)}
-                        className="flex flex-col items-center justify-center gap-1 py-3 bg-blue-50 dark:bg-blue-900/20 text-primary font-bold text-[10px] rounded-xl"
+                        disabled={user.role === 'staff' && !user.permissions?.access_invitados}
+                        className={`flex flex-col items-center justify-center gap-1 py-3 font-bold text-[10px] rounded-xl transition-all ${user.role === 'staff' && !user.permissions?.access_invitados
+                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                            : 'bg-blue-50 dark:bg-blue-900/20 text-primary hover:scale-[0.98]'
+                          }`}
                       >
                         <span className="material-symbols-outlined text-lg">groups</span>
                         Invitados
                       </button>
                       <button
                         onClick={() => navigate(`/tables/${inv.id}`)}
-                        className="flex flex-col items-center justify-center gap-1 py-3 bg-purple-50 dark:bg-purple-900/20 text-purple-600 font-bold text-[10px] rounded-xl"
+                        disabled={user.role === 'staff' && !user.permissions?.access_mesas}
+                        className={`flex flex-col items-center justify-center gap-1 py-3 font-bold text-[10px] rounded-xl transition-all ${user.role === 'staff' && !user.permissions?.access_mesas
+                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                            : 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 hover:scale-[0.98]'
+                          }`}
                       >
                         <span className="material-symbols-outlined text-lg">table_restaurant</span>
                         Mesas
                       </button>
                       <button
                         onClick={() => handleShareGeneralLink(inv)}
-                        className="flex flex-col items-center justify-center gap-1 py-3 bg-primary text-white font-bold text-[10px] rounded-xl shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
+                        disabled={user.role === 'staff' && !user.permissions?.access_link}
+                        className={`flex flex-col items-center justify-center gap-1 py-3 font-bold text-[10px] rounded-xl transition-all ${user.role === 'staff' && !user.permissions?.access_link
+                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                            : 'bg-primary text-white shadow-lg shadow-primary/20 active:scale-[0.98]'
+                          }`}
                       >
                         <span className="material-symbols-outlined text-lg">share</span>
                         Link
                       </button>
                       <button
                         onClick={() => navigate(`/fotowall/${inv.id}`)}
-                        className="flex flex-col items-center justify-center gap-1 py-3 bg-pink-50 dark:bg-pink-900/20 text-pink-600 font-bold text-[10px] rounded-xl"
+                        disabled={user.role === 'staff' && !user.permissions?.access_fotowall}
+                        className={`flex flex-col items-center justify-center gap-1 py-3 font-bold text-[10px] rounded-xl transition-all ${user.role === 'staff' && !user.permissions?.access_fotowall
+                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                            : 'bg-pink-50 dark:bg-pink-900/20 text-pink-600 hover:scale-[0.98]'
+                          }`}
                       >
                         <span className="material-symbols-outlined text-lg">photo_library</span>
                         FotoWall
                       </button>
+                      {user.role === 'admin' && (
+                        <button
+                          onClick={() => navigate(`/staff/${inv.id}`)}
+                          className="flex flex-col items-center justify-center gap-1 py-3 bg-green-50 dark:bg-green-900/20 text-green-600 font-bold text-[10px] rounded-xl hover:scale-[0.98] transition-all"
+                        >
+                          <span className="material-symbols-outlined text-lg">badge</span>
+                          Staff
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
