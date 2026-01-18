@@ -30,12 +30,12 @@ const getText = (prop) => {
     if (!prop) return '';
     if (prop.title) return prop.title.map(t => t.plain_text).join('');
     if (prop.rich_text) return prop.rich_text.map(t => t.plain_text).join('');
-    if (prop.select) return prop.select.name;
-    if (prop.email) return prop.email;
-    if (prop.date) return prop.date.start;
-    if (prop.number !== undefined) return prop.number.toString();
-    if (prop.url) return prop.url;
-    if (prop.checkbox) return prop.checkbox;
+    if (prop.select) return prop.select.name || '';
+    if (prop.email) return prop.email || '';
+    if (prop.date) return prop.date.start || '';
+    if (prop.number !== undefined && prop.number !== null) return prop.number.toString();
+    if (prop.url) return prop.url || '';
+    if (prop.checkbox !== undefined) return prop.checkbox;
     if (prop.relation) return prop.relation.map(r => r.id);
     return '';
 };
