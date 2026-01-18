@@ -62,37 +62,84 @@ app.post('/api/login', async (req, res) => {
     console.log(`🔐 Intentando login para: ${email}`);
 
     try {
-        if (!DS.USERS) throw new Error("USERS_DB_ID not configured");
+        // 1. First check Users database (Admins)
+        if (DS.USERS) {
+            const userResponse = await notionClient.databases.query({
+                database_id: DS.USERS,
+                filter: {
+                    property: "Email",
+                    email: { equals: email }
+                }
+            });
 
-        const response = await notionClient.databases.query({
-            database_id: DS.USERS,
-            filter: {
-                property: "Email",
-                email: { equals: email }
+            const userPage = userResponse.results[0];
+            if (userPage) {
+                const dbPassword = getText(userPage.properties.PasswordHash || userPage.properties.Password);
+                if (dbPassword.trim() === password) {
+                    console.log(`✅ Admin login successful: ${email}`);
+                    return res.json({
+                        success: true,
+                        user: {
+                            id: userPage.id,
+                            email: getText(userPage.properties.Email),
+                            name: getText(userPage.properties.Name),
+                            role: 'admin',
+                            permissions: {
+                                access_invitados: true,
+                                access_mesas: true,
+                                access_link: true,
+                                access_fotowall: true
+                            }
+                        }
+                    });
+                } else {
+                    return res.status(401).json({ success: false, message: 'Contraseña incorrecta' });
+                }
             }
-        });
-
-        const userPage = response.results[0];
-        if (!userPage) {
-            return res.status(401).json({ success: false, message: 'Usuario no encontrado' });
         }
 
-        const dbEmail = getText(userPage.properties.Email);
-        const dbPassword = getText(userPage.properties.PasswordHash || userPage.properties.Password);
+        // 2. Check Staff database
+        if (DS.STAFF) {
+            const staffResponse = await notionClient.databases.query({
+                database_id: DS.STAFF,
+                filter: {
+                    property: schema.get('STAFF', 'Email'),
+                    email: { equals: email }
+                }
+            });
 
-        if (dbPassword.trim() !== password) {
-            return res.status(401).json({ success: false, message: 'Contraseña incorrecta' });
+            const staffPage = staffResponse.results[0];
+            if (staffPage) {
+                const dbPassword = getText(findProp(staffPage.properties, KNOWN_PROPERTIES.STAFF.Password));
+                if (dbPassword.trim() === password) {
+                    const eventRelation = findProp(staffPage.properties, KNOWN_PROPERTIES.STAFF.Event);
+                    const eventId = eventRelation?.relation?.[0]?.id || null;
+
+                    console.log(`✅ Staff login successful: ${email} for event ${eventId}`);
+                    return res.json({
+                        success: true,
+                        user: {
+                            id: staffPage.id,
+                            email: getText(findProp(staffPage.properties, KNOWN_PROPERTIES.STAFF.Email)),
+                            name: getText(findProp(staffPage.properties, KNOWN_PROPERTIES.STAFF.Name)),
+                            role: 'staff',
+                            eventId: eventId,
+                            permissions: {
+                                access_invitados: findProp(staffPage.properties, KNOWN_PROPERTIES.STAFF.AccessInvitados)?.checkbox || false,
+                                access_mesas: findProp(staffPage.properties, KNOWN_PROPERTIES.STAFF.AccessMesas)?.checkbox || false,
+                                access_link: findProp(staffPage.properties, KNOWN_PROPERTIES.STAFF.AccessLink)?.checkbox || false,
+                                access_fotowall: findProp(staffPage.properties, KNOWN_PROPERTIES.STAFF.AccessFotowall)?.checkbox || false
+                            }
+                        }
+                    });
+                } else {
+                    return res.status(401).json({ success: false, message: 'Contraseña incorrecta' });
+                }
+            }
         }
 
-        res.json({
-            success: true,
-            user: {
-                id: userPage.id,
-                email: getText(userPage.properties.Email),
-                name: getText(userPage.properties.Name),
-                role: userPage.properties.Role?.multi_select?.[0]?.name || userPage.properties.Role?.select?.name || 'admin'
-            }
-        });
+        // 3. User not found in either database
+        return res.status(401).json({ success: false, message: 'Usuario no encontrado' });
 
     } catch (error) {
         console.error("❌ Error en Login:", error);
@@ -431,6 +478,125 @@ app.delete('/api/guests/:id', async (req, res) => {
         await notionClient.pages.update({ page_id: req.params.id, archived: true });
         res.json({ success: true });
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- STAFF ---
+app.get('/api/staff', async (req, res) => {
+    try {
+        await schema.init();
+        const { eventId } = req.query;
+
+        if (!eventId) {
+            return res.status(400).json({ error: 'eventId is required' });
+        }
+
+        const response = await notionClient.databases.query({
+            database_id: DS.STAFF,
+            filter: {
+                property: schema.get('STAFF', 'Event'),
+                relation: { contains: eventId }
+            }
+        });
+
+        const staff = response.results.map(page => ({
+            id: page.id,
+            name: getText(findProp(page.properties, KNOWN_PROPERTIES.STAFF.Name)),
+            email: getText(findProp(page.properties, KNOWN_PROPERTIES.STAFF.Email)),
+            permissions: {
+                access_invitados: findProp(page.properties, KNOWN_PROPERTIES.STAFF.AccessInvitados)?.checkbox || false,
+                access_mesas: findProp(page.properties, KNOWN_PROPERTIES.STAFF.AccessMesas)?.checkbox || false,
+                access_link: findProp(page.properties, KNOWN_PROPERTIES.STAFF.AccessLink)?.checkbox || false,
+                access_fotowall: findProp(page.properties, KNOWN_PROPERTIES.STAFF.AccessFotowall)?.checkbox || false
+            }
+        }));
+
+        res.json(staff);
+    } catch (error) {
+        console.error("❌ Error getting staff:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/staff', async (req, res) => {
+    try {
+        await schema.init();
+        const { eventId, name, email, password, permissions } = req.body;
+
+        if (!eventId || !email || !password) {
+            return res.status(400).json({ error: 'eventId, email, and password are required' });
+        }
+
+        // Check if staff with this email already exists for this event
+        const existing = await notionClient.databases.query({
+            database_id: DS.STAFF,
+            filter: {
+                and: [
+                    { property: schema.get('STAFF', 'Email'), email: { equals: email } },
+                    { property: schema.get('STAFF', 'Event'), relation: { contains: eventId } }
+                ]
+            }
+        });
+
+        if (existing.results.length > 0) {
+            return res.status(409).json({ error: 'Staff member with this email already exists for this event' });
+        }
+
+        const properties = {};
+        properties[schema.get('STAFF', 'Name')] = { title: [{ text: { content: name || email.split('@')[0] } }] };
+        properties[schema.get('STAFF', 'Email')] = { email: email };
+        properties[schema.get('STAFF', 'Password')] = { rich_text: [{ text: { content: password } }] };
+        properties[schema.get('STAFF', 'Event')] = { relation: [{ id: eventId }] };
+        properties[schema.get('STAFF', 'AccessInvitados')] = { checkbox: permissions?.access_invitados || false };
+        properties[schema.get('STAFF', 'AccessMesas')] = { checkbox: permissions?.access_mesas || false };
+        properties[schema.get('STAFF', 'AccessLink')] = { checkbox: permissions?.access_link || false };
+        properties[schema.get('STAFF', 'AccessFotowall')] = { checkbox: permissions?.access_fotowall || false };
+
+        const newPage = await notionClient.pages.create({
+            parent: { database_id: DB.STAFF },
+            properties
+        });
+
+        console.log(`✅ Staff created: ${email} for event ${eventId}`);
+        res.json({ success: true, id: newPage.id });
+    } catch (error) {
+        console.error("❌ Error creating staff:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.put('/api/staff/:id', async (req, res) => {
+    try {
+        await schema.init();
+        const { id } = req.params;
+        const { name, permissions } = req.body;
+
+        const properties = {};
+        if (name) properties[schema.get('STAFF', 'Name')] = { title: [{ text: { content: name } }] };
+        if (permissions) {
+            properties[schema.get('STAFF', 'AccessInvitados')] = { checkbox: !!permissions.access_invitados };
+            properties[schema.get('STAFF', 'AccessMesas')] = { checkbox: !!permissions.access_mesas };
+            properties[schema.get('STAFF', 'AccessLink')] = { checkbox: !!permissions.access_link };
+            properties[schema.get('STAFF', 'AccessFotowall')] = { checkbox: !!permissions.access_fotowall };
+        }
+
+        await notionClient.pages.update({ page_id: id, properties });
+        console.log(`✅ Staff updated: ${id}`);
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Error updating staff:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/staff/:id', async (req, res) => {
+    try {
+        await notionClient.pages.update({ page_id: req.params.id, archived: true });
+        console.log(`✅ Staff deleted: ${req.params.id}`);
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Error deleting staff:", error);
         res.status(500).json({ error: error.message });
     }
 });

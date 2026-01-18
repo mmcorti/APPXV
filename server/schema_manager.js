@@ -42,6 +42,16 @@ const KNOWN_PROPERTIES = {
         Guests: ["Guests", "Invitados"],
         Assignments: ["Assignments", "Asignaciones", "Detalle", "Json"],
         Event: ["Event", "Evento"]
+    },
+    STAFF: {
+        Name: ["Name", "Nombre"],
+        Email: ["Email", "Correo"],
+        Password: ["Password", "Contraseña"],
+        Event: ["Event", "Evento"],
+        AccessInvitados: ["access_invitados"],
+        AccessMesas: ["access_mesas"],
+        AccessLink: ["access_link"],
+        AccessFotowall: ["access_fotowall"]
     }
 };
 
@@ -50,7 +60,8 @@ class SchemaManager {
         this.mappings = {
             EVENTS: {},
             GUESTS: {},
-            TABLES: {}
+            TABLES: {},
+            STAFF: {}
         };
         this.initialized = false;
     }
@@ -63,6 +74,7 @@ class SchemaManager {
             await this.mapDatabase(DS.EVENTS, 'EVENTS', KNOWN_PROPERTIES.EVENTS);
             await this.mapDatabase(DS.GUESTS, 'GUESTS', KNOWN_PROPERTIES.GUESTS);
             await this.mapDatabase(DS.TABLES, 'TABLES', KNOWN_PROPERTIES.TABLES);
+            if (DS.STAFF) await this.mapDatabase(DS.STAFF, 'STAFF', KNOWN_PROPERTIES.STAFF);
 
             this.initialized = true;
             console.log("✅ Schema Manager Initialized.");

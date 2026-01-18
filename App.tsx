@@ -14,7 +14,8 @@ import FotoWallConfigScreen from './screens/FotoWallConfig';
 import FotoWallPlayerScreen from './screens/FotoWallPlayer';
 import FotoWallAdminScreen from './screens/FotoWallAdmin';
 import FotoWallModerationSettingsScreen from './screens/FotoWallModerationSettings';
-import { InvitationData, User, Guest, Table, SeatedGuest } from './types';
+import ManageStaffScreen from './screens/ManageStaff';
+import { InvitationData, User, Guest, Table, SeatedGuest, StaffPermissions } from './types';
 import { notionService } from './services/notion';
 
 const INITIAL_INVITATION: InvitationData = {
@@ -380,11 +381,13 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAuthSuccess = (name: string, email: string, role?: string) => {
+  const handleAuthSuccess = (name: string, email: string, role?: string, permissions?: StaffPermissions, eventId?: string) => {
     setUser({
       name,
       email,
-      role,
+      role: (role as 'admin' | 'staff') || 'admin',
+      permissions,
+      eventId,
       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=135bec&color=fff`
     });
   };
@@ -456,6 +459,10 @@ const App: React.FC = () => {
         <Route
           path="/fotowall-moderation-settings/:id"
           element={user ? <FotoWallModerationSettingsScreen /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/staff/:id"
+          element={user?.role === 'admin' ? <ManageStaffScreen event={invitations.find(i => window.location.hash.includes(i.id)) || null} /> : <Navigate to="/dashboard" />}
         />
         <Route
           path="/location/:id"
