@@ -34,7 +34,7 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col w-full max-w-[480px] mx-auto overflow-x-hidden min-h-screen justify-between bg-background-light dark:bg-background-dark">
+    <div className="flex-1 flex flex-col w-full max-w-[480px] md:max-w-xl mx-auto overflow-x-hidden min-h-screen justify-between bg-background-light dark:bg-background-dark">
       <div className="p-4">
         <div className="w-full bg-center bg-no-repeat bg-cover flex flex-col justify-end overflow-hidden bg-white dark:bg-gray-800 rounded-3xl min-h-[240px] relative shadow-lg" style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&q=80&w=800")' }}>
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>

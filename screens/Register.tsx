@@ -18,7 +18,7 @@ const RegisterScreen: React.FC<RegisterProps> = ({ onRegister }) => {
   };
 
   return (
-    <div className="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden max-w-[480px] mx-auto bg-surface-light dark:bg-background-dark shadow-sm">
+    <div className="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden max-w-[480px] md:max-w-xl mx-auto bg-surface-light dark:bg-background-dark shadow-sm">
       <header className="flex items-center justify-between p-4 sticky top-0 z-10 bg-surface-light/90 dark:bg-background-dark/90 backdrop-blur-md">
         <button onClick={() => navigate('/')} className="flex size-10 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group">
           <span className="material-symbols-outlined text-text-main dark:text-text-light group-hover:text-primary transition-colors">arrow_back_ios_new</span>
@@ -34,24 +34,24 @@ const RegisterScreen: React.FC<RegisterProps> = ({ onRegister }) => {
         <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
           <div className="space-y-1">
             <label className="text-sm font-semibold text-text-main dark:text-gray-300">Nombre completo</label>
-            <input 
-              className="w-full h-14 rounded-xl border border-border-light dark:border-border-dark bg-white dark:bg-surface-dark px-4 text-base focus:border-primary focus:ring-primary transition-all outline-none" 
-              placeholder="Juan Pérez" 
-              type="text" 
+            <input
+              className="w-full h-14 rounded-xl border border-border-light dark:border-border-dark bg-white dark:bg-surface-dark px-4 text-base focus:border-primary focus:ring-primary transition-all outline-none"
+              placeholder="Juan Pérez"
+              type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              required 
+              required
             />
           </div>
           <div className="space-y-1">
             <label className="text-sm font-semibold text-text-main dark:text-gray-300">Correo electrónico</label>
-            <input 
-              className="w-full h-14 rounded-xl border border-border-light dark:border-border-dark bg-white dark:bg-surface-dark px-4 text-base focus:border-primary focus:ring-primary transition-all outline-none" 
-              placeholder="nombre@ejemplo.com" 
-              type="email" 
+            <input
+              className="w-full h-14 rounded-xl border border-border-light dark:border-border-dark bg-white dark:bg-surface-dark px-4 text-base focus:border-primary focus:ring-primary transition-all outline-none"
+              placeholder="nombre@ejemplo.com"
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required 
+              required
             />
           </div>
           <div className="space-y-1">
@@ -69,7 +69,7 @@ const RegisterScreen: React.FC<RegisterProps> = ({ onRegister }) => {
       </main>
       <footer className="p-6 border-t border-border-light dark:border-gray-800">
         <div className="text-center text-sm text-gray-500">
-          ¿Ya tienes una cuenta? 
+          ¿Ya tienes una cuenta?
           <Link to="/login" className="font-bold text-primary hover:text-primary-dark ml-1">Inicia sesión</Link>
         </div>
       </footer>

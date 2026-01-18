@@ -198,7 +198,7 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
 
   if (submitted) {
     return (
-      <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center p-6 text-center max-w-[480px] mx-auto text-slate-900 dark:text-white font-display">
+      <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center p-6 text-center max-w-[480px] md:max-w-2xl mx-auto text-slate-900 dark:text-white font-display">
         <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700 animate-in zoom-in duration-300 w-full overflow-y-auto max-h-[90vh] no-scrollbar">
           <div className={`size-16 rounded-full flex items-center justify-center text-white mx-auto mb-4 ${attending ? 'bg-green-500 shadow-green-500/20 shadow-lg' : 'bg-red-500 shadow-red-500/20 shadow-lg'}`}>
             <span className="material-symbols-outlined text-4xl">{attending ? 'check_circle' : 'cancel'}</span>
@@ -241,7 +241,7 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
   }
 
   return (
-    <div className="bg-background-light dark:bg-background-dark min-h-screen pb-10 max-w-[480px] mx-auto text-slate-900 dark:text-white font-display relative">
+    <div className="bg-background-light dark:bg-background-dark min-h-screen pb-10 max-w-[480px] md:max-w-2xl mx-auto text-slate-900 dark:text-white font-display relative">
       {/* Botón de volver flotante */}
       <button
         onClick={() => navigate(-1)}

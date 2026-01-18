@@ -293,7 +293,7 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
   };
 
   return (
-    <div className="bg-background-light dark:bg-background-dark min-h-screen pb-24 max-w-[480px] mx-auto text-slate-900 dark:text-white font-display">
+    <div className="bg-background-light dark:bg-background-dark min-h-screen pb-24 max-w-[480px] md:max-w-6xl mx-auto text-slate-900 dark:text-white font-display">
       <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
         <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
           <span className="material-symbols-outlined">arrow_back</span>
@@ -316,7 +316,7 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
         </div>
 
         {/* Mesa Grid */}
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {tables.length > 0 ? (
             tables.map((table) => (
               <div

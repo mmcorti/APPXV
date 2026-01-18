@@ -352,7 +352,7 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
   };
 
   return (
-    <div className="bg-background-light dark:bg-background-dark min-h-screen pb-24 max-w-[480px] mx-auto text-slate-900 dark:text-white font-display">
+    <div className="bg-background-light dark:bg-background-dark min-h-screen pb-24 max-w-[480px] md:max-w-6xl mx-auto text-slate-900 dark:text-white font-display">
       <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
         <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
           <span className="material-symbols-outlined">arrow_back</span>
@@ -406,9 +406,9 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
           />
         </div>
 
-        <div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-1">
           {renderList().length > 0 ? renderList() : (
-            <div className="py-20 text-center space-y-3 opacity-50">
+            <div className="col-span-full py-20 text-center space-y-3 opacity-50">
               <span className="material-symbols-outlined text-5xl">group_off</span>
               <p className="text-sm font-bold uppercase tracking-widest">No hay invitados en esta lista</p>
             </div>
