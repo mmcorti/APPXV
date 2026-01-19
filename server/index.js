@@ -137,8 +137,7 @@ app.post('/api/login', async (req, res) => {
                     const eventId = eventRelation?.relation?.[0]?.id || null;
 
                     // Get plan from database
-                    const planPropName = schema.get('SUBSCRIBERS', 'Plan');
-                    const planProp = planPropName ? findProp(subPage.properties, [planPropName]) : null;
+                    const planProp = findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Plan);
                     const userPlan = planProp?.select?.name || 'freemium';
 
                     console.log(`✅ Subscriber login successful: ${email} (plan: ${userPlan})`);
@@ -673,8 +672,7 @@ app.get('/api/subscribers', async (req, res) => {
 
         const staff = response.results.map(page => {
             // Get plan value from select property
-            const planPropName = schema.get('SUBSCRIBERS', 'Plan');
-            const planProp = planPropName ? findProp(page.properties, [planPropName]) : null;
+            const planProp = findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Plan);
             const planValue = planProp?.select?.name || 'freemium';
 
             return {
