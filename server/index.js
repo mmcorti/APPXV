@@ -136,14 +136,20 @@ app.post('/api/login', async (req, res) => {
                     const eventRelation = findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Event);
                     const eventId = eventRelation?.relation?.[0]?.id || null;
 
-                    console.log(`✅ Subscriber login successful: ${email}`);
+                    // Get plan from database
+                    const planPropName = schema.get('SUBSCRIBERS', 'Plan');
+                    const planProp = planPropName ? findProp(subPage.properties, [planPropName]) : null;
+                    const userPlan = planProp?.select?.name || 'freemium';
+
+                    console.log(`✅ Subscriber login successful: ${email} (plan: ${userPlan})`);
                     return res.json({
                         success: true,
                         user: {
                             id: subPage.id,
                             email: getText(findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Email)),
                             name: getText(findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Name)),
-                            role: 'subscriber', // Updated role
+                            role: 'subscriber',
+                            plan: userPlan,
                             eventId: eventId,
                             permissions: {
                                 access_invitados: findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessInvitados)?.checkbox || false,
@@ -651,29 +657,39 @@ app.get('/api/subscribers', async (req, res) => {
         await schema.init();
         const { eventId } = req.query;
 
-        if (!eventId) {
-            return res.status(400).json({ error: 'eventId is required' });
-        }
+        // Build filter - if eventId is provided, filter by it
+        const queryOptions = {
+            database_id: DS.SUBSCRIBERS
+        };
 
-        const response = await notionClient.databases.query({
-            database_id: DS.SUBSCRIBERS,
-            filter: {
+        if (eventId) {
+            queryOptions.filter = {
                 property: schema.get('SUBSCRIBERS', 'Event'),
                 relation: { contains: eventId }
-            }
-        });
+            };
+        }
 
-        const staff = response.results.map(page => ({
-            id: page.id,
-            name: getText(findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Name)),
-            email: getText(findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Email)),
-            permissions: {
-                access_invitados: findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessInvitados)?.checkbox || false,
-                access_mesas: findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessMesas)?.checkbox || false,
-                access_link: findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessLink)?.checkbox || false,
-                access_fotowall: findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessFotowall)?.checkbox || false
-            }
-        }));
+        const response = await notionClient.databases.query(queryOptions);
+
+        const staff = response.results.map(page => {
+            // Get plan value from select property
+            const planPropName = schema.get('SUBSCRIBERS', 'Plan');
+            const planProp = planPropName ? findProp(page.properties, [planPropName]) : null;
+            const planValue = planProp?.select?.name || 'freemium';
+
+            return {
+                id: page.id,
+                name: getText(findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Name)),
+                email: getText(findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Email)),
+                plan: planValue,
+                permissions: {
+                    access_invitados: findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessInvitados)?.checkbox || false,
+                    access_mesas: findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessMesas)?.checkbox || false,
+                    access_link: findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessLink)?.checkbox || false,
+                    access_fotowall: findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessFotowall)?.checkbox || false
+                }
+            };
+        });
 
         res.json(staff);
     } catch (error) {
@@ -750,10 +766,17 @@ app.put('/api/subscribers/:id', async (req, res) => {
     try {
         await schema.init();
         const { id } = req.params;
-        const { name, permissions } = req.body;
+        const { name, permissions, plan } = req.body;
 
         const properties = {};
         if (name) properties[schema.get('SUBSCRIBERS', 'Name')] = { title: [{ text: { content: name } }] };
+
+        // Update plan if provided
+        const planPropName = schema.get('SUBSCRIBERS', 'Plan');
+        if (plan && planPropName) {
+            properties[planPropName] = { select: { name: plan } };
+        }
+
         if (permissions) {
             if (permissions.access_invitados !== undefined) properties[schema.get('SUBSCRIBERS', 'AccessInvitados')] = { checkbox: permissions.access_invitados };
             if (permissions.access_mesas !== undefined) properties[schema.get('SUBSCRIBERS', 'AccessMesas')] = { checkbox: permissions.access_mesas };

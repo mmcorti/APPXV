@@ -26,7 +26,7 @@ export const notionService = {
         return await res.json();
     },
 
-    async saveEvent(event: Partial<InvitationData> & { userEmail?: string }) {
+    async saveEvent(event: Partial<InvitationData> & { userEmail?: string; userPlan?: string; userRole?: string }) {
         const method = event.id ? 'PUT' : 'POST';
         const url = event.id ? `${API_URL}/events/${event.id}` : `${API_URL}/events`;
 
@@ -35,7 +35,14 @@ export const notionService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(event)
         });
-        if (!res.ok) throw new Error('Failed to save event');
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            const error = new Error(errorData.error || 'Failed to save event');
+            (error as any).limitReached = errorData.limitReached;
+            (error as any).current = errorData.current;
+            (error as any).limit = errorData.limit;
+            throw error;
+        }
         return await res.json();
     },
 

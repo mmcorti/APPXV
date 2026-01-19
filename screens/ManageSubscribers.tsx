@@ -1,37 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { StaffMember, StaffPermissions, InvitationData } from '../types';
+import { useNavigate } from 'react-router-dom';
+import { StaffMember, StaffPermissions } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
-interface ManageSubscribersProps {
-    event: InvitationData | null;
-    onBack?: () => void;
+interface Subscriber extends StaffMember {
+    plan?: 'freemium' | 'premium' | 'vip';
 }
 
-const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBack }) => {
+const ManageSubscribersScreen: React.FC = () => {
     const navigate = useNavigate();
-    const { id: eventId } = useParams<{ id: string }>();
-    const [subscribers, setSubscribers] = useState<StaffMember[]>([]);
+    const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // Form state
     const [inviteEmail, setInviteEmail] = useState('');
     const [invitePassword, setInvitePassword] = useState('');
     const [inviteName, setInviteName] = useState('');
+    const [invitePlan, setInvitePlan] = useState<'freemium' | 'premium' | 'vip'>('freemium');
     const [invitePermissions, setInvitePermissions] = useState<StaffPermissions>({
         access_invitados: false,
         access_mesas: false,
         access_link: false,
         access_fotowall: false
     });
-    const [invitePlan, setInvitePlan] = useState<'freemium' | 'premium' | 'vip'>('freemium');
     const [inviting, setInviting] = useState(false);
     const [savingId, setSavingId] = useState<string | null>(null);
 
+    // Edit mode
+    const [editingId, setEditingId] = useState<string | null>(null);
+
     const fetchSubscribers = async () => {
-        if (!eventId) return;
         setLoading(true);
         try {
-            const res = await fetch(`${API_URL}/subscribers?eventId=${eventId}`);
+            // Fetch ALL subscribers (no eventId filter)
+            const res = await fetch(`${API_URL}/subscribers`);
             if (res.ok) {
                 const data = await res.json();
                 setSubscribers(data);
@@ -45,50 +48,89 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
 
     useEffect(() => {
         fetchSubscribers();
-    }, [eventId]);
+    }, []);
 
-    const handleInvite = async (e: React.FormEvent) => {
+    const resetForm = () => {
+        setInviteEmail('');
+        setInvitePassword('');
+        setInviteName('');
+        setInvitePlan('freemium');
+        setInvitePermissions({
+            access_invitados: false,
+            access_mesas: false,
+            access_link: false,
+            access_fotowall: false
+        });
+        setEditingId(null);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!inviteEmail.trim() || !invitePassword.trim()) return;
+        if (!inviteEmail.trim()) return;
+        if (!editingId && !invitePassword.trim()) return;
 
         setInviting(true);
         try {
-            const res = await fetch(`${API_URL}/subscribers`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    eventId,
-                    name: inviteName || inviteEmail.split('@')[0],
-                    email: inviteEmail,
-                    password: invitePassword,
-                    permissions: invitePermissions,
-                    plan: invitePlan,
-                    userRole: 'admin' // Admin is creating this subscriber
-                })
-            });
-
-            if (res.ok) {
-                setInviteEmail('');
-                setInvitePassword('');
-                setInviteName('');
-                setInvitePermissions({
-                    access_invitados: false,
-                    access_mesas: false,
-                    access_link: false,
-                    access_fotowall: false
+            if (editingId) {
+                // UPDATE existing subscriber
+                const res = await fetch(`${API_URL}/subscribers/${editingId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: inviteName || inviteEmail.split('@')[0],
+                        permissions: invitePermissions,
+                        plan: invitePlan
+                    })
                 });
-                setInvitePlan('freemium');
-                fetchSubscribers();
+
+                if (res.ok) {
+                    resetForm();
+                    fetchSubscribers();
+                } else {
+                    const error = await res.json();
+                    alert(error.error || 'Error al actualizar');
+                }
             } else {
-                const error = await res.json();
-                alert(error.error || 'Error al invitar');
+                // CREATE new subscriber
+                const res = await fetch(`${API_URL}/subscribers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: inviteName || inviteEmail.split('@')[0],
+                        email: inviteEmail,
+                        password: invitePassword,
+                        permissions: invitePermissions,
+                        plan: invitePlan,
+                        userRole: 'admin'
+                    })
+                });
+
+                if (res.ok) {
+                    resetForm();
+                    fetchSubscribers();
+                } else {
+                    const error = await res.json();
+                    alert(error.error || 'Error al crear');
+                }
             }
         } catch (e) {
-            console.error('Error inviting:', e);
+            console.error('Error:', e);
             alert('Error de conexión');
         } finally {
             setInviting(false);
         }
+    };
+
+    const handleEdit = (subscriber: Subscriber) => {
+        setEditingId(subscriber.id);
+        setInviteName(subscriber.name);
+        setInviteEmail(subscriber.email);
+        setInvitePassword(''); // Don't show password
+        setInvitePlan(subscriber.plan || 'freemium');
+        setInvitePermissions(subscriber.permissions);
+
+        // Scroll to top of form
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const updatePermissions = async (staffId: string, permissions: StaffPermissions) => {
@@ -107,7 +149,7 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
         }
     };
 
-    const togglePermission = (staffMember: StaffMember, permKey: keyof StaffPermissions) => {
+    const togglePermission = (staffMember: Subscriber, permKey: keyof StaffPermissions) => {
         const newPerms = { ...staffMember.permissions, [permKey]: !staffMember.permissions[permKey] };
         updatePermissions(staffMember.id, newPerms);
     };
@@ -133,13 +175,19 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
         access_fotowall: { label: 'FotoWall', color: 'pink' }
     };
 
+    const planColors = {
+        freemium: 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600',
+        premium: 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-600',
+        vip: 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-600'
+    };
+
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white min-h-screen max-w-[480px] mx-auto">
             {/* Header */}
             <div className="sticky top-0 z-40 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md px-4 pt-6 pb-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => onBack ? onBack() : navigate(-1)}
+                        onClick={() => navigate(-1)}
                         className="size-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
                     >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -151,16 +199,13 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
             </div>
 
             <div className="px-4 pb-8">
-                {/* Event Info */}
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Módulos habilitados:</p>
-                <p className="font-semibold text-lg mb-6">{event?.eventName || 'Evento'}</p>
-
-                {/* Invite Form */}
-                <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-6 shadow-sm">
+                {/* Form */}
+                <div className={`rounded-2xl p-4 mb-6 shadow-sm ${editingId ? 'bg-purple-50 dark:bg-purple-900/10 border-2 border-purple-400' : 'bg-white dark:bg-slate-800'}`}>
                     <h2 className="font-semibold flex items-center gap-2 mb-4">
-                        <span className="text-lg">👤</span> Nuevo Suscriptor
+                        <span className="text-lg">{editingId ? '✏️' : '👤'}</span>
+                        {editingId ? 'Editar Suscriptor' : 'Nuevo Suscriptor'}
                     </h2>
-                    <form onSubmit={handleInvite} className="space-y-3">
+                    <form onSubmit={handleSubmit} className="space-y-3">
                         <input
                             type="text"
                             placeholder="Nombre (opcional)"
@@ -174,16 +219,19 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
                             value={inviteEmail}
                             onChange={e => setInviteEmail(e.target.value)}
                             required
-                            className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                            disabled={!!editingId}
+                            className={`w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 outline-none ${editingId ? 'opacity-50 cursor-not-allowed' : ''}`}
                         />
-                        <input
-                            type="password"
-                            placeholder="Contraseña"
-                            value={invitePassword}
-                            onChange={e => setInvitePassword(e.target.value)}
-                            required
-                            className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
+                        {!editingId && (
+                            <input
+                                type="password"
+                                placeholder="Contraseña"
+                                value={invitePassword}
+                                onChange={e => setInvitePassword(e.target.value)}
+                                required
+                                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                            />
+                        )}
 
                         {/* Plan Selector */}
                         <div className="pt-2">
@@ -194,13 +242,7 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
                                         key={planOption}
                                         type="button"
                                         onClick={() => setInvitePlan(planOption)}
-                                        className={`px-3 py-2.5 rounded-xl border-2 font-semibold text-sm capitalize transition-all ${invitePlan === planOption
-                                                ? planOption === 'vip'
-                                                    ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-600'
-                                                    : planOption === 'premium'
-                                                        ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-600'
-                                                        : 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
-                                                : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400'
+                                        className={`px-3 py-2.5 rounded-xl border-2 font-semibold text-sm capitalize transition-all ${invitePlan === planOption ? planColors[planOption] : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400'
                                             }`}
                                     >
                                         {planOption === 'vip' ? 'VIP' : planOption}
@@ -214,7 +256,7 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
                             </p>
                         </div>
 
-                        {/* Permission toggles for invite */}
+                        {/* Permission toggles */}
                         <div className="pt-2">
                             <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Módulos habilitados:</p>
                             <div className="grid grid-cols-2 gap-2">
@@ -247,17 +289,31 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
                             </div>
                         </div>
 
-                        <button
-                            type="submit"
-                            disabled={inviting || !inviteEmail.trim() || !invitePassword.trim()}
-                            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                            {inviting ? 'Creando...' : 'Crear Suscriptor'}
-                        </button>
+                        <div className="flex gap-2 pt-2">
+                            {editingId && (
+                                <button
+                                    type="button"
+                                    onClick={resetForm}
+                                    className="flex-1 py-3 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-xl transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                            )}
+                            <button
+                                type="submit"
+                                disabled={inviting || !inviteEmail.trim() || (!editingId && !invitePassword.trim())}
+                                className={`flex-1 py-3 font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${editingId
+                                        ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    }`}
+                            >
+                                {inviting ? 'Guardando...' : editingId ? 'Guardar Cambios' : 'Crear Suscriptor'}
+                            </button>
+                        </div>
                     </form>
                 </div>
 
-                {/* Staff List */}
+                {/* Subscribers List */}
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="font-semibold text-lg">Suscriptores Actuales</h2>
                     <span className="text-sm text-blue-600 font-medium">{subscribers.length} Activo{subscribers.length !== 1 ? 's' : ''}</span>
@@ -274,7 +330,7 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
                 ) : (
                     <div className="space-y-4">
                         {subscribers.map(s => (
-                            <div key={s.id} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm">
+                            <div key={s.id} className={`bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm ${editingId === s.id ? 'ring-2 ring-purple-500' : ''}`}>
                                 <div className="flex items-start justify-between mb-3">
                                     <div className="flex items-center gap-3">
                                         <div className="size-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
@@ -285,15 +341,32 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
                                             <p className="text-sm text-slate-500 dark:text-slate-400">{s.email}</p>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => deleteSubscriber(s.id)}
-                                        className="text-red-500 hover:text-red-600 p-1"
-                                        title="Eliminar"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
+                                    <div className="flex items-center gap-1">
+                                        {/* Plan Badge */}
+                                        <span className={`text-xs font-semibold px-2 py-1 rounded-full border ${planColors[s.plan || 'freemium']}`}>
+                                            {s.plan === 'vip' ? 'VIP' : s.plan || 'freemium'}
+                                        </span>
+                                        {/* Edit Button */}
+                                        <button
+                                            onClick={() => handleEdit(s)}
+                                            className="text-blue-500 hover:text-blue-600 p-1"
+                                            title="Editar"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                            </svg>
+                                        </button>
+                                        {/* Delete Button */}
+                                        <button
+                                            onClick={() => deleteSubscriber(s.id)}
+                                            className="text-red-500 hover:text-red-600 p-1"
+                                            title="Eliminar"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Permission toggles */}
