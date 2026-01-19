@@ -324,7 +324,12 @@ const App: React.FC = () => {
     try {
       // Remove the temporary ID so saving treats it as a new creation (POST)
       const { id, ...dataWithoutId } = data;
-      const savedResponse = await notionService.saveEvent({ ...dataWithoutId, userEmail: user?.email });
+      const savedResponse = await notionService.saveEvent({
+        ...dataWithoutId,
+        userEmail: user?.email,
+        userPlan: user?.plan || 'freemium',
+        userRole: user?.role || 'subscriber'
+      });
 
       if (user?.email) {
         await loadAllData(user.email);
@@ -466,8 +471,8 @@ const App: React.FC = () => {
           element={user ? <FotoWallModerationSettingsScreen /> : <Navigate to="/login" />}
         />
         <Route
-          path="/subscribers/:id"
-          element={user?.role === 'admin' ? <ManageSubscribersScreen event={invitations.find(i => window.location.hash.includes(i.id)) || null} /> : <Navigate to="/dashboard" />}
+          path="/subscribers"
+          element={user?.role === 'admin' ? <ManageSubscribersScreen /> : <Navigate to="/dashboard" />}
         />
         <Route
           path="/staff-roster"

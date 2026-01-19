@@ -191,7 +191,16 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
         ) : invitations.length > 0 ? (
           <div>
             {(user.role === 'admin' || user.role === 'subscriber') && (
-              <div className="flex justify-end mb-4">
+              <div className="flex justify-end mb-4 gap-2">
+                {user.role === 'admin' && (
+                  <button
+                    onClick={() => navigate('/subscribers')}
+                    className="bg-white dark:bg-slate-800 text-slate-700 dark:text-gray-200 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-300 hover:text-purple-600 transition-colors shadow-sm text-sm font-semibold"
+                  >
+                    <span className="material-symbols-outlined text-lg">group_add</span>
+                    Suscriptores
+                  </button>
+                )}
                 <button
                   onClick={() => navigate('/staff-roster')}
                   className="bg-white dark:bg-slate-800 text-slate-700 dark:text-gray-200 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold"
