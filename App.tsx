@@ -77,7 +77,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      const staffId = user.role === 'event_staff' ? user.id : undefined;
+      const staffId = (user.role === 'event_staff' || user.role === 'staff') ? user.id : undefined;
       loadAllData(user.email, staffId);
     }
   }, [user]);
