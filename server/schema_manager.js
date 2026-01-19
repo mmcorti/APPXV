@@ -17,7 +17,8 @@ const KNOWN_PROPERTIES = {
         FW_Shuffle: ["FotoWall Shuffle", "FW_Shuffle"],
         FW_OverlayTitle: ["FotoWall Overlay Title", "FW_OverlayTitle"],
         FW_ModerationMode: ["FotoWall Moderation Mode", "FW_ModerationMode"],
-        FW_Filters: ["FotoWall Filters", "FW_Filters"]
+        FW_Filters: ["FotoWall Filters", "FW_Filters"],
+        Capacity: ["Capacity", "Capacidad"]
     },
     GUESTS: {
         Name: ["Name", "Nombre"],
