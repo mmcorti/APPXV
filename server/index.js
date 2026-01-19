@@ -278,6 +278,21 @@ app.get('/api/events', async (req, res) => {
                 giftType: findProp(props, KNOWN_PROPERTIES.EVENTS.GiftType)?.select?.name || 'none',
                 giftDetail: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.GiftDetail)),
                 capacity: findProp(props, KNOWN_PROPERTIES.EVENTS.Capacity)?.number || 0,
+                // FotoWall properties
+                fotowall: {
+                    albumUrl: findProp(props, KNOWN_PROPERTIES.EVENTS.FW_AlbumUrl)?.url || '',
+                    interval: findProp(props, KNOWN_PROPERTIES.EVENTS.FW_Interval)?.number || 5,
+                    shuffle: findProp(props, KNOWN_PROPERTIES.EVENTS.FW_Shuffle)?.checkbox || false,
+                    overlayTitle: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.FW_OverlayTitle)),
+                    mode: findProp(props, KNOWN_PROPERTIES.EVENTS.FW_ModerationMode)?.select?.name || 'manual',
+                    filters: (() => {
+                        try {
+                            return JSON.parse(getText(findProp(props, KNOWN_PROPERTIES.EVENTS.FW_Filters)) || '{}');
+                        } catch {
+                            return {};
+                        }
+                    })()
+                },
                 // Client-side fields
                 guests: [],
                 tables: [],

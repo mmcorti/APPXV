@@ -434,7 +434,7 @@ const App: React.FC = () => {
         />
         <Route
           path="/dashboard"
-          element={user ? <DashboardScreen user={user} invitations={invitations} loading={loading} onAddEvent={addInvitation} onDeleteEvent={handleDeleteEvent} onLogout={handleLogout} onRefresh={() => loadAllData(user.email)} /> : <Navigate to="/login" />}
+          element={user ? <DashboardScreen user={user} invitations={invitations} loading={loading} onAddEvent={addInvitation} onDeleteEvent={handleDeleteEvent} onLogout={handleLogout} onRefresh={() => loadAllData(user.email, (user.role === 'event_staff' || user.role === 'staff') ? user.id : undefined)} /> : <Navigate to="/login" />}
         />
         <Route
           path="/edit/:id"
