@@ -42,7 +42,7 @@ const getText = (prop) => {
 
 // Robust Property Finder
 const findProp = (properties, names) => {
-    if (!properties) return undefined;
+    if (!properties || !names || !Array.isArray(names)) return undefined;
     const propKeys = Object.keys(properties);
     for (const name of names) {
         const foundKey = propKeys.find(k => k.toLowerCase() === name.toLowerCase());
@@ -53,6 +53,25 @@ const findProp = (properties, names) => {
 
 app.get('/', (req, res) => {
     res.send('Fiesta Planner API is Running');
+});
+
+app.get('/api/debug-mapping', async (req, res) => {
+    try {
+        await schema.init();
+        const info = {
+            DS,
+            mappings: schema.mappings,
+            initialized: schema.initialized
+        };
+        // Optional: Get actual properties from Notion for EVENTS
+        if (DS.EVENTS) {
+            const db = await notionClient.databases.retrieve({ database_id: DS.EVENTS });
+            info.events_db_actual_properties = Object.keys(db.properties);
+        }
+        res.json(info);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- LOGIN ---
@@ -180,6 +199,7 @@ app.post('/api/login', async (req, res) => {
 // --- EVENTS ---
 app.get('/api/events', async (req, res) => {
     try {
+        await schema.init();
         const { email, staffId } = req.query;
 
         let results = [];
@@ -215,15 +235,26 @@ app.get('/api/events', async (req, res) => {
                 email: { equals: email }
             } : undefined;
 
-            console.log(`🔍 [DEBUG] Using Event Filter Key: ${schema.get('EVENTS', 'CreatorEmail')}`);
+            console.log(`🔍 [DEBUG] Querying Events DB: ${DS.EVENTS}`);
+            const queryFilterProp = schema.get('EVENTS', 'CreatorEmail');
+            console.log(`🔍 [DEBUG] Filter Property: ${queryFilterProp}, Email: ${email}`);
 
             const response = await notionClient.databases.query({
                 database_id: DS.EVENTS,
                 filter
             });
             results = response.results;
+            console.log(`🔍 [DEBUG] Query returned ${results.length} results`);
 
-            if (results.length > 0) {
+            if (results.length === 0 && DS.EVENTS) {
+                try {
+                    const db = await notionClient.databases.retrieve({ database_id: DS.EVENTS });
+                    console.log(`🔍 [DIAGNOSTIC] DB Properties found in Notion:`, Object.keys(db.properties).join(', '));
+                    console.log(`🔍 [DIAGNOSTIC] Current Mapping for EVENTS:`, JSON.stringify(schema.mappings.EVENTS, null, 2));
+                } catch (err) {
+                    console.error("❌ Failed to retrieve DB schema for diagnostic:", err.message);
+                }
+            } else if (results.length > 0) {
                 console.log(`🔍 [DEBUG] First event properties:`, Object.keys(results[0].properties).join(', '));
             }
         }
@@ -259,6 +290,7 @@ app.get('/api/events', async (req, res) => {
 
 app.post('/api/events', async (req, res) => {
     try {
+        await schema.init();
         const { eventName, date, location, message, image, userEmail, time, hostName, giftType, giftDetail } = req.body;
         console.log(`📝 [DEBUG] Creating event: ${eventName}`);
 
