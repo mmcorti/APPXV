@@ -49,6 +49,10 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
     }, [user]);
 
     const handleCreate = async () => {
+        if (!user.id) {
+            alert('Error: Sesión incompleta. Por favor, cierra sesión y vuelve a ingresar para activar todas las funciones.');
+            return;
+        }
         if (!newName || !newEmail || !newPassword) {
             alert('Nombre, Email y Contraseña son obligatorios');
             return;
