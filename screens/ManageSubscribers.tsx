@@ -30,7 +30,7 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
         if (!eventId) return;
         setLoading(true);
         try {
-            const res = await fetch(`${API_URL}/staff?eventId=${eventId}`);
+            const res = await fetch(`${API_URL}/subscribers?eventId=${eventId}`);
             if (res.ok) {
                 const data = await res.json();
                 setSubscribers(data);
@@ -52,7 +52,7 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
 
         setInviting(true);
         try {
-            const res = await fetch(`${API_URL}/staff`, {
+            const res = await fetch(`${API_URL}/subscribers`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -90,7 +90,7 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
     const updatePermissions = async (staffId: string, permissions: StaffPermissions) => {
         setSavingId(staffId);
         try {
-            await fetch(`${API_URL}/staff/${staffId}`, {
+            await fetch(`${API_URL}/subscribers/${staffId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ permissions })
@@ -115,7 +115,7 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
     const deleteSubscriber = async (subscriberId: string) => {
         if (!confirm('¿Eliminar este suscriptor?')) return;
         try {
-            await fetch(`${API_URL}/staff/${subscriberId}`, { method: 'DELETE' });
+            await fetch(`${API_URL}/subscribers/${subscriberId}`, { method: 'DELETE' });
             setSubscribers(prev => prev.filter(s => s.id !== subscriberId));
         } catch (e) {
             console.error('Error deleting:', e);

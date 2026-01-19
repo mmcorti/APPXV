@@ -43,7 +43,7 @@ const KNOWN_PROPERTIES = {
         Assignments: ["Assignments", "Asignaciones", "Detalle", "Json"],
         Event: ["Event", "Evento"]
     },
-    STAFF: {
+    SUBSCRIBERS: {
         Name: ["Name", "Nombre"],
         Email: ["Email", "Correo"],
         Password: ["Password", "Contraseña"],
@@ -52,7 +52,23 @@ const KNOWN_PROPERTIES = {
         AccessMesas: ["access_mesas"],
         AccessLink: ["access_link"],
         AccessFotowall: ["access_fotowall"]
-    }
+    },
+    STAFF_ROSTER: {
+        Name: ["Name", "Nombre"],
+        Email: ["Email", "Correo"],
+        // Password: ["Password", "Contraseña"], // Not using password for roster yet
+        Description: ["Description", "Descripción", "Rol"],
+        OwnerId: ["OwnerId", "Dueño ID"]
+    },
+    STAFF_ASSIGNMENTS: {
+        Name: ["Name", "Nombre"],
+        StaffId: ["StaffId", "Staff ID"],
+        EventId: ["EventId", "Event ID"],
+        AccessInvitados: ["access_invitados", "Access Invitados"],
+        AccessMesas: ["access_mesas", "Access Mesas"],
+        AccessLink: ["access_link", "Access Link"],
+        AccessFotowall: ["access_fotowall", "Access Fotowall"]
+    },
 };
 
 class SchemaManager {

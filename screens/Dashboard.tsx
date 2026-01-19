@@ -126,6 +126,17 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
           </div>
         ) : invitations.length > 0 ? (
           <div>
+            {(user.role === 'admin' || user.role === 'subscriber') && (
+              <div className="flex justify-end mb-4">
+                <button
+                  onClick={() => navigate('/staff-roster')}
+                  className="bg-white dark:bg-slate-800 text-slate-700 dark:text-gray-200 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold"
+                >
+                  <span className="material-symbols-outlined text-lg">groups</span>
+                  Mi Staff
+                </button>
+              </div>
+            )}
             <h2 className="text-slate-900 dark:text-white text-lg font-bold mb-4 px-1">Tus Eventos</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {invitations.map((inv) => (
@@ -206,14 +217,25 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                         <span className="material-symbols-outlined text-lg">photo_library</span>
                         FotoWall
                       </button>
-                      {user.role === 'admin' && (
-                        <button
-                          onClick={() => navigate(`/subscribers/${inv.id}`)}
-                          className="flex flex-col items-center justify-center gap-1 py-3 bg-green-50 dark:bg-green-900/20 text-green-600 font-bold text-[10px] rounded-xl hover:scale-[0.98] transition-all"
-                        >
-                          <span className="material-symbols-outlined text-lg">group_add</span>
-                          Suscriptores
-                        </button>
+                      {(user.role === 'admin' || user.role === 'subscriber') && (
+                        <>
+                          <button
+                            onClick={() => navigate(`/event-staff/${inv.id}`)}
+                            className="flex flex-col items-center justify-center gap-1 py-3 bg-teal-50 dark:bg-teal-900/20 text-teal-600 font-bold text-[10px] rounded-xl hover:scale-[0.98] transition-all"
+                          >
+                            <span className="material-symbols-outlined text-lg">badge</span>
+                            Staff
+                          </button>
+                          {user.role === 'admin' && (
+                            <button
+                              onClick={() => navigate(`/subscribers/${inv.id}`)}
+                              className="flex flex-col items-center justify-center gap-1 py-3 bg-green-50 dark:bg-green-900/20 text-green-600 font-bold text-[10px] rounded-xl hover:scale-[0.98] transition-all"
+                            >
+                              <span className="material-symbols-outlined text-lg">group_add</span>
+                              Suscriptores
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
