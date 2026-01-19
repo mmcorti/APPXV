@@ -8,9 +8,10 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
 
 interface FotoWallPlayerProps {
   invitations: InvitationData[];
+  plan?: 'freemium' | 'premium' | 'vip';
 }
 
-const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) => {
+const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations, plan = 'freemium' }) => {
   const { id } = useParams<{ id: string }>();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigate = useNavigate();
@@ -94,7 +95,8 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations }) =>
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url: albumUrl,
-          moderationSettings: currentSettings
+          moderationSettings: currentSettings,
+          plan: plan
         })
       });
       const data = await res.json();
