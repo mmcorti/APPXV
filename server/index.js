@@ -232,66 +232,65 @@ app.get('/api/events', async (req, res) => {
                 }
             });
             results = (await Promise.all(eventPromises)).filter(p => p);
-        }
-    } else {
-        // Standard filter by Creator Email (or all if undefined?)
-        // Existing logic:
-        const filter = email ? {
-            property: schema.get('EVENTS', 'CreatorEmail'),
-            email: { equals: email }
-        } : undefined;
+        } else {
+            // Standard filter by Creator Email (or all if undefined?)
+            // Existing logic:
+            const filter = email ? {
+                property: schema.get('EVENTS', 'CreatorEmail'),
+                email: { equals: email }
+            } : undefined;
 
-        console.log(`🔍 [DEBUG] Querying Events DB: ${DS.EVENTS}`);
-        const queryFilterProp = schema.get('EVENTS', 'CreatorEmail');
-        console.log(`🔍 [DEBUG] Filter Property: ${queryFilterProp}, Email: ${email}`);
+            console.log(`🔍 [DEBUG] Querying Events DB: ${DS.EVENTS}`);
+            const queryFilterProp = schema.get('EVENTS', 'CreatorEmail');
+            console.log(`🔍 [DEBUG] Filter Property: ${queryFilterProp}, Email: ${email}`);
 
-        const response = await notionClient.databases.query({
-            database_id: DS.EVENTS,
-            filter
-        });
-        results = response.results;
-        console.log(`🔍 [DEBUG] Query returned ${results.length} results`);
+            const response = await notionClient.databases.query({
+                database_id: DS.EVENTS,
+                filter
+            });
+            results = response.results;
+            console.log(`🔍 [DEBUG] Query returned ${results.length} results`);
 
-        if (results.length === 0 && DS.EVENTS) {
-            try {
-                const db = await notionClient.databases.retrieve({ database_id: DS.EVENTS });
-                console.log(`🔍 [DIAGNOSTIC] DB Properties found in Notion:`, Object.keys(db.properties).join(', '));
-                console.log(`🔍 [DIAGNOSTIC] Current Mapping for EVENTS:`, JSON.stringify(schema.mappings.EVENTS, null, 2));
-            } catch (err) {
-                console.error("❌ Failed to retrieve DB schema for diagnostic:", err.message);
+            if (results.length === 0 && DS.EVENTS) {
+                try {
+                    const db = await notionClient.databases.retrieve({ database_id: DS.EVENTS });
+                    console.log(`🔍 [DIAGNOSTIC] DB Properties found in Notion:`, Object.keys(db.properties).join(', '));
+                    console.log(`🔍 [DIAGNOSTIC] Current Mapping for EVENTS:`, JSON.stringify(schema.mappings.EVENTS, null, 2));
+                } catch (err) {
+                    console.error("❌ Failed to retrieve DB schema for diagnostic:", err.message);
+                }
+            } else if (results.length > 0) {
+                console.log(`🔍 [DEBUG] First event properties:`, Object.keys(results[0].properties).join(', '));
             }
-        } else if (results.length > 0) {
-            console.log(`🔍 [DEBUG] First event properties:`, Object.keys(results[0].properties).join(', '));
         }
+
+        const events = results.map((page, index) => {
+            const props = page.properties;
+            const event = {
+                id: page.id,
+                eventName: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Name)),
+                hostName: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Host)),
+                date: findProp(props, KNOWN_PROPERTIES.EVENTS.Date)?.date?.start || '',
+                time: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Time)),
+                location: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Location)),
+                image: findProp(props, KNOWN_PROPERTIES.EVENTS.Image)?.url || '',
+                message: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Message)),
+                giftType: findProp(props, KNOWN_PROPERTIES.EVENTS.GiftType)?.select?.name || 'none',
+                giftDetail: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.GiftDetail)),
+                capacity: findProp(props, KNOWN_PROPERTIES.EVENTS.Capacity)?.number || 0,
+                // Client-side fields
+                guests: [],
+                tables: [],
+                permissions: page._permissions // Pass mapped permissions
+            };
+            return event;
+        });
+
+        res.json(events);
+    } catch (error) {
+        console.error("❌ Error fetching events:", error);
+        res.status(500).json({ error: error.message });
     }
-
-    const events = results.map((page, index) => {
-        const props = page.properties;
-        const event = {
-            id: page.id,
-            eventName: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Name)),
-            hostName: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Host)),
-            date: findProp(props, KNOWN_PROPERTIES.EVENTS.Date)?.date?.start || '',
-            time: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Time)),
-            location: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Location)),
-            image: findProp(props, KNOWN_PROPERTIES.EVENTS.Image)?.url || '',
-            message: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Message)),
-            giftType: findProp(props, KNOWN_PROPERTIES.EVENTS.GiftType)?.select?.name || 'none',
-            giftDetail: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.GiftDetail)),
-            capacity: findProp(props, KNOWN_PROPERTIES.EVENTS.Capacity)?.number || 0,
-            // Client-side fields
-            guests: [],
-            tables: [],
-            permissions: page._permissions // Pass mapped permissions
-        };
-        return event;
-    });
-
-    res.json(events);
-} catch (error) {
-    console.error("❌ Error fetching events:", error);
-    res.status(500).json({ error: error.message });
-}
 });
 
 
