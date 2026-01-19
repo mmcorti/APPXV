@@ -90,7 +90,7 @@ export interface User {
   name: string;
   email: string;
   avatar: string;
-  role: 'admin' | 'staff';
+  role: 'admin' | 'subscriber' | 'event_staff' | 'staff';
   permissions?: StaffPermissions;
   eventId?: string; // For staff, the specific event they have access to
 }

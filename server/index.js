@@ -99,41 +99,71 @@ app.post('/api/login', async (req, res) => {
         }
 
         // 2. Check Staff database
-        if (DS.STAFF) {
-            const staffResponse = await notionClient.databases.query({
-                database_id: DS.STAFF,
+        // 2. Check Subscribers based on SUBSCRIBERS DB (Formerly Staff)
+        if (DS.SUBSCRIBERS) {
+            const subResponse = await notionClient.databases.query({
+                database_id: DS.SUBSCRIBERS,
                 filter: {
-                    property: schema.get('STAFF', 'Email'),
+                    property: schema.get('SUBSCRIBERS', 'Email'),
                     email: { equals: email }
                 }
             });
 
-            const staffPage = staffResponse.results[0];
-            if (staffPage) {
-                const dbPassword = getText(findProp(staffPage.properties, KNOWN_PROPERTIES.STAFF.Password));
+            const subPage = subResponse.results[0];
+            if (subPage) {
+                const dbPassword = getText(findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Password));
                 if (dbPassword.trim() === password) {
-                    const eventRelation = findProp(staffPage.properties, KNOWN_PROPERTIES.STAFF.Event);
+                    const eventRelation = findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Event);
                     const eventId = eventRelation?.relation?.[0]?.id || null;
 
-                    console.log(`✅ Staff login successful: ${email} for event ${eventId}`);
+                    console.log(`✅ Subscriber login successful: ${email}`);
                     return res.json({
                         success: true,
                         user: {
-                            id: staffPage.id,
-                            email: getText(findProp(staffPage.properties, KNOWN_PROPERTIES.STAFF.Email)),
-                            name: getText(findProp(staffPage.properties, KNOWN_PROPERTIES.STAFF.Name)),
-                            role: 'staff',
+                            id: subPage.id,
+                            email: getText(findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Email)),
+                            name: getText(findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Name)),
+                            role: 'subscriber', // Updated role
                             eventId: eventId,
                             permissions: {
-                                access_invitados: findProp(staffPage.properties, KNOWN_PROPERTIES.STAFF.AccessInvitados)?.checkbox || false,
-                                access_mesas: findProp(staffPage.properties, KNOWN_PROPERTIES.STAFF.AccessMesas)?.checkbox || false,
-                                access_link: findProp(staffPage.properties, KNOWN_PROPERTIES.STAFF.AccessLink)?.checkbox || false,
-                                access_fotowall: findProp(staffPage.properties, KNOWN_PROPERTIES.STAFF.AccessFotowall)?.checkbox || false
+                                access_invitados: findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessInvitados)?.checkbox || false,
+                                access_mesas: findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessMesas)?.checkbox || false,
+                                access_link: findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessLink)?.checkbox || false,
+                                access_fotowall: findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessFotowall)?.checkbox || false
                             }
                         }
                     });
-                } else {
-                    return res.status(401).json({ success: false, message: 'Contraseña incorrecta' });
+                }
+            }
+        }
+
+        // 3. Check Staff Roster (True Staff / DJs)
+        if (DS.STAFF_ROSTER) {
+            const rosterResponse = await notionClient.databases.query({
+                database_id: DS.STAFF_ROSTER,
+                filter: {
+                    property: 'Email', // Assuming Email is standard
+                    email: { equals: email }
+                }
+            });
+
+            const rosterPage = rosterResponse.results[0];
+            if (rosterPage) {
+                // Password is rich_text in Roster
+                const dbPassword = getText(rosterPage.properties.Password);
+                if (dbPassword && dbPassword.trim() === password) {
+                    console.log(`✅ Event Staff login successful: ${email}`);
+                    return res.json({
+                        success: true,
+                        user: {
+                            id: rosterPage.id,
+                            email: getText(rosterPage.properties.Email),
+                            name: getText(rosterPage.properties.Name),
+                            role: 'event_staff',
+                            // Assignments must be fetched separately
+                            permissions: {}
+                        }
+                    });
                 }
             }
         }
@@ -150,67 +180,78 @@ app.post('/api/login', async (req, res) => {
 // --- EVENTS ---
 app.get('/api/events', async (req, res) => {
     try {
-        const { email } = req.query;
-        // Use dynamic property name
-        const filter = email ? {
-            property: schema.get('EVENTS', 'CreatorEmail'),
-            email: { equals: email }
-        } : undefined;
+        const { email, staffId } = req.query;
 
-        console.log(`🔍 [DEBUG] Using Event Filter Key: ${schema.get('EVENTS', 'CreatorEmail')}`);
+        let results = [];
 
-        const response = await notionClient.databases.query({
-            database_id: DS.EVENTS,
-            filter
-        });
+        if (staffId && DS.STAFF_ASSIGNMENTS) {
+            // 1. Fetch assignments for this staff member
+            console.log(`🔍 [DEBUG] Fetching assignments for StaffId: ${staffId}`);
+            const assignmentRes = await notionClient.databases.query({
+                database_id: DS.STAFF_ASSIGNMENTS,
+                filter: {
+                    property: 'StaffId',
+                    rich_text: { equals: staffId }
+                }
+            });
+            const eventIds = assignmentRes.results.map(r => getText(r.properties.EventId));
+            console.log(`🔍 [DEBUG] Found assigned Event IDs: ${eventIds.join(', ')}`);
 
-        const events = response.results.map((page, index) => {
+            if (eventIds.length > 0) {
+                // 2. Fetch specific event pages
+                // Note: Assuming reasonable number of assignments. 
+                // Using Retrieve Page for each ID.
+                const eventPromises = eventIds.map(id =>
+                    notionClient.pages.retrieve({ page_id: id }).catch(e => null) // Ignore deleted/invalid
+                );
+                const pages = await Promise.all(eventPromises);
+                results = pages.filter(p => p); // Remove nulls
+            }
+        } else {
+            // Standard filter by Creator Email (or all if undefined?)
+            // Existing logic:
+            const filter = email ? {
+                property: schema.get('EVENTS', 'CreatorEmail'),
+                email: { equals: email }
+            } : undefined;
+
+            console.log(`🔍 [DEBUG] Using Event Filter Key: ${schema.get('EVENTS', 'CreatorEmail')}`);
+
+            const response = await notionClient.databases.query({
+                database_id: DS.EVENTS,
+                filter
+            });
+            results = response.results;
+        }
+
+        const events = results.map((page, index) => {
             const props = page.properties;
             const event = {
                 id: page.id,
-                eventName: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Name)),
-                date: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Date)),
-                location: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Location)),
-                message: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Message)),
-                image: findProp(props, KNOWN_PROPERTIES.EVENTS.Image)?.url || '',
-                time: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Time)),
-                hostName: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Host)),
-                giftType: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.GiftType)),
-                giftDetail: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.GiftDetail)),
-                status: 'published',
-                fotowall: {
-                    albumUrl: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.FW_AlbumUrl)),
-                    interval: Number(getText(findProp(props, KNOWN_PROPERTIES.EVENTS.FW_Interval))) || 5,
-                    shuffle: findProp(props, KNOWN_PROPERTIES.EVENTS.FW_Shuffle)?.checkbox || false,
-                    overlayTitle: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.FW_OverlayTitle)),
-                    mode: findProp(props, KNOWN_PROPERTIES.EVENTS.FW_ModerationMode)?.select?.name || 'manual',
-                    filters: (() => {
-                        try {
-                            const f = getText(findProp(props, KNOWN_PROPERTIES.EVENTS.FW_Filters));
-                            return f ? JSON.parse(f) : null;
-                        } catch (e) { return null; }
-                    })()
-                }
+                eventName: getText(props.EventName),
+                hostName: getText(props.HostName),
+                date: props.Date?.date?.start || '',
+                time: getText(props.Time),
+                location: getText(props.Location),
+                image: props.Values?.files?.[0]?.file?.url || props.Values?.files?.[0]?.external?.url || '',
+                message: getText(props.Message),
+                giftType: props.GiftType?.select?.name || 'none',
+                giftDetail: getText(props.GiftDetail),
+                capacity: props.Capacity?.number || 0,
+                // Client-side fields
+                guests: [],
+                tables: []
             };
-
-            if (index === 0) {
-                console.log("🔍 [DIAGNOSTIC] First Event Mapped:", JSON.stringify(event, null, 2));
-                console.log("🔍 [DIAGNOSTIC] Actual Mapped Keys:", JSON.stringify(schema.mappings.EVENTS, null, 2));
-                const dump = {
-                    event_mapped: event,
-                    raw_keys: Object.keys(props),
-                    raw_properties: props
-                };
-                try { fs.writeFileSync(path.join(__dirname, 'diagnostic_dump_event.json'), JSON.stringify(dump, null, 2)); } catch (e) { }
-            }
             return event;
         });
+
         res.json(events);
     } catch (error) {
-        console.error("Fetch Events Error:", error);
+        console.error("❌ Error fetching events:", error);
         res.status(500).json({ error: error.message });
     }
 });
+
 
 app.post('/api/events', async (req, res) => {
     try {
@@ -482,8 +523,8 @@ app.delete('/api/guests/:id', async (req, res) => {
     }
 });
 
-// --- STAFF ---
-app.get('/api/staff', async (req, res) => {
+// --- SUBSCRIBERS (Formerly Staff) ---
+app.get('/api/subscribers', async (req, res) => {
     try {
         await schema.init();
         const { eventId } = req.query;
@@ -493,22 +534,22 @@ app.get('/api/staff', async (req, res) => {
         }
 
         const response = await notionClient.databases.query({
-            database_id: DS.STAFF,
+            database_id: DS.SUBSCRIBERS,
             filter: {
-                property: schema.get('STAFF', 'Event'),
+                property: schema.get('SUBSCRIBERS', 'Event'),
                 relation: { contains: eventId }
             }
         });
 
         const staff = response.results.map(page => ({
             id: page.id,
-            name: getText(findProp(page.properties, KNOWN_PROPERTIES.STAFF.Name)),
-            email: getText(findProp(page.properties, KNOWN_PROPERTIES.STAFF.Email)),
+            name: getText(findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Name)),
+            email: getText(findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Email)),
             permissions: {
-                access_invitados: findProp(page.properties, KNOWN_PROPERTIES.STAFF.AccessInvitados)?.checkbox || false,
-                access_mesas: findProp(page.properties, KNOWN_PROPERTIES.STAFF.AccessMesas)?.checkbox || false,
-                access_link: findProp(page.properties, KNOWN_PROPERTIES.STAFF.AccessLink)?.checkbox || false,
-                access_fotowall: findProp(page.properties, KNOWN_PROPERTIES.STAFF.AccessFotowall)?.checkbox || false
+                access_invitados: findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessInvitados)?.checkbox || false,
+                access_mesas: findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessMesas)?.checkbox || false,
+                access_link: findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessLink)?.checkbox || false,
+                access_fotowall: findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessFotowall)?.checkbox || false
             }
         }));
 
@@ -519,7 +560,7 @@ app.get('/api/staff', async (req, res) => {
     }
 });
 
-app.post('/api/staff', async (req, res) => {
+app.post('/api/subscribers', async (req, res) => {
     try {
         await schema.init();
         const { eventId, name, email, password, permissions } = req.body;
@@ -530,11 +571,11 @@ app.post('/api/staff', async (req, res) => {
 
         // Check if staff with this email already exists for this event
         const existing = await notionClient.databases.query({
-            database_id: DS.STAFF,
+            database_id: DS.SUBSCRIBERS,
             filter: {
                 and: [
-                    { property: schema.get('STAFF', 'Email'), email: { equals: email } },
-                    { property: schema.get('STAFF', 'Event'), relation: { contains: eventId } }
+                    { property: schema.get('SUBSCRIBERS', 'Email'), email: { equals: email } },
+                    { property: schema.get('SUBSCRIBERS', 'Event'), relation: { contains: eventId } }
                 ]
             }
         });
@@ -544,17 +585,18 @@ app.post('/api/staff', async (req, res) => {
         }
 
         const properties = {};
-        properties[schema.get('STAFF', 'Name')] = { title: [{ text: { content: name || email.split('@')[0] } }] };
-        properties[schema.get('STAFF', 'Email')] = { email: email };
-        properties[schema.get('STAFF', 'Password')] = { rich_text: [{ text: { content: password } }] };
-        properties[schema.get('STAFF', 'Event')] = { relation: [{ id: eventId }] };
-        properties[schema.get('STAFF', 'AccessInvitados')] = { checkbox: permissions?.access_invitados || false };
-        properties[schema.get('STAFF', 'AccessMesas')] = { checkbox: permissions?.access_mesas || false };
-        properties[schema.get('STAFF', 'AccessLink')] = { checkbox: permissions?.access_link || false };
-        properties[schema.get('STAFF', 'AccessFotowall')] = { checkbox: permissions?.access_fotowall || false };
+        properties[schema.get('SUBSCRIBERS', 'Name')] = { title: [{ text: { content: name || email.split('@')[0] } }] };
+        properties[schema.get('SUBSCRIBERS', 'Email')] = { email: email };
+        properties[schema.get('SUBSCRIBERS', 'Password')] = { rich_text: [{ text: { content: password } }] };
+        properties[schema.get('SUBSCRIBERS', 'Event')] = { relation: [{ id: eventId }] };
+
+        properties[schema.get('SUBSCRIBERS', 'AccessInvitados')] = { checkbox: permissions?.access_invitados || false };
+        properties[schema.get('SUBSCRIBERS', 'AccessMesas')] = { checkbox: permissions?.access_mesas || false };
+        properties[schema.get('SUBSCRIBERS', 'AccessLink')] = { checkbox: permissions?.access_link || false };
+        properties[schema.get('SUBSCRIBERS', 'AccessFotowall')] = { checkbox: permissions?.access_fotowall || false };
 
         const newPage = await notionClient.pages.create({
-            parent: { database_id: DB.STAFF },
+            parent: { database_id: DS.SUBSCRIBERS },
             properties
         });
 
@@ -566,19 +608,19 @@ app.post('/api/staff', async (req, res) => {
     }
 });
 
-app.put('/api/staff/:id', async (req, res) => {
+app.put('/api/subscribers/:id', async (req, res) => {
     try {
         await schema.init();
         const { id } = req.params;
         const { name, permissions } = req.body;
 
         const properties = {};
-        if (name) properties[schema.get('STAFF', 'Name')] = { title: [{ text: { content: name } }] };
+        if (name) properties[schema.get('SUBSCRIBERS', 'Name')] = { title: [{ text: { content: name } }] };
         if (permissions) {
-            properties[schema.get('STAFF', 'AccessInvitados')] = { checkbox: !!permissions.access_invitados };
-            properties[schema.get('STAFF', 'AccessMesas')] = { checkbox: !!permissions.access_mesas };
-            properties[schema.get('STAFF', 'AccessLink')] = { checkbox: !!permissions.access_link };
-            properties[schema.get('STAFF', 'AccessFotowall')] = { checkbox: !!permissions.access_fotowall };
+            if (permissions.access_invitados !== undefined) properties[schema.get('SUBSCRIBERS', 'AccessInvitados')] = { checkbox: permissions.access_invitados };
+            if (permissions.access_mesas !== undefined) properties[schema.get('SUBSCRIBERS', 'AccessMesas')] = { checkbox: permissions.access_mesas };
+            if (permissions.access_link !== undefined) properties[schema.get('SUBSCRIBERS', 'AccessLink')] = { checkbox: permissions.access_link };
+            if (permissions.access_fotowall !== undefined) properties[schema.get('SUBSCRIBERS', 'AccessFotowall')] = { checkbox: permissions.access_fotowall };
         }
 
         await notionClient.pages.update({ page_id: id, properties });
@@ -590,7 +632,7 @@ app.put('/api/staff/:id', async (req, res) => {
     }
 });
 
-app.delete('/api/staff/:id', async (req, res) => {
+app.delete('/api/subscribers/:id', async (req, res) => {
     try {
         await notionClient.pages.update({ page_id: req.params.id, archived: true });
         console.log(`✅ Staff deleted: ${req.params.id}`);
@@ -1188,6 +1230,161 @@ app.post('/api/fotowall/block-all', async (req, res) => {
 });
 
 
+
+
+// --- STAFF ROSTER ---
+app.get('/api/staff-roster', async (req, res) => {
+    try {
+        await schema.init();
+        const { ownerId } = req.query; // Filter by Owner (Subscriber)
+
+        const filter = ownerId ? {
+            property: 'OwnerId', // Using text field
+            rich_text: { equals: ownerId }
+        } : undefined;
+
+        const response = await notionClient.databases.query({
+            database_id: DS.STAFF_ROSTER,
+            filter: filter
+        });
+
+        const roster = response.results.map(page => ({
+            id: page.id,
+            name: getText(page.properties.Name),
+            email: getText(page.properties.Email),
+            description: getText(page.properties.Description),
+            ownerId: getText(page.properties.OwnerId)
+        }));
+
+        res.json(roster);
+    } catch (error) {
+        console.error("❌ Error getting staff roster:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/staff-roster', async (req, res) => {
+    try {
+        await schema.init();
+        const { name, email, password, description, ownerId } = req.body;
+
+        if (!email || !ownerId) {
+            return res.status(400).json({ error: 'Email and OwnerId are required' });
+        }
+
+        const properties = {
+            "Name": { title: [{ text: { content: name || email.split('@')[0] } }] },
+            "Email": { email: email },
+            "Description": { rich_text: [{ text: { content: description || "" } }] },
+            "OwnerId": { rich_text: [{ text: { content: ownerId } }] }
+        };
+        if (password) {
+            properties["Password"] = { rich_text: [{ text: { content: password } }] };
+        }
+
+        await notionClient.pages.create({
+            parent: { database_id: DS.STAFF_ROSTER },
+            properties: properties
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Error creating staff roster:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/staff-roster/:id', async (req, res) => {
+    try {
+        await notionClient.pages.update({
+            page_id: req.params.id,
+            archived: true
+        });
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Error deleting staff roster:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- STAFF ASSIGNMENTS ---
+app.get('/api/staff-assignments', async (req, res) => {
+    try {
+        await schema.init();
+        const { eventId, staffId } = req.query;
+
+        const filters = [];
+        if (eventId) filters.push({ property: 'EventId', rich_text: { equals: eventId } });
+        if (staffId) filters.push({ property: 'StaffId', rich_text: { equals: staffId } });
+
+        const query = {
+            database_id: DS.STAFF_ASSIGNMENTS,
+        };
+        if (filters.length > 0) {
+            query.filter = { and: filters };
+        }
+
+        const response = await notionClient.databases.query(query);
+
+        const assignments = response.results.map(page => ({
+            id: page.id,
+            name: getText(page.properties.Name),
+            staffId: getText(page.properties.StaffId),
+            eventId: getText(page.properties.EventId),
+            permissions: {
+                access_invitados: page.properties.access_invitados?.checkbox || false,
+                access_mesas: page.properties.access_mesas?.checkbox || false,
+                access_link: page.properties.access_link?.checkbox || false,
+                access_fotowall: page.properties.access_fotowall?.checkbox || false
+            }
+        }));
+
+        res.json(assignments);
+    } catch (error) {
+        console.error("❌ Error getting assignments:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/staff-assignments', async (req, res) => {
+    try {
+        await schema.init();
+        const { name, staffId, eventId, permissions } = req.body;
+
+        const properties = {
+            "Name": { title: [{ text: { content: name || "Assignment" } }] },
+            "StaffId": { rich_text: [{ text: { content: staffId } }] },
+            "EventId": { rich_text: [{ text: { content: eventId } }] },
+            "access_invitados": { checkbox: permissions?.access_invitados || false },
+            "access_mesas": { checkbox: permissions?.access_mesas || false },
+            "access_link": { checkbox: permissions?.access_link || false },
+            "access_fotowall": { checkbox: permissions?.access_fotowall || false }
+        };
+
+        const response = await notionClient.pages.create({
+            parent: { database_id: DS.STAFF_ASSIGNMENTS },
+            properties: properties
+        });
+
+        res.json({ success: true, id: response.id });
+    } catch (error) {
+        console.error("❌ Error creating assignment:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/staff-assignments/:id', async (req, res) => {
+    try {
+        await notionClient.pages.update({
+            page_id: req.params.id,
+            archived: true
+        });
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Error deleting assignment:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // Catch-all for frontend
 app.get(/.*/, (req, res) => {

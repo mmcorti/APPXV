@@ -15,6 +15,8 @@ import FotoWallPlayerScreen from './screens/FotoWallPlayer';
 import FotoWallAdminScreen from './screens/FotoWallAdmin';
 import FotoWallModerationSettingsScreen from './screens/FotoWallModerationSettings';
 import ManageSubscribersScreen from './screens/ManageSubscribers';
+import StaffRosterScreen from './screens/StaffRoster';
+import EventStaffAssignmentsScreen from './screens/EventStaffAssignments';
 import { InvitationData, User, Guest, Table, SeatedGuest, StaffPermissions } from './types';
 import { notionService } from './services/notion';
 
@@ -56,10 +58,10 @@ const App: React.FC = () => {
   const [invitations, setInvitations] = useState<InvitationData[]>([]);
   const [loading, setLoading] = useState(window.location.hash.includes('#/rsvp/'));
 
-  const loadAllData = async (userEmail: string) => {
+  const loadAllData = async (userEmail: string, staffId?: string) => {
     setLoading(true);
     try {
-      const events = await notionService.getEvents(userEmail);
+      const events = await notionService.getEvents(userEmail, staffId);
       const detailedEvents = await Promise.all(events.map(async (event) => {
         const guests = await notionService.getGuests(event.id);
         const tables = await notionService.getTables(event.id);
@@ -75,7 +77,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      loadAllData(user.email);
+      const staffId = user.role === 'event_staff' ? user.id : undefined;
+      loadAllData(user.email, staffId);
     }
   }, [user]);
 
@@ -463,6 +466,14 @@ const App: React.FC = () => {
         <Route
           path="/subscribers/:id"
           element={user?.role === 'admin' ? <ManageSubscribersScreen event={invitations.find(i => window.location.hash.includes(i.id)) || null} /> : <Navigate to="/dashboard" />}
+        />
+        <Route
+          path="/staff-roster"
+          element={user ? <StaffRosterScreen user={user} /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/event-staff/:id"
+          element={user ? <EventStaffAssignmentsScreen user={user} invitations={invitations} /> : <Navigate to="/login" />}
         />
         <Route
           path="/location/:id"
