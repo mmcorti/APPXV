@@ -291,24 +291,13 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                         FotoWall
                       </button>
                       {(user.role === 'admin' || user.role === 'subscriber') && (
-                        <>
-                          <button
-                            onClick={() => navigate(`/event-staff/${inv.id}`)}
-                            className="flex flex-col items-center justify-center gap-1 py-3 bg-teal-50 dark:bg-teal-900/20 text-teal-600 font-bold text-[10px] rounded-xl hover:scale-[0.98] transition-all"
-                          >
-                            <span className="material-symbols-outlined text-lg">badge</span>
-                            Staff
-                          </button>
-                          {user.role === 'admin' && (
-                            <button
-                              onClick={() => navigate(`/subscribers/${inv.id}`)}
-                              className="flex flex-col items-center justify-center gap-1 py-3 bg-green-50 dark:bg-green-900/20 text-green-600 font-bold text-[10px] rounded-xl hover:scale-[0.98] transition-all"
-                            >
-                              <span className="material-symbols-outlined text-lg">group_add</span>
-                              Suscriptores
-                            </button>
-                          )}
-                        </>
+                        <button
+                          onClick={() => navigate(`/event-staff/${inv.id}`)}
+                          className="flex flex-col items-center justify-center gap-1 py-3 bg-teal-50 dark:bg-teal-900/20 text-teal-600 font-bold text-[10px] rounded-xl hover:scale-[0.98] transition-all"
+                        >
+                          <span className="material-symbols-outlined text-lg">badge</span>
+                          Staff
+                        </button>
                       )}
                     </div>
                   </div>
