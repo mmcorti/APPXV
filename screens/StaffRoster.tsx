@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User } from '../types';
 
 interface StaffRosterProps {
@@ -15,6 +16,7 @@ interface RosterMember {
 }
 
 const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
+    const navigate = useNavigate();
     const [roster, setRoster] = useState<RosterMember[]>([]);
     const [loading, setLoading] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
@@ -105,8 +107,14 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
 
     return (
         <div className="p-6 max-w-4xl mx-auto pb-24">
-            <div className="flex justify-between items-center mb-6">
-                <div>
+            <div className="flex items-center gap-4 mb-6">
+                <button
+                    onClick={() => navigate('/dashboard')}
+                    className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                >
+                    <span className="material-symbols-outlined">arrow_back</span>
+                </button>
+                <div className="flex-1">
                     <h1 className="text-2xl font-bold text-gray-800">Mi Staff (Roster)</h1>
                     <p className="text-gray-600">Gestiona tu equipo permanente (DJs, Fotógrafos, etc.) para asignarlos a eventos.</p>
                 </div>
@@ -114,7 +122,7 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
                     onClick={() => setIsCreating(!isCreating)}
                     className="bg-black text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-800 transition-colors"
                 >
-                    <span className="material-symbols-outlined">{isCreating ? 'close' : 'add'}</span>
+                    <span className="material-symbols-outlined text-sm">{isCreating ? 'close' : 'add'}</span>
                     {isCreating ? 'Cancelar' : 'Nuevo Miembro'}
                 </button>
             </div>
@@ -146,7 +154,7 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
                             <input
-                                type="text"
+                                type="password"
                                 value={newPassword}
                                 onChange={e => setNewPassword(e.target.value)}
                                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent font-mono"

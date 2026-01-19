@@ -2,7 +2,7 @@ import { notion, DS, DB } from './notion.js';
 
 const KNOWN_PROPERTIES = {
     EVENTS: {
-        Name: ["Name", "Nombre", "Título", "Titulo"],
+        Name: ["Name", "Nombre", "Título", "Titulo", "Event Name", "EventName", "Nombre del Evento"],
         CreatorEmail: ["Creator Email", "Email Creador", "Correo Creador"],
         Date: ["Date", "Fecha"],
         Location: ["Location", "Ubicación", "Ubicacion"],
