@@ -685,7 +685,7 @@ app.get('/api/subscribers', async (req, res) => {
 app.post('/api/subscribers', async (req, res) => {
     try {
         await schema.init();
-        const { eventId, name, email, password, permissions, userRole } = req.body;
+        const { eventId, name, email, password, permissions, userRole, plan } = req.body;
 
         // --- ADMIN ONLY CHECK ---
         if (!isAdmin(userRole)) {
@@ -721,6 +721,12 @@ app.post('/api/subscribers', async (req, res) => {
         properties[schema.get('SUBSCRIBERS', 'Email')] = { email: email };
         properties[schema.get('SUBSCRIBERS', 'Password')] = { rich_text: [{ text: { content: password } }] };
         properties[schema.get('SUBSCRIBERS', 'Event')] = { relation: [{ id: eventId }] };
+
+        // Save plan - use select type for Plan property
+        const planPropName = schema.get('SUBSCRIBERS', 'Plan');
+        if (planPropName && plan) {
+            properties[planPropName] = { select: { name: plan } };
+        }
 
         properties[schema.get('SUBSCRIBERS', 'AccessInvitados')] = { checkbox: permissions?.access_invitados || false };
         properties[schema.get('SUBSCRIBERS', 'AccessMesas')] = { checkbox: permissions?.access_mesas || false };
