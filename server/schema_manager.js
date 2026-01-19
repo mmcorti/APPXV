@@ -77,6 +77,9 @@ class SchemaManager {
             EVENTS: {},
             GUESTS: {},
             TABLES: {},
+            SUBSCRIBERS: {},
+            STAFF_ROSTER: {},
+            STAFF_ASSIGNMENTS: {},
             STAFF: {}
         };
         this.initialized = false;
@@ -90,6 +93,9 @@ class SchemaManager {
             await this.mapDatabase(DS.EVENTS, 'EVENTS', KNOWN_PROPERTIES.EVENTS);
             await this.mapDatabase(DS.GUESTS, 'GUESTS', KNOWN_PROPERTIES.GUESTS);
             await this.mapDatabase(DS.TABLES, 'TABLES', KNOWN_PROPERTIES.TABLES);
+            if (DS.SUBSCRIBERS) await this.mapDatabase(DS.SUBSCRIBERS, 'SUBSCRIBERS', KNOWN_PROPERTIES.SUBSCRIBERS);
+            if (DS.STAFF_ROSTER) await this.mapDatabase(DS.STAFF_ROSTER, 'STAFF_ROSTER', KNOWN_PROPERTIES.STAFF_ROSTER);
+            if (DS.STAFF_ASSIGNMENTS) await this.mapDatabase(DS.STAFF_ASSIGNMENTS, 'STAFF_ASSIGNMENTS', KNOWN_PROPERTIES.STAFF_ASSIGNMENTS);
             if (DS.STAFF) await this.mapDatabase(DS.STAFF, 'STAFF', KNOWN_PROPERTIES.STAFF);
 
             this.initialized = true;
