@@ -178,7 +178,7 @@ app.post('/api/login', async (req, res) => {
                             id: rosterPage.id,
                             email: getText(rosterPage.properties.Email),
                             name: getText(rosterPage.properties.Name),
-                            role: 'event_staff',
+                            role: 'staff',
                             // Assignments must be fetched separately
                             permissions: {}
                         }
@@ -214,77 +214,84 @@ app.get('/api/events', async (req, res) => {
                     rich_text: { equals: staffId }
                 }
             });
-            const eventIds = assignmentRes.results.map(r => getText(r.properties.EventId));
-            console.log(`🔍 [DEBUG] Found assigned Event IDs: ${eventIds.join(', ')}`);
-
-            if (eventIds.length > 0) {
-                // 2. Fetch specific event pages
-                // Note: Assuming reasonable number of assignments. 
-                // Using Retrieve Page for each ID.
-                const eventPromises = eventIds.map(id =>
-                    notionClient.pages.retrieve({ page_id: id }).catch(e => null) // Ignore deleted/invalid
-                );
-                const pages = await Promise.all(eventPromises);
-                results = pages.filter(p => p); // Remove nulls
-            }
-        } else {
-            // Standard filter by Creator Email (or all if undefined?)
-            // Existing logic:
-            const filter = email ? {
-                property: schema.get('EVENTS', 'CreatorEmail'),
-                email: { equals: email }
-            } : undefined;
-
-            console.log(`🔍 [DEBUG] Querying Events DB: ${DS.EVENTS}`);
-            const queryFilterProp = schema.get('EVENTS', 'CreatorEmail');
-            console.log(`🔍 [DEBUG] Filter Property: ${queryFilterProp}, Email: ${email}`);
-
-            const response = await notionClient.databases.query({
-                database_id: DS.EVENTS,
-                filter
-            });
-            results = response.results;
-            console.log(`🔍 [DEBUG] Query returned ${results.length} results`);
-
-            if (results.length === 0 && DS.EVENTS) {
+            const eventPromises = assignmentRes.results.map(async (r) => {
+                const id = getText(r.properties.EventId);
+                if (!id) return null;
                 try {
-                    const db = await notionClient.databases.retrieve({ database_id: DS.EVENTS });
-                    console.log(`🔍 [DIAGNOSTIC] DB Properties found in Notion:`, Object.keys(db.properties).join(', '));
-                    console.log(`🔍 [DIAGNOSTIC] Current Mapping for EVENTS:`, JSON.stringify(schema.mappings.EVENTS, null, 2));
-                } catch (err) {
-                    console.error("❌ Failed to retrieve DB schema for diagnostic:", err.message);
+                    const page = await notionClient.pages.retrieve({ page_id: id });
+                    // Attach permissions to the page object temporarily
+                    page._permissions = {
+                        access_invitados: findProp(r.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessInvitados)?.checkbox || false,
+                        access_mesas: findProp(r.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessMesas)?.checkbox || false,
+                        access_link: findProp(r.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessLink)?.checkbox || false,
+                        access_fotowall: findProp(r.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessFotowall)?.checkbox || false,
+                    };
+                    return page;
+                } catch (e) {
+                    return null;
                 }
-            } else if (results.length > 0) {
-                console.log(`🔍 [DEBUG] First event properties:`, Object.keys(results[0].properties).join(', '));
-            }
+            });
+            results = (await Promise.all(eventPromises)).filter(p => p);
         }
+    } else {
+        // Standard filter by Creator Email (or all if undefined?)
+        // Existing logic:
+        const filter = email ? {
+            property: schema.get('EVENTS', 'CreatorEmail'),
+            email: { equals: email }
+        } : undefined;
 
-        const events = results.map((page, index) => {
-            const props = page.properties;
-            const event = {
-                id: page.id,
-                eventName: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Name)),
-                hostName: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Host)),
-                date: findProp(props, KNOWN_PROPERTIES.EVENTS.Date)?.date?.start || '',
-                time: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Time)),
-                location: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Location)),
-                image: findProp(props, KNOWN_PROPERTIES.EVENTS.Image)?.url || '',
-                message: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Message)),
-                giftType: findProp(props, KNOWN_PROPERTIES.EVENTS.GiftType)?.select?.name || 'none',
-                giftDetail: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.GiftDetail)),
-                capacity: findProp(props, KNOWN_PROPERTIES.EVENTS.Capacity)?.number || 0,
-                // Client-side fields
-                guests: [],
-                tables: []
-            };
-            return event;
+        console.log(`🔍 [DEBUG] Querying Events DB: ${DS.EVENTS}`);
+        const queryFilterProp = schema.get('EVENTS', 'CreatorEmail');
+        console.log(`🔍 [DEBUG] Filter Property: ${queryFilterProp}, Email: ${email}`);
+
+        const response = await notionClient.databases.query({
+            database_id: DS.EVENTS,
+            filter
         });
+        results = response.results;
+        console.log(`🔍 [DEBUG] Query returned ${results.length} results`);
 
-        res.json(events);
-    } catch (error) {
-        console.error("❌ Error fetching events:", error);
-        res.status(500).json({ error: error.message });
+        if (results.length === 0 && DS.EVENTS) {
+            try {
+                const db = await notionClient.databases.retrieve({ database_id: DS.EVENTS });
+                console.log(`🔍 [DIAGNOSTIC] DB Properties found in Notion:`, Object.keys(db.properties).join(', '));
+                console.log(`🔍 [DIAGNOSTIC] Current Mapping for EVENTS:`, JSON.stringify(schema.mappings.EVENTS, null, 2));
+            } catch (err) {
+                console.error("❌ Failed to retrieve DB schema for diagnostic:", err.message);
+            }
+        } else if (results.length > 0) {
+            console.log(`🔍 [DEBUG] First event properties:`, Object.keys(results[0].properties).join(', '));
+        }
     }
+
+    const events = results.map((page, index) => {
+        const props = page.properties;
+        const event = {
+            id: page.id,
+            eventName: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Name)),
+            hostName: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Host)),
+            date: findProp(props, KNOWN_PROPERTIES.EVENTS.Date)?.date?.start || '',
+            time: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Time)),
+            location: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Location)),
+            image: findProp(props, KNOWN_PROPERTIES.EVENTS.Image)?.url || '',
+            message: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Message)),
+            giftType: findProp(props, KNOWN_PROPERTIES.EVENTS.GiftType)?.select?.name || 'none',
+            giftDetail: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.GiftDetail)),
+            capacity: findProp(props, KNOWN_PROPERTIES.EVENTS.Capacity)?.number || 0,
+            // Client-side fields
+            guests: [],
+            tables: [],
+            permissions: page._permissions // Pass mapped permissions
+        };
+        return event;
+    });
+
+    res.json(events);
+} catch (error) {
+    console.error("❌ Error fetching events:", error);
+    res.status(500).json({ error: error.message });
+}
 });
 
 

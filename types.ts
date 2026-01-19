@@ -69,6 +69,7 @@ export interface InvitationData {
     mode: 'ai' | 'manual';
     filters: any;
   };
+  permissions?: StaffPermissions;
 }
 
 export interface StaffPermissions {
