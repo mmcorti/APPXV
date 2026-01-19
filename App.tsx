@@ -384,8 +384,9 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAuthSuccess = (name: string, email: string, role?: string, permissions?: StaffPermissions, eventId?: string) => {
+  const handleAuthSuccess = (id: string, name: string, email: string, role?: string, permissions?: StaffPermissions, eventId?: string) => {
     setUser({
+      id,
       name,
       email,
       role: (role as 'admin' | 'staff') || 'admin',
@@ -429,7 +430,7 @@ const App: React.FC = () => {
         <Route path="/login" element={<LoginScreen onLogin={handleAuthSuccess} />} />
         <Route
           path="/register"
-          element={user?.role === 'admin' ? <RegisterScreen onRegister={handleAuthSuccess} /> : <Navigate to="/login" />}
+          element={user?.role === 'admin' ? <RegisterScreen onRegister={(name, email) => handleAuthSuccess('', name, email)} /> : <Navigate to="/login" />}
         />
         <Route
           path="/dashboard"
