@@ -92,6 +92,7 @@ export interface User {
   email: string;
   avatar: string;
   role: 'admin' | 'subscriber' | 'event_staff' | 'staff';
+  plan?: 'freemium' | 'premium' | 'vip';
   permissions?: StaffPermissions;
   eventId?: string; // For staff, the specific event they have access to
 }

@@ -384,12 +384,13 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAuthSuccess = (id: string, name: string, email: string, role?: string, permissions?: StaffPermissions, eventId?: string) => {
+  const handleAuthSuccess = (id: string, name: string, email: string, role?: string, permissions?: StaffPermissions, eventId?: string, plan?: string) => {
     setUser({
       id,
       name,
       email,
-      role: (role as 'admin' | 'staff') || 'admin',
+      role: (role as 'admin' | 'subscriber' | 'event_staff' | 'staff') || 'admin',
+      plan: (plan as 'freemium' | 'premium' | 'vip') || 'freemium',
       permissions,
       eventId,
       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=135bec&color=fff`

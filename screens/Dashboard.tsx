@@ -1,7 +1,15 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, InvitationData } from '../types';
+
+interface UsageSummary {
+  events: { current: number; limit: number; display: string };
+  guests: { current: number; limit: number; display: string };
+  staffRoster: { current: number; limit: number; display: string };
+  plan: string;
+  aiFeatures: boolean;
+}
 
 interface DashboardProps {
   user: User;
@@ -18,12 +26,40 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
   const [showAddModal, setShowAddModal] = useState(false);
   const [newEventName, setNewEventName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
+  const [limitError, setLimitError] = useState<string | null>(null);
+
+  // Fetch usage summary
+  useEffect(() => {
+    const fetchUsage = async () => {
+      try {
+        const res = await fetch(`/api/usage-summary?email=${encodeURIComponent(user.email)}&plan=${user.plan || 'freemium'}`);
+        if (res.ok) {
+          const data = await res.json();
+          setUsage(data);
+        }
+      } catch (err) {
+        console.error('Error fetching usage:', err);
+      }
+    };
+    if (user.email) fetchUsage();
+  }, [user.email, user.plan, invitations.length]);
+
+  const canCreateEvent = !usage || usage.events.current < usage.events.limit;
+
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEventName.trim() || isCreating) return;
 
+    // Check limits
+    if (!canCreateEvent) {
+      setLimitError(`Has alcanzado el límite de ${usage?.events.limit} eventos para tu plan ${usage?.plan}`);
+      return;
+    }
+
     setIsCreating(true);
+    setLimitError(null);
     const tempEvent: InvitationData = {
       id: Date.now().toString(),
       eventName: newEventName,
@@ -44,8 +80,12 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
       setNewEventName('');
       setShowAddModal(false);
       navigate(`/edit/${createdEvent.id}`);
-    } catch (err) {
-      alert("Error al crear el evento. Intenta de nuevo.");
+    } catch (err: any) {
+      if (err?.limitReached) {
+        setLimitError(err.error || 'Límite de eventos alcanzado');
+      } else {
+        alert("Error al crear el evento. Intenta de nuevo.");
+      }
     } finally {
       setIsCreating(false);
     }
@@ -111,11 +151,35 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
             <button onClick={onLogout} className="flex items-center justify-center size-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-500">
               <span className="material-symbols-outlined">logout</span>
             </button>
-            <button onClick={() => setShowAddModal(true)} className="flex items-center justify-center size-10 rounded-full bg-primary text-white shadow-lg shadow-primary/20 transition-transform active:scale-90">
+            <button
+              onClick={() => canCreateEvent ? setShowAddModal(true) : setLimitError(`Límite de eventos alcanzado (${usage?.events.display})`)}
+              className={`flex items-center justify-center size-10 rounded-full shadow-lg transition-transform active:scale-90 ${canCreateEvent ? 'bg-primary text-white shadow-primary/20' : 'bg-slate-300 dark:bg-slate-600 text-slate-500 cursor-not-allowed'}`}
+            >
               <span className="material-symbols-outlined">add</span>
             </button>
           </div>
         </div>
+        {/* Usage Indicator */}
+        {usage && user.role !== 'admin' && (
+          <div className="mt-3 flex items-center gap-4 text-xs font-medium">
+            <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full ${usage.events.current >= usage.events.limit ? 'bg-red-100 dark:bg-red-900/30 text-red-600' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600'}`}>
+              <span className="material-symbols-outlined text-sm">event</span>
+              Eventos: {usage.events.display}
+            </div>
+            <div className="px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 capitalize">
+              Plan: {usage.plan}
+            </div>
+          </div>
+        )}
+        {limitError && (
+          <div className="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 text-sm flex items-center gap-2">
+            <span className="material-symbols-outlined text-lg">warning</span>
+            {limitError}
+            <button onClick={() => setLimitError(null)} className="ml-auto">
+              <span className="material-symbols-outlined text-sm">close</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-6 px-4 mt-4">

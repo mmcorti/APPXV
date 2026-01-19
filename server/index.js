@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { notion as notionClient, DS, DB } from './notion.js';
 import { schema, KNOWN_PROPERTIES } from './schema_manager.js';
 import { googlePhotosService } from './services/googlePhotos.js';
+import { checkLimit, getPlanLimits, isAdmin, getUsageSummary, DEFAULT_PLAN } from './planLimits.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -312,8 +313,40 @@ app.get('/api/events', async (req, res) => {
 app.post('/api/events', async (req, res) => {
     try {
         await schema.init();
-        const { eventName, date, location, message, image, userEmail, time, hostName, giftType, giftDetail } = req.body;
+        const { eventName, date, location, message, image, userEmail, time, hostName, giftType, giftDetail, userPlan, userRole } = req.body;
         console.log(`📝 [DEBUG] Creating event: ${eventName}`);
+
+        // --- PLAN LIMIT CHECK ---
+        // Admins bypass limits
+        if (!isAdmin(userRole)) {
+            // Count existing events for this user
+            const existingEventsRes = await notionClient.databases.query({
+                database_id: DS.EVENTS,
+                filter: {
+                    property: schema.get('EVENTS', 'CreatorEmail'),
+                    email: { equals: userEmail }
+                }
+            });
+            const currentEventCount = existingEventsRes.results.length;
+
+            const limitCheck = checkLimit({
+                plan: userPlan || DEFAULT_PLAN,
+                resource: 'events',
+                currentCount: currentEventCount
+            });
+
+            if (!limitCheck.allowed) {
+                console.log(`⛔ Event limit reached for ${userEmail}: ${currentEventCount}/${limitCheck.limit}`);
+                return res.status(403).json({
+                    error: limitCheck.reason,
+                    limitReached: true,
+                    current: currentEventCount,
+                    limit: limitCheck.limit
+                });
+            }
+            console.log(`✅ Event limit check passed: ${currentEventCount}/${limitCheck.limit}`);
+        }
+        // --- END PLAN LIMIT CHECK ---
 
         const properties = {};
         properties[schema.get('EVENTS', 'Name')] = { title: [{ text: { content: eventName || "Nuevo Evento" } }] };
@@ -476,9 +509,41 @@ app.get('/api/guests', async (req, res) => {
 app.post('/api/guests', async (req, res) => {
     try {
         await schema.init(); // Ensure schema is ready
-        const { eventId, guest } = req.body;
+        const { eventId, guest, userPlan, userRole } = req.body;
         console.log("📝 Creating Guest for Event:", eventId);
         console.log("📦 Guest Payload:", JSON.stringify(guest, null, 2));
+
+        // --- PLAN LIMIT CHECK ---
+        // Admins bypass limits
+        if (!isAdmin(userRole)) {
+            // Count existing guests for this event
+            const existingGuestsRes = await notionClient.databases.query({
+                database_id: DS.GUESTS,
+                filter: {
+                    property: schema.get('GUESTS', 'Event'),
+                    relation: { contains: eventId }
+                }
+            });
+            const currentGuestCount = existingGuestsRes.results.length;
+
+            const limitCheck = checkLimit({
+                plan: userPlan || DEFAULT_PLAN,
+                resource: 'guests',
+                currentCount: currentGuestCount
+            });
+
+            if (!limitCheck.allowed) {
+                console.log(`⛔ Guest limit reached for event ${eventId}: ${currentGuestCount}/${limitCheck.limit}`);
+                return res.status(403).json({
+                    error: limitCheck.reason,
+                    limitReached: true,
+                    current: currentGuestCount,
+                    limit: limitCheck.limit
+                });
+            }
+            console.log(`✅ Guest limit check passed: ${currentGuestCount}/${limitCheck.limit}`);
+        }
+        // --- END PLAN LIMIT CHECK ---
 
         const properties = {};
 
@@ -620,7 +685,17 @@ app.get('/api/subscribers', async (req, res) => {
 app.post('/api/subscribers', async (req, res) => {
     try {
         await schema.init();
-        const { eventId, name, email, password, permissions } = req.body;
+        const { eventId, name, email, password, permissions, userRole } = req.body;
+
+        // --- ADMIN ONLY CHECK ---
+        if (!isAdmin(userRole)) {
+            console.log(`⛔ Non-admin attempted to create subscriber: ${userRole}`);
+            return res.status(403).json({
+                error: 'Solo los administradores pueden crear suscriptores',
+                adminRequired: true
+            });
+        }
+        // --- END ADMIN CHECK ---
 
         if (!eventId || !email || !password) {
             return res.status(400).json({ error: 'eventId, email, and password are required' });
@@ -965,11 +1040,11 @@ const moderationCache = new Map();
 
 app.post('/api/fotowall/album/moderated', async (req, res) => {
     try {
-        const { url, moderationSettings } = req.body;
+        const { url, moderationSettings, plan } = req.body;
         if (!url) return res.status(400).json({ error: "URL requerida" });
 
         const mode = moderationSettings?.mode || 'manual';
-        console.log(`[FOTOWALL] Getting moderated album: ${url}, mode: ${mode}`);
+        console.log(`[FOTOWALL] Getting moderated album: ${url}, mode: ${mode}, plan: ${plan || 'freemium'}`);
 
         // Get photos from album
         const photos = await googlePhotosService.getAlbumPhotos(url);
@@ -1031,19 +1106,33 @@ app.post('/api/fotowall/album/moderated', async (req, res) => {
         }
 
         // Return only safe photos
-        const safePhotos = moderatedPhotos.filter(p => p.moderation?.safe === true);
+        let safePhotos = moderatedPhotos.filter(p => p.moderation?.safe === true);
         const blockedCount = moderatedPhotos.filter(p => p.moderation?.safe === false && !p.moderation?.pending).length;
         const pendingCount = moderatedPhotos.filter(p => p.moderation?.pending).length;
 
-        console.log(`[FOTOWALL] Result: ${safePhotos.length} safe, ${blockedCount} blocked, ${pendingCount} pending`);
+        // --- PLAN-BASED PHOTO LIMIT ---
+        const planLimits = getPlanLimits(plan || DEFAULT_PLAN);
+        const photoLimit = planLimits.maxPhotosPerEvent;
+        const totalSafePhotos = safePhotos.length;
+
+        if (safePhotos.length > photoLimit) {
+            console.log(`[FOTOWALL] Limiting photos from ${safePhotos.length} to ${photoLimit} (plan: ${plan || 'freemium'})`);
+            safePhotos = safePhotos.slice(0, photoLimit);
+        }
+        // --- END PLAN LIMIT ---
+
+        console.log(`[FOTOWALL] Result: ${safePhotos.length} safe (limit: ${photoLimit}), ${blockedCount} blocked, ${pendingCount} pending`);
 
         res.json({
             photos: safePhotos,
             stats: {
                 total: photos.length,
-                safe: safePhotos.length,
+                safe: totalSafePhotos,
+                displayed: safePhotos.length,
                 blocked: blockedCount,
-                pending: pendingCount
+                pending: pendingCount,
+                limit: photoLimit,
+                limitReached: totalSafePhotos > photoLimit
             }
         });
     } catch (error) {
@@ -1452,6 +1541,39 @@ app.delete('/api/staff-assignments/:id', async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error("❌ Error deleting assignment:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- USAGE SUMMARY ENDPOINT ---
+app.get('/api/usage-summary', async (req, res) => {
+    try {
+        await schema.init();
+        const { email, plan } = req.query;
+
+        if (!email) {
+            return res.status(400).json({ error: 'email is required' });
+        }
+
+        // Count events for this user
+        const eventsRes = await notionClient.databases.query({
+            database_id: DS.EVENTS,
+            filter: {
+                property: schema.get('EVENTS', 'CreatorEmail'),
+                email: { equals: email }
+            }
+        });
+        const eventCount = eventsRes.results.length;
+
+        // Build usage summary
+        const summary = getUsageSummary(
+            { events: eventCount, guests: 0, staffRoster: 0 },
+            plan || DEFAULT_PLAN
+        );
+
+        res.json(summary);
+    } catch (error) {
+        console.error("❌ Error getting usage summary:", error);
         res.status(500).json({ error: error.message });
     }
 });
