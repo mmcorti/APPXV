@@ -17,6 +17,12 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
     const [inviteEmail, setInviteEmail] = useState('');
     const [invitePassword, setInvitePassword] = useState('');
     const [inviteName, setInviteName] = useState('');
+    const [invitePermissions, setInvitePermissions] = useState<StaffPermissions>({
+        access_invitados: false,
+        access_mesas: false,
+        access_link: false,
+        access_fotowall: false
+    });
     const [inviting, setInviting] = useState(false);
     const [savingId, setSavingId] = useState<string | null>(null);
 
@@ -54,12 +60,7 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
                     name: inviteName || inviteEmail.split('@')[0],
                     email: inviteEmail,
                     password: invitePassword,
-                    permissions: {
-                        access_invitados: false,
-                        access_mesas: false,
-                        access_link: false,
-                        access_fotowall: false
-                    }
+                    permissions: invitePermissions
                 })
             });
 
@@ -67,6 +68,12 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
                 setInviteEmail('');
                 setInvitePassword('');
                 setInviteName('');
+                setInvitePermissions({
+                    access_invitados: false,
+                    access_mesas: false,
+                    access_link: false,
+                    access_fotowall: false
+                });
                 fetchStaff();
             } else {
                 const error = await res.json();
@@ -99,6 +106,10 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
     const togglePermission = (staffMember: StaffMember, permKey: keyof StaffPermissions) => {
         const newPerms = { ...staffMember.permissions, [permKey]: !staffMember.permissions[permKey] };
         updatePermissions(staffMember.id, newPerms);
+    };
+
+    const toggleInvitePermission = (permKey: keyof StaffPermissions) => {
+        setInvitePermissions(prev => ({ ...prev, [permKey]: !prev[permKey] }));
     };
 
     const deleteStaff = async (staffId: string) => {
@@ -169,6 +180,40 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
                             required
                             className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
                         />
+
+                        {/* Permission toggles for invite */}
+                        <div className="pt-2">
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Permisos a asignar:</p>
+                            <div className="grid grid-cols-2 gap-2">
+                                {(Object.keys(permissionLabels) as Array<keyof StaffPermissions>).map(permKey => (
+                                    <button
+                                        key={permKey}
+                                        type="button"
+                                        onClick={() => toggleInvitePermission(permKey)}
+                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all ${invitePermissions[permKey]
+                                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                                : 'border-slate-200 dark:border-slate-600'
+                                            }`}
+                                    >
+                                        <div className={`size-5 rounded border-2 flex items-center justify-center ${invitePermissions[permKey]
+                                                ? 'border-blue-500 bg-blue-500'
+                                                : 'border-slate-300 dark:border-slate-500'
+                                            }`}>
+                                            {invitePermissions[permKey] && (
+                                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            )}
+                                        </div>
+                                        <span className={`text-sm font-medium ${invitePermissions[permKey] ? 'text-blue-600' : 'text-slate-600 dark:text-slate-400'
+                                            }`}>
+                                            {permissionLabels[permKey].label}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         <button
                             type="submit"
                             disabled={inviting || !inviteEmail.trim() || !invitePassword.trim()}
@@ -226,13 +271,13 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
                                             onClick={() => togglePermission(s, permKey)}
                                             disabled={savingId === s.id}
                                             className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all ${s.permissions[permKey]
-                                                    ? `border-${permissionLabels[permKey].color}-500 bg-${permissionLabels[permKey].color}-50 dark:bg-${permissionLabels[permKey].color}-900/20`
-                                                    : 'border-slate-200 dark:border-slate-600'
+                                                ? `border-${permissionLabels[permKey].color}-500 bg-${permissionLabels[permKey].color}-50 dark:bg-${permissionLabels[permKey].color}-900/20`
+                                                : 'border-slate-200 dark:border-slate-600'
                                                 }`}
                                         >
                                             <div className={`size-5 rounded border-2 flex items-center justify-center ${s.permissions[permKey]
-                                                    ? `border-${permissionLabels[permKey].color}-500 bg-${permissionLabels[permKey].color}-500`
-                                                    : 'border-slate-300 dark:border-slate-500'
+                                                ? `border-${permissionLabels[permKey].color}-500 bg-${permissionLabels[permKey].color}-500`
+                                                : 'border-slate-300 dark:border-slate-500'
                                                 }`}>
                                                 {s.permissions[permKey] && (
                                                     <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
