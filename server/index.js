@@ -222,22 +222,26 @@ app.get('/api/events', async (req, res) => {
                 filter
             });
             results = response.results;
+
+            if (results.length > 0) {
+                console.log(`🔍 [DEBUG] First event properties:`, Object.keys(results[0].properties).join(', '));
+            }
         }
 
         const events = results.map((page, index) => {
             const props = page.properties;
             const event = {
                 id: page.id,
-                eventName: getText(props.EventName),
-                hostName: getText(props.HostName),
-                date: props.Date?.date?.start || '',
-                time: getText(props.Time),
-                location: getText(props.Location),
-                image: props.Values?.files?.[0]?.file?.url || props.Values?.files?.[0]?.external?.url || '',
-                message: getText(props.Message),
-                giftType: props.GiftType?.select?.name || 'none',
-                giftDetail: getText(props.GiftDetail),
-                capacity: props.Capacity?.number || 0,
+                eventName: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Name)),
+                hostName: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Host)),
+                date: findProp(props, KNOWN_PROPERTIES.EVENTS.Date)?.date?.start || '',
+                time: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Time)),
+                location: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Location)),
+                image: findProp(props, KNOWN_PROPERTIES.EVENTS.Image)?.url || '',
+                message: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Message)),
+                giftType: findProp(props, KNOWN_PROPERTIES.EVENTS.GiftType)?.select?.name || 'none',
+                giftDetail: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.GiftDetail)),
+                capacity: findProp(props, KNOWN_PROPERTIES.EVENTS.Capacity)?.number || 0,
                 // Client-side fields
                 guests: [],
                 tables: []

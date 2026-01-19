@@ -122,7 +122,10 @@ const EventStaffAssignmentsScreen: React.FC<Props> = ({ user, invitations }) => 
     return (
         <div className="p-6 max-w-4xl mx-auto pb-24">
             <div className="flex items-center gap-4 mb-6">
-                <button onClick={() => navigate('/dashboard')} className="text-gray-500 hover:text-black">
+                <button
+                    onClick={() => navigate('/dashboard')}
+                    className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                >
                     <span className="material-symbols-outlined">arrow_back</span>
                 </button>
                 <div>
