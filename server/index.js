@@ -1237,36 +1237,42 @@ app.get('/api/staff-roster', async (req, res) => {
     try {
         await schema.init();
         const { ownerId } = req.query; // Filter by Owner (Subscriber)
+        console.log(`🔍 [DEBUG] GET /api/staff-roster: ownerId=${ownerId}, DS.STAFF_ROSTER=${DS.STAFF_ROSTER}`);
 
-        const filter = ownerId ? {
-            property: 'OwnerId', // Using text field
+        if (!DS.STAFF_ROSTER) {
+            console.error("❌ DS.STAFF_ROSTER is UNDEFINED in GET");
+            return res.status(500).json({ error: "Configuración de base de datos faltante (STAFF_ROSTER)" });
+        }
+        property: 'OwnerId', // Using text field
             rich_text: { equals: ownerId }
-        } : undefined;
+    } : undefined;
 
-        const response = await notionClient.databases.query({
-            database_id: DS.STAFF_ROSTER,
-            filter: filter
-        });
+    const response = await notionClient.databases.query({
+        database_id: DS.STAFF_ROSTER,
+        filter: filter
+    });
 
-        const roster = response.results.map(page => ({
-            id: page.id,
-            name: getText(page.properties.Name),
-            email: getText(page.properties.Email),
-            description: getText(page.properties.Description),
-            ownerId: getText(page.properties.OwnerId)
-        }));
+    const roster = response.results.map(page => ({
+        id: page.id,
+        name: getText(page.properties.Name),
+        email: getText(page.properties.Email),
+        description: getText(page.properties.Description),
+        ownerId: getText(page.properties.OwnerId)
+    }));
 
-        res.json(roster);
-    } catch (error) {
-        console.error("❌ Error getting staff roster:", error);
-        res.status(500).json({ error: error.message });
-    }
+    res.json(roster);
+} catch (error) {
+    console.error("❌ Error getting staff roster:", error);
+    res.status(500).json({ error: error.message });
+}
 });
 
 app.post('/api/staff-roster', async (req, res) => {
     try {
         await schema.init();
         const { name, email, password, description, ownerId } = req.body;
+        console.log(`📝 [DEBUG] Creating staff roster member: ${email}, Owner: ${ownerId}`);
+        console.log(`🔍 [DEBUG] DS.STAFF_ROSTER: ${DS.STAFF_ROSTER}`);
 
         if (!email || !ownerId) {
             return res.status(400).json({ error: 'Email and OwnerId are required' });
