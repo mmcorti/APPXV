@@ -166,8 +166,8 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                         onClick={() => navigate(`/guests/${inv.id}`)}
                         disabled={user.role === 'staff' && !user.permissions?.access_invitados}
                         className={`flex flex-col items-center justify-center gap-1 py-3 font-bold text-[10px] rounded-xl transition-all ${user.role === 'staff' && !user.permissions?.access_invitados
-                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                            : 'bg-blue-50 dark:bg-blue-900/20 text-primary hover:scale-[0.98]'
+                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                          : 'bg-blue-50 dark:bg-blue-900/20 text-primary hover:scale-[0.98]'
                           }`}
                       >
                         <span className="material-symbols-outlined text-lg">groups</span>
@@ -177,8 +177,8 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                         onClick={() => navigate(`/tables/${inv.id}`)}
                         disabled={user.role === 'staff' && !user.permissions?.access_mesas}
                         className={`flex flex-col items-center justify-center gap-1 py-3 font-bold text-[10px] rounded-xl transition-all ${user.role === 'staff' && !user.permissions?.access_mesas
-                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                            : 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 hover:scale-[0.98]'
+                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                          : 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 hover:scale-[0.98]'
                           }`}
                       >
                         <span className="material-symbols-outlined text-lg">table_restaurant</span>
@@ -188,8 +188,8 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                         onClick={() => handleShareGeneralLink(inv)}
                         disabled={user.role === 'staff' && !user.permissions?.access_link}
                         className={`flex flex-col items-center justify-center gap-1 py-3 font-bold text-[10px] rounded-xl transition-all ${user.role === 'staff' && !user.permissions?.access_link
-                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                            : 'bg-primary text-white shadow-lg shadow-primary/20 active:scale-[0.98]'
+                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                          : 'bg-primary text-white shadow-lg shadow-primary/20 active:scale-[0.98]'
                           }`}
                       >
                         <span className="material-symbols-outlined text-lg">share</span>
@@ -199,8 +199,8 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                         onClick={() => navigate(`/fotowall/${inv.id}`)}
                         disabled={user.role === 'staff' && !user.permissions?.access_fotowall}
                         className={`flex flex-col items-center justify-center gap-1 py-3 font-bold text-[10px] rounded-xl transition-all ${user.role === 'staff' && !user.permissions?.access_fotowall
-                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                            : 'bg-pink-50 dark:bg-pink-900/20 text-pink-600 hover:scale-[0.98]'
+                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                          : 'bg-pink-50 dark:bg-pink-900/20 text-pink-600 hover:scale-[0.98]'
                           }`}
                       >
                         <span className="material-symbols-outlined text-lg">photo_library</span>
@@ -208,11 +208,11 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                       </button>
                       {user.role === 'admin' && (
                         <button
-                          onClick={() => navigate(`/staff/${inv.id}`)}
+                          onClick={() => navigate(`/subscribers/${inv.id}`)}
                           className="flex flex-col items-center justify-center gap-1 py-3 bg-green-50 dark:bg-green-900/20 text-green-600 font-bold text-[10px] rounded-xl hover:scale-[0.98] transition-all"
                         >
-                          <span className="material-symbols-outlined text-lg">badge</span>
-                          Staff
+                          <span className="material-symbols-outlined text-lg">group_add</span>
+                          Suscriptores
                         </button>
                       )}
                     </div>
