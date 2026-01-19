@@ -4,15 +4,15 @@ import { StaffMember, StaffPermissions, InvitationData } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
-interface ManageStaffProps {
+interface ManageSubscribersProps {
     event: InvitationData | null;
     onBack?: () => void;
 }
 
-const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
+const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBack }) => {
     const navigate = useNavigate();
     const { id: eventId } = useParams<{ id: string }>();
-    const [staff, setStaff] = useState<StaffMember[]>([]);
+    const [subscribers, setSubscribers] = useState<StaffMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [inviteEmail, setInviteEmail] = useState('');
     const [invitePassword, setInvitePassword] = useState('');
@@ -26,24 +26,24 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
     const [inviting, setInviting] = useState(false);
     const [savingId, setSavingId] = useState<string | null>(null);
 
-    const fetchStaff = async () => {
+    const fetchSubscribers = async () => {
         if (!eventId) return;
         setLoading(true);
         try {
             const res = await fetch(`${API_URL}/staff?eventId=${eventId}`);
             if (res.ok) {
                 const data = await res.json();
-                setStaff(data);
+                setSubscribers(data);
             }
         } catch (e) {
-            console.error('Error fetching staff:', e);
+            console.error('Error fetching subscribers:', e);
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchStaff();
+        fetchSubscribers();
     }, [eventId]);
 
     const handleInvite = async (e: React.FormEvent) => {
@@ -74,7 +74,7 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
                     access_link: false,
                     access_fotowall: false
                 });
-                fetchStaff();
+                fetchSubscribers();
             } else {
                 const error = await res.json();
                 alert(error.error || 'Error al invitar');
@@ -95,7 +95,7 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ permissions })
             });
-            setStaff(prev => prev.map(s => s.id === staffId ? { ...s, permissions } : s));
+            setSubscribers(prev => prev.map(s => s.id === staffId ? { ...s, permissions } : s));
         } catch (e) {
             console.error('Error updating:', e);
         } finally {
@@ -112,11 +112,11 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
         setInvitePermissions(prev => ({ ...prev, [permKey]: !prev[permKey] }));
     };
 
-    const deleteStaff = async (staffId: string) => {
-        if (!confirm('¿Eliminar este colaborador?')) return;
+    const deleteSubscriber = async (subscriberId: string) => {
+        if (!confirm('¿Eliminar este suscriptor?')) return;
         try {
-            await fetch(`${API_URL}/staff/${staffId}`, { method: 'DELETE' });
-            setStaff(prev => prev.filter(s => s.id !== staffId));
+            await fetch(`${API_URL}/staff/${subscriberId}`, { method: 'DELETE' });
+            setSubscribers(prev => prev.filter(s => s.id !== subscriberId));
         } catch (e) {
             console.error('Error deleting:', e);
         }
@@ -142,19 +142,19 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                         </svg>
                     </button>
-                    <h1 className="text-xl font-bold">Gestionar Staff</h1>
+                    <h1 className="text-xl font-bold">Gestionar Suscriptores</h1>
                 </div>
             </div>
 
             <div className="px-4 pb-8">
                 {/* Event Info */}
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Permisos para el evento:</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Módulos habilitados:</p>
                 <p className="font-semibold text-lg mb-6">{event?.eventName || 'Evento'}</p>
 
                 {/* Invite Form */}
                 <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-6 shadow-sm">
                     <h2 className="font-semibold flex items-center gap-2 mb-4">
-                        <span className="text-lg">👤</span> Invitar Nuevo Staff
+                        <span className="text-lg">👤</span> Nuevo Suscriptor
                     </h2>
                     <form onSubmit={handleInvite} className="space-y-3">
                         <input
@@ -166,7 +166,7 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
                         />
                         <input
                             type="email"
-                            placeholder="Email del colaborador"
+                            placeholder="Email del suscriptor"
                             value={inviteEmail}
                             onChange={e => setInviteEmail(e.target.value)}
                             required
@@ -183,7 +183,7 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
 
                         {/* Permission toggles for invite */}
                         <div className="pt-2">
-                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Permisos a asignar:</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Módulos habilitados:</p>
                             <div className="grid grid-cols-2 gap-2">
                                 {(Object.keys(permissionLabels) as Array<keyof StaffPermissions>).map(permKey => (
                                     <button
@@ -219,28 +219,28 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
                             disabled={inviting || !inviteEmail.trim() || !invitePassword.trim()}
                             className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
-                            {inviting ? 'Invitando...' : 'Enviar Invitación'}
+                            {inviting ? 'Creando...' : 'Crear Suscriptor'}
                         </button>
                     </form>
                 </div>
 
                 {/* Staff List */}
                 <div className="flex items-center justify-between mb-4">
-                    <h2 className="font-semibold text-lg">Staff Actual</h2>
-                    <span className="text-sm text-blue-600 font-medium">{staff.length} Activo{staff.length !== 1 ? 's' : ''}</span>
+                    <h2 className="font-semibold text-lg">Suscriptores Actuales</h2>
+                    <span className="text-sm text-blue-600 font-medium">{subscribers.length} Activo{subscribers.length !== 1 ? 's' : ''}</span>
                 </div>
 
                 {loading ? (
                     <div className="flex justify-center py-12">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                     </div>
-                ) : staff.length === 0 ? (
+                ) : subscribers.length === 0 ? (
                     <div className="bg-white dark:bg-slate-800 rounded-2xl p-8 text-center">
-                        <p className="text-slate-500 dark:text-slate-400">No hay colaboradores aún</p>
+                        <p className="text-slate-500 dark:text-slate-400">No hay suscriptores aún</p>
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        {staff.map(s => (
+                        {subscribers.map(s => (
                             <div key={s.id} className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm">
                                 <div className="flex items-start justify-between mb-3">
                                     <div className="flex items-center gap-3">
@@ -253,7 +253,7 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
                                         </div>
                                     </div>
                                     <button
-                                        onClick={() => deleteStaff(s.id)}
+                                        onClick={() => deleteSubscriber(s.id)}
                                         className="text-red-500 hover:text-red-600 p-1"
                                         title="Eliminar"
                                     >
@@ -301,4 +301,4 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
     );
 };
 
-export default ManageStaffScreen;
+export default ManageSubscribersScreen;
