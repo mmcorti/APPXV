@@ -30,7 +30,7 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
         if (!eventId) return;
         setLoading(true);
         try {
-            const res = await fetch(`${API_URL}/api/staff?eventId=${eventId}`);
+            const res = await fetch(`${API_URL}/staff?eventId=${eventId}`);
             if (res.ok) {
                 const data = await res.json();
                 setStaff(data);
@@ -52,7 +52,7 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
 
         setInviting(true);
         try {
-            const res = await fetch(`${API_URL}/api/staff`, {
+            const res = await fetch(`${API_URL}/staff`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -90,7 +90,7 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
     const updatePermissions = async (staffId: string, permissions: StaffPermissions) => {
         setSavingId(staffId);
         try {
-            await fetch(`${API_URL}/api/staff/${staffId}`, {
+            await fetch(`${API_URL}/staff/${staffId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ permissions })
@@ -115,7 +115,7 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
     const deleteStaff = async (staffId: string) => {
         if (!confirm('¿Eliminar este colaborador?')) return;
         try {
-            await fetch(`${API_URL}/api/staff/${staffId}`, { method: 'DELETE' });
+            await fetch(`${API_URL}/staff/${staffId}`, { method: 'DELETE' });
             setStaff(prev => prev.filter(s => s.id !== staffId));
         } catch (e) {
             console.error('Error deleting:', e);
@@ -191,13 +191,13 @@ const ManageStaffScreen: React.FC<ManageStaffProps> = ({ event, onBack }) => {
                                         type="button"
                                         onClick={() => toggleInvitePermission(permKey)}
                                         className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all ${invitePermissions[permKey]
-                                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                                : 'border-slate-200 dark:border-slate-600'
+                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                            : 'border-slate-200 dark:border-slate-600'
                                             }`}
                                     >
                                         <div className={`size-5 rounded border-2 flex items-center justify-center ${invitePermissions[permKey]
-                                                ? 'border-blue-500 bg-blue-500'
-                                                : 'border-slate-300 dark:border-slate-500'
+                                            ? 'border-blue-500 bg-blue-500'
+                                            : 'border-slate-300 dark:border-slate-500'
                                             }`}>
                                             {invitePermissions[permKey] && (
                                                 <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
