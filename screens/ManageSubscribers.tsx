@@ -23,6 +23,7 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
         access_link: false,
         access_fotowall: false
     });
+    const [invitePlan, setInvitePlan] = useState<'freemium' | 'premium' | 'vip'>('freemium');
     const [inviting, setInviting] = useState(false);
     const [savingId, setSavingId] = useState<string | null>(null);
 
@@ -60,7 +61,9 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
                     name: inviteName || inviteEmail.split('@')[0],
                     email: inviteEmail,
                     password: invitePassword,
-                    permissions: invitePermissions
+                    permissions: invitePermissions,
+                    plan: invitePlan,
+                    userRole: 'admin' // Admin is creating this subscriber
                 })
             });
 
@@ -74,6 +77,7 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
                     access_link: false,
                     access_fotowall: false
                 });
+                setInvitePlan('freemium');
                 fetchSubscribers();
             } else {
                 const error = await res.json();
@@ -180,6 +184,35 @@ const ManageSubscribersScreen: React.FC<ManageSubscribersProps> = ({ event, onBa
                             required
                             className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
                         />
+
+                        {/* Plan Selector */}
+                        <div className="pt-2">
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Plan de suscripción:</p>
+                            <div className="grid grid-cols-3 gap-2">
+                                {(['freemium', 'premium', 'vip'] as const).map(planOption => (
+                                    <button
+                                        key={planOption}
+                                        type="button"
+                                        onClick={() => setInvitePlan(planOption)}
+                                        className={`px-3 py-2.5 rounded-xl border-2 font-semibold text-sm capitalize transition-all ${invitePlan === planOption
+                                                ? planOption === 'vip'
+                                                    ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 text-amber-600'
+                                                    : planOption === 'premium'
+                                                        ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-600'
+                                                        : 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
+                                                : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400'
+                                            }`}
+                                    >
+                                        {planOption === 'vip' ? 'VIP' : planOption}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                                {invitePlan === 'freemium' && '1 evento, 50 invitados, 20 fotos'}
+                                {invitePlan === 'premium' && '5 eventos, 200 invitados, 200 fotos'}
+                                {invitePlan === 'vip' && 'Eventos ilimitados, invitados y fotos ilimitados'}
+                            </p>
+                        </div>
 
                         {/* Permission toggles for invite */}
                         <div className="pt-2">
