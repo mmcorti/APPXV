@@ -4,6 +4,20 @@ import { InvitationData, Guest, Table } from '../types';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
 
 export const notionService = {
+    async uploadImage(base64Image: string): Promise<string> {
+        const res = await fetch(`${API_URL}/upload-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: base64Image })
+        });
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to upload image');
+        }
+        const data = await res.json();
+        return data.url;
+    },
+
     async login(email: string, passwordHash: string) {
         const res = await fetch(`${API_URL}/login`, {
             method: 'POST',
