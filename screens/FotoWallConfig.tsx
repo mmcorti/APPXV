@@ -70,10 +70,11 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
   const [showQRModal, setShowQRModal] = useState(false);
   const [viewFilter, setViewFilter] = useState<'all' | 'blocked' | 'approved'>('all');
 
-  const userPlan = user?.plan || 'freemium';
+  const isAdmin = user?.role === 'admin';
+  const userPlan = isAdmin ? 'vip' : (user?.plan || 'freemium');
   const photoLimit = userPlan === 'vip' ? 1000 : userPlan === 'premium' ? 200 : 20;
   const approvedCount = allPhotos.filter(p => !p.isBlocked).length;
-  const isAtPhotoLimit = approvedCount >= photoLimit;
+  const isAtPhotoLimit = !isAdmin && approvedCount >= photoLimit;
 
   // Storage keys
   const configKey = `fotowall_config_${id}`;
@@ -512,8 +513,8 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
                   {/* AI */}
                   <div className="relative">
                     <button
-                      onClick={() => userPlan !== 'freemium' && setMode('ai')}
-                      className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${mode === 'ai' ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20' : 'border-slate-100 dark:border-slate-700'} ${userPlan === 'freemium' ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      onClick={() => (userPlan !== 'freemium' || isAdmin) && setMode('ai')}
+                      className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${mode === 'ai' ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20' : 'border-slate-100 dark:border-slate-700'} ${(userPlan === 'freemium' && !isAdmin) ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
                       <div className={`size-10 rounded-xl flex items-center justify-center ${mode === 'ai' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>
                         <span className="material-symbols-outlined">smart_toy</span>
@@ -524,13 +525,13 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
                           <span className="text-[8px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white px-1.5 py-0.5 rounded-full">AI</span>
                         </p>
                         <p className="text-[10px] text-slate-500">
-                          {userPlan === 'freemium' ? 'Disponible en planes Premium/VIP' : 'Análisis automático con IA (usa API)'}
+                          {(userPlan === 'freemium' && !isAdmin) ? 'Disponible en planes Premium/VIP' : 'Análisis automático con IA (usa API)'}
                         </p>
                       </div>
                       {mode === 'ai' && <span className="material-symbols-outlined text-pink-500">check_circle</span>}
-                      {userPlan === 'freemium' && <span className="material-symbols-outlined text-amber-500">lock</span>}
+                      {(userPlan === 'freemium' && !isAdmin) && <span className="material-symbols-outlined text-amber-500">lock</span>}
                     </button>
-                    {userPlan === 'freemium' && (
+                    {(userPlan === 'freemium' && !isAdmin) && (
                       <div className="mt-2 px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-xl flex items-center justify-between">
                         <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400">Actualiza para usar IA</span>
                         <button onClick={() => alert('¡Hazte Premium!')} className="text-[10px] font-black text-pink-600 hover:text-pink-700 underline">VER PLANES</button>

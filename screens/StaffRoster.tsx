@@ -62,11 +62,12 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
         }
 
         // Limit Enforcement
-        const plan = user.plan || 'freemium';
+        const isAdmin = user.role === 'admin';
+        const plan = isAdmin ? 'vip' : (user.plan || 'freemium');
         const limits = { freemium: 3, premium: 20, vip: Infinity };
         const limit = limits[plan as keyof typeof limits] || 3;
 
-        if (roster.length >= limit) {
+        if (!isAdmin && roster.length >= limit) {
             alert(`Has alcanzado el límite de ${limit} miembros para tu plan ${plan.toUpperCase()}. Por favor, sube de nivel tu plan para agregar más.`);
             return;
         }
@@ -138,14 +139,16 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
                 </button>
             </div>
 
-            <div className="mb-6">
-                <PlanUpgradeBanner
-                    currentPlan={user.plan as any}
-                    resourceType="staff"
-                    current={roster.length}
-                    limit={(user.plan === 'vip' ? Infinity : (user.plan === 'premium' ? 20 : 3))}
-                />
-            </div>
+            {user.role !== 'admin' && (
+                <div className="mb-6">
+                    <PlanUpgradeBanner
+                        currentPlan={user.plan as any}
+                        resourceType="staff"
+                        current={roster.length}
+                        limit={(user.plan === 'vip' ? Infinity : (user.plan === 'premium' ? 20 : 3))}
+                    />
+                </div>
+            )}
 
             {isCreating && (
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8 animate-fade-in">
