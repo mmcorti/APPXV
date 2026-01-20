@@ -288,6 +288,8 @@ app.get('/api/auth/google/callback', async (req, res) => {
         }
 
         // Redirect to frontend with user data encoded in URL
+        // Use the frontend URL (Vercel) for production, or fallback to root for local
+        const FRONTEND_URL = process.env.FRONTEND_URL || '';
         const userData = encodeURIComponent(JSON.stringify({
             id: userId,
             name: userName,
@@ -297,12 +299,15 @@ app.get('/api/auth/google/callback', async (req, res) => {
             avatar: profile.picture
         }));
 
-        console.log('[GOOGLE AUTH] Login successful, redirecting...');
-        res.redirect(`/?googleAuth=success&user=${userData}`);
+        console.log('[GOOGLE AUTH] Login successful, redirecting to frontend...');
+        const redirectUrl = `${FRONTEND_URL}/?googleAuth=success&user=${userData}`;
+        console.log('[GOOGLE AUTH] Redirect URL:', redirectUrl);
+        res.redirect(redirectUrl);
 
     } catch (error) {
         console.error('[GOOGLE AUTH] Callback error:', error);
-        res.redirect('/?error=google_auth_failed&message=' + encodeURIComponent(error.message));
+        const FRONTEND_URL = process.env.FRONTEND_URL || '';
+        res.redirect(`${FRONTEND_URL}/?error=google_auth_failed&message=` + encodeURIComponent(error.message));
     }
 });
 
