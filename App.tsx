@@ -440,7 +440,7 @@ const App: React.FC = () => {
       name,
       email,
       role: (role as 'admin' | 'subscriber' | 'event_staff' | 'staff') || 'admin',
-      plan: (plan as 'freemium' | 'premium' | 'vip') || 'freemium',
+      plan: ((plan || 'freemium') as string).toLowerCase() as 'freemium' | 'premium' | 'vip',
       permissions,
       eventId,
       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=135bec&color=fff`
