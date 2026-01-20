@@ -18,6 +18,34 @@ export const notionService = {
         return data.url;
     },
 
+    async generateAiImage(prompt: string): Promise<string> {
+        const res = await fetch(`${API_URL}/ai/generate-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
+        });
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to generate AI image');
+        }
+        const data = await res.json();
+        return data.image;
+    },
+
+    async editAiImage(image: string, prompt: string): Promise<string> {
+        const res = await fetch(`${API_URL}/ai/edit-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image, prompt })
+        });
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to edit AI image');
+        }
+        const data = await res.json();
+        return data.image;
+    },
+
     async login(email: string, passwordHash: string) {
         const res = await fetch(`${API_URL}/login`, {
             method: 'POST',
