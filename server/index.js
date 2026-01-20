@@ -300,14 +300,15 @@ app.get('/api/auth/google/callback', async (req, res) => {
         }));
 
         console.log('[GOOGLE AUTH] Login successful, redirecting to frontend...');
-        const redirectUrl = `${FRONTEND_URL}/?googleAuth=success&user=${userData}`;
+        // Use hash-based query params for HashRouter compatibility
+        const redirectUrl = `${FRONTEND_URL}/#/google-callback?googleAuth=success&user=${userData}`;
         console.log('[GOOGLE AUTH] Redirect URL:', redirectUrl);
         res.redirect(redirectUrl);
 
     } catch (error) {
         console.error('[GOOGLE AUTH] Callback error:', error);
         const FRONTEND_URL = process.env.FRONTEND_URL || '';
-        res.redirect(`${FRONTEND_URL}/?error=google_auth_failed&message=` + encodeURIComponent(error.message));
+        res.redirect(`${FRONTEND_URL}/#/google-callback?error=google_auth_failed&message=` + encodeURIComponent(error.message));
     }
 });
 
