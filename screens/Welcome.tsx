@@ -24,7 +24,7 @@ const WelcomeScreen: React.FC = () => {
       ],
       buttonText: 'Comenzar Gratis',
       buttonAction: () => navigate('/login'),
-      color: 'bg-[#3b82f6]',
+      color: 'bg-[#135bec]',
       isPopular: false
     },
     {
@@ -61,71 +61,76 @@ const WelcomeScreen: React.FC = () => {
   ];
 
   return (
-    <div className="relative min-h-screen w-full font-['Inter',sans-serif] overflow-x-hidden">
-      {/* Background Image */}
+    <div className="relative min-h-screen w-full font-['Inter',sans-serif] overflow-x-hidden bg-white">
+      {/* Background Image - Vibrant event setting */}
       <div
         className="fixed inset-0 bg-cover bg-center z-0"
-        style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1541339907198-e08756ebafe3?auto=format&fit=crop&q=80&w=1200")' }}
+        style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&q=80&w=1600")' }}
       >
-        <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"></div>
+        <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"></div>
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 flex flex-col items-center px-4 pt-12 pb-24 min-h-screen">
+      <div className="relative z-10 flex flex-col items-center px-4 pt-10 pb-20 min-h-screen">
 
-        {/* Logo and Main CTA Card */}
-        <div className="w-full max-w-[360px] flex flex-col items-center justify-center rounded-[40px] bg-white/10 backdrop-blur-xl border border-white/20 mb-16 shadow-2xl py-12 px-8">
-          <div className="flex flex-col items-center mb-10">
-            <h1 className="text-white text-7xl font-black tracking-tighter flex items-center italic drop-shadow-lg">
-              A<span className="text-[#135bec] tracking-[-0.1em]">P</span>PXV
+        {/* Logo and Main CTA Card (Transparent Glass) */}
+        <div className="w-full max-w-[380px] h-[340px] flex flex-col items-center justify-center rounded-[48px] bg-white/20 backdrop-blur-3xl border border-white/40 mb-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] px-10">
+          {/* Logo Section */}
+          <div className="mb-10 scale-110">
+            <h1 className="text-white text-7xl font-black italic tracking-tighter flex items-end drop-shadow-md">
+              <span className="text-[90px] leading-none">A</span>
+              <span className="text-[#135bec] tracking-[-0.15em] ml-[-12px]">P</span>
+              <span className="ml-[4px]">PXV</span>
             </h1>
           </div>
 
+          {/* Main Button - Exactly as requested */}
           <button
             onClick={() => navigate('/login')}
-            className="w-full py-4 px-6 rounded-full bg-[#135bec] text-white font-black text-lg shadow-xl hover:bg-[#0f4bbd] transition-all transform active:scale-95 border border-white/20 uppercase tracking-widest"
+            className="w-full max-w-[240px] py-3 px-6 rounded-full bg-[#135bec] text-white font-extrabold text-base shadow-lg hover:bg-[#0f4bbd] transition-all transform active:scale-95 border-2 border-white/50"
           >
             Comenzar a Planear
           </button>
         </div>
 
         {/* Pricing Cards Container */}
-        <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-3 gap-8 mb-20 px-4 md:px-0">
+        <div className="w-full max-w-[1100px] grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16 px-4">
           {plans.map((plan, idx) => (
             <div
               key={idx}
-              className={`relative bg-white rounded-[32px] overflow-hidden flex flex-col shadow-2xl transition-all duration-300 hover:scale-[1.03] ${plan.isPopular ? 'ring-4 ring-[#135bec]' : ''}`}
+              className={`relative bg-white rounded-[40px] overflow-hidden flex flex-col shadow-2xl transition-all duration-300 hover:scale-[1.02] ${plan.isPopular ? 'ring-[6px] ring-[#135bec] border-transparent' : 'border border-slate-100'}`}
             >
               {plan.isPopular && (
-                <div className="absolute top-0 right-8 transform -translate-y-1/2 bg-white px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 z-20 border border-slate-100">
-                  <span className="material-symbols-outlined text-[16px] text-[#135bec]">star</span>
-                  <span className="text-[11px] font-black text-[#1e293b] uppercase tracking-widest">Popular Choice</span>
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-5 py-2 rounded-full shadow-xl flex items-center gap-2 z-20 border border-slate-100">
+                  <span className="material-symbols-outlined text-[16px] text-[#135bec] font-black">star</span>
+                  <span className="text-[11px] font-black text-[#1e293b] uppercase tracking-widest leading-none">Popular Choice</span>
                 </div>
               )}
 
               {/* Card Header */}
-              <div className={`${plan.color} py-7 px-4 text-center shadow-inner`}>
+              <div className={`${plan.color} py-8 px-4 text-center shadow-inner`}>
                 <h3 className="text-white text-xl font-black tracking-[0.2em]">{plan.name}</h3>
               </div>
 
               {/* Card Body */}
-              <div className="p-10 flex-1 flex flex-col items-center text-center">
-                <p className="text-[#1e293b] text-4xl font-black mb-8">{plan.price}</p>
+              <div className="p-10 flex-1 flex flex-col items-center">
+                <p className="text-[#1e293b] text-4xl font-black mb-8 tracking-tighter">{plan.price}</p>
 
                 <ul className="space-y-4 mb-12 w-full">
                   {plan.features.map((feat, i) => (
-                    <li key={i} className="flex items-center gap-4 text-[13px] font-bold text-slate-600">
-                      <div className="flex-shrink-0 size-5 rounded-full bg-blue-50 flex items-center justify-center">
-                        <span className="material-symbols-outlined text-[#135bec] text-[14px] font-black">check</span>
-                      </div>
-                      <span className="text-left leading-tight">{feat}</span>
+                    <li key={i} className="flex items-start gap-3.5 text-[14px] font-bold text-slate-600 leading-tight">
+                      <span className="material-symbols-outlined text-[#135bec] text-[20px] font-black">check</span>
+                      <span className="text-left">{feat}</span>
                     </li>
                   ))}
                 </ul>
 
                 <button
                   onClick={plan.buttonAction}
-                  className={`w-full py-4 rounded-full border-2 border-[#135bec]/20 text-[#135bec] font-black text-xs uppercase tracking-widest hover:bg-[#135bec] hover:text-white transition-all transform active:scale-95 shadow-sm ${plan.isPopular ? 'bg-[#135bec] text-white border-transparent shadow-lg shadow-blue-500/30' : 'bg-transparent'}`}
+                  className={`w-full py-4 rounded-full border-2 font-black text-xs uppercase tracking-widest transition-all transform active:scale-95 ${plan.isPopular
+                      ? 'bg-[#135bec] text-white border-transparent shadow-xl shadow-blue-500/30'
+                      : 'bg-transparent border-[#135bec] text-[#135bec] hover:bg-blue-50'
+                    }`}
                 >
                   {plan.buttonText}
                 </button>
@@ -135,9 +140,9 @@ const WelcomeScreen: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="text-center opacity-80 group">
-          <p className="text-white text-sm font-black tracking-widest uppercase mb-1">by Madiba Tech</p>
-          <a href="mailto:tech@madib.com.ar" className="text-white/60 text-xs font-bold hover:text-white transition-colors">tech@madib.com.ar</a>
+        <div className="text-center mt-4">
+          <p className="text-white text-sm font-black tracking-widest uppercase mb-1 drop-shadow-sm">by Madiba Tech</p>
+          <p className="text-white/70 text-xs font-bold tracking-tight">tech@madib.com.ar</p>
         </div>
       </div>
     </div>
