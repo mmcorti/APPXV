@@ -1580,10 +1580,26 @@ app.delete('/api/staff-assignments/:id', async (req, res) => {
 app.get('/api/usage-summary', async (req, res) => {
     try {
         await schema.init();
-        const { email, plan } = req.query;
+        let { email, plan } = req.query;
 
         if (!email) {
             return res.status(400).json({ error: 'email is required' });
+        }
+
+        // Always fetch the latest plan from Notion for this user to be sure
+        const subPageRes = await notionClient.databases.query({
+            database_id: DS.SUBSCRIBERS,
+            filter: {
+                property: schema.get('SUBSCRIBERS', 'Email'),
+                email: { equals: email }
+            }
+        });
+
+        let detectedPlan = plan || DEFAULT_PLAN;
+        if (subPageRes.results.length > 0) {
+            const subPage = subPageRes.results[0];
+            const planProp = findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Plan);
+            detectedPlan = planProp?.select?.name || detectedPlan;
         }
 
         // Count events for this user
@@ -1596,10 +1612,13 @@ app.get('/api/usage-summary', async (req, res) => {
         });
         const eventCount = eventsRes.results.length;
 
+        // Count guests and staff across all events (optional, maybe too expensive?)
+        // For now, focus on event count which is the main dashboard blocker
+
         // Build usage summary
         const summary = getUsageSummary(
             { events: eventCount, guests: 0, staffRoster: 0 },
-            plan || DEFAULT_PLAN
+            detectedPlan.toLowerCase()
         );
 
         res.json(summary);
