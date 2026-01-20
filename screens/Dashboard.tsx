@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, InvitationData } from '../types';
+import PlanUpgradeBanner from '../components/PlanUpgradeBanner';
 
 interface UsageSummary {
   events: { current: number; limit: number; display: string };
@@ -159,17 +160,15 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
             </button>
           </div>
         </div>
-        {/* Usage Indicator */}
-        {usage && user.role !== 'admin' && (
-          <div className="mt-3 flex items-center gap-4 text-xs font-medium">
-            <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full ${usage.events.current >= usage.events.limit ? 'bg-red-100 dark:bg-red-900/30 text-red-600' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600'}`}>
-              <span className="material-symbols-outlined text-sm">event</span>
-              Eventos: {usage.events.display}
-            </div>
-            <div className="px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 capitalize">
-              Plan: {usage.plan}
-            </div>
-          </div>
+        {/* Plan Upgrade Banner */}
+        {usage && user.role !== 'admin' && user.plan !== 'vip' && (
+          <PlanUpgradeBanner
+            currentPlan={user.plan as 'freemium' | 'premium' | 'vip'}
+            resourceType="events"
+            current={usage.events.current}
+            limit={usage.events.limit}
+            className="mt-3"
+          />
         )}
         {limitError && (
           <div className="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 text-sm flex items-center gap-2">

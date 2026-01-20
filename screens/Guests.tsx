@@ -1,17 +1,26 @@
 
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { InvitationData, Guest, GuestAllotment, GuestCompanionNames } from '../types';
+import { InvitationData, Guest, GuestAllotment, GuestCompanionNames, User } from '../types';
+import PlanUpgradeBanner from '../components/PlanUpgradeBanner';
 
 interface GuestsScreenProps {
   invitations: InvitationData[];
   onSaveGuest: (eventId: string, guest: Guest) => void;
   onDeleteGuest: (eventId: string, guestId: string) => void;
+  user?: User;
 }
 
 type GuestFilter = 'all' | 'confirmed' | 'declined' | 'pending';
 
-const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, onDeleteGuest }) => {
+// Plan limits for guests
+const GUEST_LIMITS = {
+  freemium: 50,
+  premium: 200,
+  vip: Infinity
+};
+
+const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, onDeleteGuest, user }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const invitation = invitations.find(inv => inv.id === id);
@@ -368,6 +377,18 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
           setShowModal('add');
         }} className="text-primary font-bold text-xs uppercase bg-primary/5 px-3 py-1.5 rounded-lg border border-primary/10">NUEVO</button>
       </header>
+
+      {/* Plan Upgrade Banner for Guests */}
+      {user && user.role !== 'admin' && user.plan !== 'vip' && (
+        <div className="px-4 pt-2">
+          <PlanUpgradeBanner
+            currentPlan={user.plan as 'freemium' | 'premium' | 'vip'}
+            resourceType="guests"
+            current={stats.total}
+            limit={GUEST_LIMITS[user.plan as keyof typeof GUEST_LIMITS] || 50}
+          />
+        </div>
+      )}
 
       <div className="p-4 space-y-6">
         <div className="grid grid-cols-4 gap-2">

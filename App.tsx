@@ -448,7 +448,7 @@ const App: React.FC = () => {
         />
         <Route
           path="/guests/:id"
-          element={user ? <GuestsScreen invitations={invitations} onSaveGuest={handleSaveGuest} onDeleteGuest={handleDeleteGuest} /> : <Navigate to="/login" />}
+          element={user ? <GuestsScreen invitations={invitations} onSaveGuest={handleSaveGuest} onDeleteGuest={handleDeleteGuest} user={user} /> : <Navigate to="/login" />}
         />
         <Route
           path="/tables/:id"

@@ -265,11 +265,27 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations, plan
           En Vivo
         </p>
 
-        {/* Photo Count */}
-        <div className="mb-4">
-          <p className="text-white text-4xl font-bold">{photos.length}</p>
-          <p className="text-white/60 text-xs">Fotos</p>
-        </div>
+        {/* Photo Count with Plan Limit */}
+        {(() => {
+          const PHOTO_LIMITS = { freemium: 20, premium: 200, vip: 1000 };
+          const limit = PHOTO_LIMITS[plan] || 20;
+          const nearLimit = photos.length >= limit * 0.8;
+          return (
+            <div className="mb-4">
+              <p className="text-white text-4xl font-bold">
+                {photos.length}
+                <span className="text-lg text-white/50">/{limit}</span>
+              </p>
+              <p className="text-white/60 text-xs">Fotos</p>
+              {nearLimit && plan !== 'vip' && (
+                <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm">warning</span>
+                  {photos.length >= limit ? 'Límite alcanzado' : 'Cerca del límite'}
+                </p>
+              )}
+            </div>
+          );
+        })()}
 
         {/* QR Code */}
         {albumUrl && (
