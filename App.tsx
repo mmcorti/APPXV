@@ -17,6 +17,7 @@ import FotoWallModerationSettingsScreen from './screens/FotoWallModerationSettin
 import ManageSubscribersScreen from './screens/ManageSubscribers';
 import StaffRosterScreen from './screens/StaffRoster';
 import EventStaffAssignmentsScreen from './screens/EventStaffAssignments';
+import GoogleCallbackScreen from './screens/GoogleCallback';
 import { InvitationData, User, Guest, Table, SeatedGuest, StaffPermissions } from './types';
 import { notionService } from './services/notion';
 
@@ -478,6 +479,7 @@ const App: React.FC = () => {
       <Routes>
         <Route path="/" element={<WelcomeScreen />} />
         <Route path="/login" element={<LoginScreen onLogin={handleAuthSuccess} />} />
+        <Route path="/google-callback" element={<GoogleCallbackScreen onLogin={handleAuthSuccess} />} />
         <Route
           path="/register"
           element={user?.role === 'admin' ? <RegisterScreen onRegister={(name, email) => handleAuthSuccess('', name, email)} /> : <Navigate to="/login" />}
