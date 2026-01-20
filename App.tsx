@@ -82,6 +82,42 @@ const App: React.FC = () => {
     }
   }, [user]);
 
+  // Handle Google OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const googleAuth = params.get('googleAuth');
+    const userData = params.get('user');
+    const error = params.get('error');
+
+    if (error) {
+      console.error('[GOOGLE AUTH] Error:', error, params.get('message'));
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+      return;
+    }
+
+    if (googleAuth === 'success' && userData) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(userData));
+        console.log('[GOOGLE AUTH] Login successful:', parsed.email);
+
+        setUser({
+          id: parsed.id,
+          name: parsed.name,
+          email: parsed.email,
+          role: parsed.role || 'subscriber',
+          plan: parsed.plan || 'freemium',
+          avatar: parsed.avatar
+        });
+
+        // Clean URL and redirect to dashboard
+        window.history.replaceState({}, document.title, window.location.pathname + '#/dashboard');
+      } catch (e) {
+        console.error('[GOOGLE AUTH] Failed to parse user data:', e);
+      }
+    }
+  }, []);
+
   const handleUpdateInvitation = (data: InvitationData) => {
     // Optimistic update
     if (invitations.find(i => i.id === data.id)) {
