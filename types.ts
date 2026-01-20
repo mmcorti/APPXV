@@ -59,6 +59,7 @@ export interface InvitationData {
   message: string;
   giftType: 'alias' | 'list';
   giftDetail: string;
+  dressCode?: string;
   guests: Guest[];
   tables?: Table[]; // Nueva propiedad para el armado de mesas
   fotowall?: {

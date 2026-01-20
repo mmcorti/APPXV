@@ -18,7 +18,8 @@ const KNOWN_PROPERTIES = {
         FW_OverlayTitle: ["FotoWall Overlay Title", "FW_OverlayTitle"],
         FW_ModerationMode: ["FotoWall Moderation Mode", "FW_ModerationMode"],
         FW_Filters: ["FotoWall Filters", "FW_Filters"],
-        Capacity: ["Capacity", "Capacidad"]
+        Capacity: ["Capacity", "Capacidad"],
+        DressCode: ["Dress Code", "DressCode", "Dresscode", "Vestimenta"]
     },
     GUESTS: {
         Name: ["Name", "Nombre"],

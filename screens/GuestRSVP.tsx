@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { InvitationData, Guest, GuestAllotment, GuestCompanionNames } from '../types';
+import Countdown from '../components/Countdown';
 
 interface GuestRSVPScreenProps {
   invitations: InvitationData[];
@@ -226,6 +226,13 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
                 </div>
               </div>
             )}
+
+            {attending && invitation.date && (
+              <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-700">
+                <p className="text-xs font-bold text-slate-400 uppercase mb-3 text-center">Cuenta Regresiva</p>
+                <Countdown targetDate={invitation.date} targetTime={invitation.time} />
+              </div>
+            )}
           </div>
 
           <div className="mt-6 flex flex-col gap-3">
@@ -256,6 +263,11 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
         <div className="absolute bottom-6 left-6 right-6 text-center">
           <h1 className="text-3xl font-black font-serif mb-2 leading-tight drop-shadow-sm">{invitation.eventName}</h1>
           <p className="text-sm font-medium italic opacity-80">{invitation.message}</p>
+          {invitation.date && (
+            <div className="mt-4">
+              <Countdown targetDate={invitation.date} targetTime={invitation.time} />
+            </div>
+          )}
         </div>
       </div>
 
