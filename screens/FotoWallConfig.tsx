@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { InvitationData } from '../types';
+import { InvitationData, User } from '../types';
+import PlanUpgradeBanner from '../components/PlanUpgradeBanner';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
 
@@ -34,9 +35,10 @@ const DEFAULT_FILTERS: FilterSettings = {
 
 interface FotoWallConfigProps {
   invitations: InvitationData[];
+  user: User | null;
 }
 
-const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) => {
+const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user }) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const event = invitations.find(i => i.id === id);
@@ -67,6 +69,11 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [viewFilter, setViewFilter] = useState<'all' | 'blocked' | 'approved'>('all');
+
+  const userPlan = user?.plan || 'freemium';
+  const photoLimit = userPlan === 'vip' ? 1000 : userPlan === 'premium' ? 200 : 20;
+  const approvedCount = allPhotos.filter(p => !p.isBlocked).length;
+  const isAtPhotoLimit = approvedCount >= photoLimit;
 
   // Storage keys
   const configKey = `fotowall_config_${id}`;
@@ -477,22 +484,33 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Modo de Moderación</h2>
                 <div className="space-y-2">
                   {/* AI */}
-                  <button
-                    onClick={() => setMode('ai')}
-                    className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${mode === 'ai' ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20' : 'border-slate-100 dark:border-slate-700'}`}
-                  >
-                    <div className={`size-10 rounded-xl flex items-center justify-center ${mode === 'ai' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>
-                      <span className="material-symbols-outlined">smart_toy</span>
-                    </div>
-                    <div className="text-left flex-1">
-                      <p className="font-bold flex items-center gap-2">
-                        Moderación IA
-                        <span className="text-[8px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white px-1.5 py-0.5 rounded-full">AI</span>
-                      </p>
-                      <p className="text-[10px] text-slate-500">Análisis automático con IA (usa API)</p>
-                    </div>
-                    {mode === 'ai' && <span className="material-symbols-outlined text-pink-500">check_circle</span>}
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => userPlan !== 'freemium' && setMode('ai')}
+                      className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${mode === 'ai' ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20' : 'border-slate-100 dark:border-slate-700'} ${userPlan === 'freemium' ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    >
+                      <div className={`size-10 rounded-xl flex items-center justify-center ${mode === 'ai' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'}`}>
+                        <span className="material-symbols-outlined">smart_toy</span>
+                      </div>
+                      <div className="text-left flex-1">
+                        <p className="font-bold flex items-center gap-2">
+                          Moderación IA
+                          <span className="text-[8px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white px-1.5 py-0.5 rounded-full">AI</span>
+                        </p>
+                        <p className="text-[10px] text-slate-500">
+                          {userPlan === 'freemium' ? 'Disponible en planes Premium/VIP' : 'Análisis automático con IA (usa API)'}
+                        </p>
+                      </div>
+                      {mode === 'ai' && <span className="material-symbols-outlined text-pink-500">check_circle</span>}
+                      {userPlan === 'freemium' && <span className="material-symbols-outlined text-amber-500">lock</span>}
+                    </button>
+                    {userPlan === 'freemium' && (
+                      <div className="mt-2 px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-xl flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400">Actualiza para usar IA</span>
+                        <button onClick={() => alert('¡Hazte Premium!')} className="text-[10px] font-black text-pink-600 hover:text-pink-700 underline">VER PLANES</button>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Manual */}
                   <button
@@ -504,7 +522,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                     </div>
                     <div className="text-left flex-1">
                       <p className="font-bold">Moderación Manual</p>
-                      <p className="text-[10px] text-slate-500">Bloquear todo y aprobar manualmente (sin API)</p>
+                      <p className="text-[10px] text-slate-500">Aprobar manualmente cada foto (sin API)</p>
                     </div>
                     {mode === 'manual' && <span className="material-symbols-outlined text-pink-500">check_circle</span>}
                   </button>
@@ -636,6 +654,45 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations }) =>
                   <span className="material-symbols-outlined">block</span>
                   Bloquear Todo
                 </button>
+              </div>
+
+              {/* Photo Limit Warning */}
+              {isAtPhotoLimit && (
+                <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-3xl p-5 space-y-3 animate-in fade-in zoom-in duration-300">
+                  <div className="flex items-center gap-3">
+                    <div className="size-10 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-red-500/20">
+                      <span className="material-symbols-outlined">warning</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-red-600 dark:text-red-400 uppercase tracking-tight">Límite de Fotos Alcanzado</p>
+                      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Has llegado al máximo de {photoLimit} fotos para tu plan {userPlan.toUpperCase()}.</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-[10px] text-slate-600 dark:text-slate-300 leading-tight">
+                      Para mostrar más fotos en el reproductor de este evento, necesitas actualizar tu plan.
+                      Las fotos adicionales no se mostrarán en la pantalla principal.
+                    </p>
+                    <button
+                      onClick={() => alert('¡Hazte Premium!')}
+                      className="w-full bg-red-500 hover:bg-red-600 text-white font-black py-2.5 rounded-xl text-xs transition-all active:scale-[0.98] shadow-md shadow-red-500/10"
+                    >
+                      HAZTE PREMIUM PARA AGREGAR MÁS
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Stats Summary Lite */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-100 dark:bg-slate-800/50 rounded-2xl p-3 border border-slate-200 dark:border-slate-700/50">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Aprobadas</p>
+                  <p className="text-xl font-black text-slate-700 dark:text-white">{approvedCount}<span className="text-xs text-slate-400 ml-1">/ {photoLimit}</span></p>
+                </div>
+                <div className="bg-slate-100 dark:bg-slate-800/50 rounded-2xl p-3 border border-slate-200 dark:border-slate-700/50">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Bloqueadas</p>
+                  <p className="text-xl font-black text-red-500">{blockedCount}</p>
+                </div>
               </div>
 
               {/* Advanced Filter & Tools Toolbar */}

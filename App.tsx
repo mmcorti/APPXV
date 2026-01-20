@@ -464,11 +464,11 @@ const App: React.FC = () => {
         />
         <Route
           path="/fotowall/:id"
-          element={user ? <FotoWallConfigScreen invitations={invitations} /> : <Navigate to="/login" />}
+          element={user ? <FotoWallConfigScreen invitations={invitations} user={user} /> : <Navigate to="/login" />}
         />
         <Route
           path="/fotowall-player/:id"
-          element={<FotoWallPlayerScreen invitations={invitations} />}
+          element={<FotoWallPlayerScreen invitations={invitations} user={user} />}
         />
         <Route
           path="/fotowall-admin/:id"
@@ -476,7 +476,7 @@ const App: React.FC = () => {
         />
         <Route
           path="/fotowall-moderation-settings/:id"
-          element={user ? <FotoWallModerationSettingsScreen /> : <Navigate to="/login" />}
+          element={user ? <FotoWallModerationSettingsScreen user={user} /> : <Navigate to="/login" />}
         />
         <Route
           path="/subscribers"

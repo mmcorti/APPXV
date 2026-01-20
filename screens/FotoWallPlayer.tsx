@@ -8,10 +8,11 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
 
 interface FotoWallPlayerProps {
   invitations: InvitationData[];
-  plan?: 'freemium' | 'premium' | 'vip';
+  user: any; // User type from App.tsx
 }
 
-const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations, plan = 'freemium' }) => {
+const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations, user }) => {
+  const plan = user?.plan || 'freemium';
   const { id } = useParams<{ id: string }>();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigate = useNavigate();
