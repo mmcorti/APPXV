@@ -10,6 +10,7 @@ import { notion as notionClient, DS, DB } from './notion.js';
 import { schema, KNOWN_PROPERTIES } from './schema_manager.js';
 import { googlePhotosService } from './services/googlePhotos.js';
 import { checkLimit, getPlanLimits, isAdmin, getUsageSummary, DEFAULT_PLAN } from './planLimits.js';
+import googleAuth from './services/googleAuth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -203,6 +204,105 @@ app.post('/api/login', async (req, res) => {
     } catch (error) {
         console.error("❌ Error en Login:", error);
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- GOOGLE OAUTH 2.0 ---
+
+// Step 1: Redirect user to Google login
+app.get('/api/auth/google', (req, res) => {
+    const state = req.query.state || '';
+    const authUrl = googleAuth.getAuthUrl(state);
+    console.log('[GOOGLE AUTH] Redirecting to Google:', authUrl);
+    res.redirect(authUrl);
+});
+
+// Step 2: Handle callback from Google
+app.get('/api/auth/google/callback', async (req, res) => {
+    try {
+        const { code, error } = req.query;
+
+        if (error) {
+            console.error('[GOOGLE AUTH] Error from Google:', error);
+            return res.redirect('/?error=google_auth_failed');
+        }
+
+        if (!code) {
+            return res.redirect('/?error=no_code');
+        }
+
+        // Exchange code for tokens
+        console.log('[GOOGLE AUTH] Exchanging code for tokens...');
+        const tokens = await googleAuth.getTokens(code);
+
+        // Get user profile
+        console.log('[GOOGLE AUTH] Fetching user profile...');
+        const profile = await googleAuth.getUserProfile(tokens.access_token);
+        console.log('[GOOGLE AUTH] User profile:', profile.email, profile.name);
+
+        await schema.init();
+
+        // Check if user exists in SUBSCRIBERS by email
+        const existingUser = await notionClient.databases.query({
+            database_id: DS.SUBSCRIBERS,
+            filter: {
+                property: schema.get('SUBSCRIBERS', 'Email'),
+                email: { equals: profile.email }
+            }
+        });
+
+        let userId, userName, userPlan;
+
+        if (existingUser.results.length > 0) {
+            // User exists - update GoogleId and AvatarUrl
+            const userPage = existingUser.results[0];
+            userId = userPage.id;
+            userName = getText(findProp(userPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Name)) || profile.name;
+            userPlan = getText(findProp(userPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Plan)) || 'freemium';
+
+            console.log('[GOOGLE AUTH] Existing user found, updating profile...');
+            await notionClient.pages.update({
+                page_id: userId,
+                properties: {
+                    "GoogleId": { rich_text: [{ text: { content: profile.id } }] },
+                    "AvatarUrl": { url: profile.picture || null }
+                }
+            });
+        } else {
+            // New user - create account
+            console.log('[GOOGLE AUTH] Creating new user...');
+            const newUser = await notionClient.pages.create({
+                parent: { database_id: DS.SUBSCRIBERS },
+                properties: {
+                    "Name": { title: [{ text: { content: profile.name } }] },
+                    "Email": { email: profile.email },
+                    "Plan": { select: { name: "freemium" } },
+                    "GoogleId": { rich_text: [{ text: { content: profile.id } }] },
+                    "AvatarUrl": { url: profile.picture || null },
+                    "Password": { rich_text: [{ text: { content: '' } }] } // No password for Google users
+                }
+            });
+            userId = newUser.id;
+            userName = profile.name;
+            userPlan = 'freemium';
+        }
+
+        // Redirect to frontend with user data encoded in URL
+        const userData = encodeURIComponent(JSON.stringify({
+            id: userId,
+            name: userName,
+            email: profile.email,
+            plan: userPlan,
+            role: 'subscriber',
+            avatar: profile.picture
+        }));
+
+        console.log('[GOOGLE AUTH] Login successful, redirecting...');
+        res.redirect(`/?googleAuth=success&user=${userData}`);
+
+    } catch (error) {
+        console.error('[GOOGLE AUTH] Callback error:', error);
+        res.redirect('/?error=google_auth_failed&message=' + encodeURIComponent(error.message));
     }
 });
 
