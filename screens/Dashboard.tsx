@@ -149,6 +149,21 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
             <button onClick={onRefresh} className="flex items-center justify-center size-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 transition-colors hover:bg-blue-50 hover:text-blue-500">
               <span className="material-symbols-outlined">refresh</span>
             </button>
+
+            {/* Upgrade Plan Button */}
+            {user.role !== 'admin' && user.plan !== 'vip' && (
+              <button
+                onClick={() => alert(`¡Próximamente! Podrás actualizar a ${user.plan === 'freemium' ? 'Premium' : 'VIP'} para obtener más beneficios.`)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold transition-all hover:scale-105 active:scale-95 ${user.plan === 'freemium'
+                    ? 'bg-purple-500 hover:bg-purple-600 text-white shadow-lg shadow-purple-500/30'
+                    : 'bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/30'
+                  }`}
+              >
+                <span className="material-symbols-outlined text-sm">upgrade</span>
+                {user.plan === 'freemium' ? 'Hazte Premium' : 'Hazte VIP'}
+              </button>
+            )}
+
             <button onClick={onLogout} className="flex items-center justify-center size-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-500">
               <span className="material-symbols-outlined">logout</span>
             </button>

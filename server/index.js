@@ -136,9 +136,13 @@ app.post('/api/login', async (req, res) => {
                     const eventRelation = findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Event);
                     const eventId = eventRelation?.relation?.[0]?.id || null;
 
-                    // Get plan from database
+                    // Get plan from database - with debug logging
+                    console.log(`🔍 [DEBUG] subPage.properties keys:`, Object.keys(subPage.properties));
+                    console.log(`🔍 [DEBUG] Looking for Plan with aliases:`, KNOWN_PROPERTIES.SUBSCRIBERS.Plan);
                     const planProp = findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Plan);
-                    const userPlan = planProp?.select?.name || 'freemium';
+                    console.log(`🔍 [DEBUG] planProp found:`, planProp);
+                    const userPlan = planProp?.select?.name?.toLowerCase() || 'freemium';
+                    console.log(`🔍 [DEBUG] Final userPlan:`, userPlan);
 
                     console.log(`✅ Subscriber login successful: ${email} (plan: ${userPlan})`);
                     return res.json({
