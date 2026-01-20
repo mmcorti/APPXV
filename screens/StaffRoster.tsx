@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '../types';
+import PlanUpgradeBanner from '../components/PlanUpgradeBanner';
 
 interface StaffRosterProps {
     user: User;
@@ -57,6 +58,16 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
         }
         if (!newName || !newEmail || !newPassword) {
             alert('Nombre, Email y Contraseña son obligatorios');
+            return;
+        }
+
+        // Limit Enforcement
+        const plan = user.plan || 'freemium';
+        const limits = { freemium: 3, premium: 20, vip: Infinity };
+        const limit = limits[plan as keyof typeof limits] || 3;
+
+        if (roster.length >= limit) {
+            alert(`Has alcanzado el límite de ${limit} miembros para tu plan ${plan.toUpperCase()}. Por favor, sube de nivel tu plan para agregar más.`);
             return;
         }
 
@@ -125,6 +136,15 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
                     <span className="material-symbols-outlined text-sm">{isCreating ? 'close' : 'add'}</span>
                     {isCreating ? 'Cancelar' : 'Nuevo Miembro'}
                 </button>
+            </div>
+
+            <div className="mb-6">
+                <PlanUpgradeBanner
+                    currentPlan={user.plan as any}
+                    resourceType="staff"
+                    current={roster.length}
+                    limit={(user.plan === 'vip' ? Infinity : (user.plan === 'premium' ? 20 : 3))}
+                />
             </div>
 
             {isCreating && (
