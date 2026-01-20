@@ -1485,6 +1485,33 @@ app.post('/api/staff-roster', async (req, res) => {
             return res.status(400).json({ error: 'Email and OwnerId are required' });
         }
 
+        // --- PLAN LIMIT ENFORCEMENT ---
+        // 1. Get the user's plan (Subscriber)
+        const subPage = await notionClient.pages.retrieve({ page_id: ownerId });
+        const plan = getText(subPage.properties.Plan) || 'freemium';
+
+        // 2. Get current staff count for this owner
+        const currentRoster = await notionClient.databases.query({
+            database_id: DS.STAFF_ROSTER,
+            filter: {
+                property: 'OwnerId',
+                rich_text: { equals: ownerId }
+            }
+        });
+
+        const currentCount = currentRoster.results.length;
+        const limits = getPlanLimits(plan);
+
+        if (currentCount >= limits.maxStaffRoster) {
+            return res.status(403).json({
+                error: `Límite alcanzado: Tu plan ${plan.toUpperCase()} permite hasta ${limits.maxStaffRoster} miembros.`,
+                limitReached: true,
+                current: currentCount,
+                limit: limits.maxStaffRoster
+            });
+        }
+        // --- END PLAN LIMIT ENFORCEMENT ---
+
         const properties = {
             "Name": { title: [{ text: { content: name || email.split('@')[0] } }] },
             "Email": { email: email },

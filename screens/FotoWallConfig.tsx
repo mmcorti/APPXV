@@ -146,7 +146,14 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
 
       if (data.valid) {
         setLinkStatus('valid');
-        setStatusMessage(`✓ ${data.count} fotos encontradas`);
+        const count = data.count || 0;
+        const limitExceeded = count > photoLimit;
+
+        if (limitExceeded) {
+          setStatusMessage(`⚠ ${count} fotos encontradas (Supera el límite de ${photoLimit} de tu plan)`);
+        } else {
+          setStatusMessage(`✓ ${count} fotos encontradas`);
+        }
         localStorage.setItem(`fotowall_url_${id}`, url);
       } else {
         setLinkStatus('invalid');
@@ -454,9 +461,28 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
                   </button>
                 </div>
                 {statusMessage && (
-                  <p className={`text-xs mt-2 ${linkStatus === 'valid' ? 'text-green-500' : 'text-red-500'}`}>
-                    {statusMessage}
-                  </p>
+                  <div className={`mt-2 p-3 rounded-xl border flex flex-col gap-2 ${linkStatus === 'valid'
+                    ? (statusMessage.includes('⚠') ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800')
+                    : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'}`}>
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-sm">
+                        {linkStatus === 'valid' ? (statusMessage.includes('⚠') ? 'warning' : 'check_circle') : 'error'}
+                      </span>
+                      <p className={`text-[11px] font-medium ${linkStatus === 'valid'
+                        ? (statusMessage.includes('⚠') ? 'text-amber-700 dark:text-amber-400' : 'text-green-700 dark:text-green-400')
+                        : 'text-red-700 dark:text-red-400'}`}>
+                        {statusMessage}
+                      </p>
+                    </div>
+                    {statusMessage.includes('⚠') && (
+                      <button
+                        onClick={() => alert('¡Hazte Premium para mostrar todas las fotos!')}
+                        className="text-[10px] font-black text-pink-600 dark:text-pink-400 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg shadow-sm self-start border border-pink-100 dark:border-pink-900/50 hover:bg-pink-50 transition-colors uppercase tracking-wider"
+                      >
+                        Pasar a Plan {userPlan === 'freemium' ? 'Premium' : 'VIP'}
+                      </button>
+                    )}
+                  </div>
                 )}
                 {/* Quick action buttons */}
                 {linkStatus === 'valid' && albumUrl && (
