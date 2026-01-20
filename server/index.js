@@ -394,6 +394,7 @@ app.get('/api/events', async (req, res) => {
                 giftType: findProp(props, KNOWN_PROPERTIES.EVENTS.GiftType)?.select?.name || 'none',
                 giftDetail: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.GiftDetail)),
                 capacity: findProp(props, KNOWN_PROPERTIES.EVENTS.Capacity)?.number || 0,
+                dressCode: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.DressCode)),
                 // FotoWall properties
                 fotowall: {
                     albumUrl: findProp(props, KNOWN_PROPERTIES.EVENTS.FW_AlbumUrl)?.url || '',
@@ -475,6 +476,9 @@ app.post('/api/events', async (req, res) => {
         if (giftType) properties[schema.get('EVENTS', 'GiftType')] = { select: { name: giftType } };
         properties[schema.get('EVENTS', 'GiftDetail')] = { rich_text: [{ text: { content: giftDetail || "" } }] };
 
+        const { dressCode } = req.body;
+        if (dressCode !== undefined) properties[schema.get('EVENTS', 'DressCode')] = { rich_text: [{ text: { content: dressCode || "" } }] };
+
         // FotoWall initial config (optional)
         const { fotowall } = req.body;
         if (fotowall) {
@@ -516,6 +520,9 @@ app.put('/api/events/:id', async (req, res) => {
         if (hostName !== undefined) properties[schema.get('EVENTS', 'Host')] = { rich_text: [{ text: { content: hostName || "" } }] };
         if (giftType !== undefined) properties[schema.get('EVENTS', 'GiftType')] = { select: { name: giftType } };
         if (giftDetail !== undefined) properties[schema.get('EVENTS', 'GiftDetail')] = { rich_text: [{ text: { content: giftDetail || "" } }] };
+
+        const { dressCode } = req.body;
+        if (dressCode !== undefined) properties[schema.get('EVENTS', 'DressCode')] = { rich_text: [{ text: { content: dressCode || "" } }] };
 
         // FotoWall update
         if (fotowall) {

@@ -6,10 +6,10 @@ export class GeminiService {
     // Instantiate fresh to use the latest API key from process.env.API_KEY
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview',
-      contents: {
-        parts: [{ text: prompt }],
-      },
+      model: 'imagen-3.0-generate-001',
+      contents: [
+        { text: prompt },
+      ],
       config: {
         imageConfig: {
           aspectRatio: "3:4",
@@ -29,22 +29,20 @@ export class GeminiService {
   static async editImage(base64Image: string, prompt: string): Promise<string> {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const cleanBase64 = base64Image.split(',')[1] || base64Image;
-    
+
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              data: cleanBase64,
-              mimeType: 'image/png'
-            }
-          },
-          {
-            text: prompt
+      model: 'imagen-3.0-generate-001',
+      contents: [
+        {
+          inlineData: {
+            data: cleanBase64,
+            mimeType: 'image/png'
           }
-        ]
-      }
+        },
+        {
+          text: prompt
+        }
+      ]
     });
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {

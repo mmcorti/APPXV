@@ -199,6 +199,13 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
               <input type="text" name="giftDetail" value={formData.giftDetail} onChange={handleChange} className="w-full rounded-xl border-slate-200 dark:border-slate-700 dark:bg-slate-900" placeholder="Alias o URL de lista" />
             </div>
           </section>
+
+          <section className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 space-y-4">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400">Dress Code</h3>
+            <div>
+              <input type="text" name="dressCode" value={formData.dressCode || ''} onChange={handleChange} className="w-full rounded-xl border-slate-200 dark:border-slate-700 dark:bg-slate-900 p-4" placeholder="Ej: Elegante, Formal, Casual..." />
+            </div>
+          </section>
         </div>
       </div>
 
