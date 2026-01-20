@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { InvitationData, ImageSize } from '../types';
 import { GeminiService } from '../services/gemini';
+import { notionService } from '../services/notion';
 
 interface InvitationEditorProps {
   invitations: InvitationData[];
@@ -36,6 +37,7 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
   const [selectedSize, setSelectedSize] = useState<ImageSize>(ImageSize.SIZE_1K);
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiError, setAiError] = useState('');
+  const [uploadLoading, setUploadLoading] = useState(false);
 
   useEffect(() => {
     if (invitation) {
@@ -53,14 +55,29 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
 
   if (!invitation) return <div className="p-10 text-center font-bold">Invitación no encontrada</div>;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, image: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      setUploadLoading(true);
+      try {
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64Image = reader.result as string;
+          try {
+            const cloudinaryUrl = await notionService.uploadImage(base64Image);
+            setFormData(prev => ({ ...prev, image: cloudinaryUrl }));
+          } catch (error: any) {
+            console.error('Image upload error:', error);
+            alert('Error al subir la imagen: ' + error.message);
+          } finally {
+            setUploadLoading(false);
+          }
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        setUploadLoading(false);
+        console.error('File read error:', error);
+      }
     }
   };
 
@@ -131,16 +148,27 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
               <div className="flex items-center justify-center h-full text-slate-400">Sin imagen</div>
             )}
 
+            {uploadLoading && (
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-2 text-white">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                  <span className="text-sm font-medium">Subiendo imagen...</span>
+                </div>
+              </div>
+            )}
+
             <div className="absolute top-4 right-4 flex flex-col gap-2">
               <button
                 onClick={() => setShowAiModal(true)}
-                className="size-11 flex items-center justify-center bg-primary/90 backdrop-blur-md text-white rounded-full border border-white/40 hover:bg-primary transition-all shadow-lg"
+                disabled={uploadLoading}
+                className="size-11 flex items-center justify-center bg-primary/90 backdrop-blur-md text-white rounded-full border border-white/40 hover:bg-primary transition-all shadow-lg disabled:opacity-50"
               >
                 <span className="material-symbols-outlined">auto_awesome</span>
               </button>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="size-11 flex items-center justify-center bg-white/90 backdrop-blur-md text-slate-800 rounded-full border border-slate-200 hover:bg-white transition-all shadow-lg"
+                disabled={uploadLoading}
+                className="size-11 flex items-center justify-center bg-white/90 backdrop-blur-md text-slate-800 rounded-full border border-slate-200 hover:bg-white transition-all shadow-lg disabled:opacity-50"
               >
                 <span className="material-symbols-outlined">upload_file</span>
               </button>

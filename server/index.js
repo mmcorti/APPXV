@@ -11,6 +11,7 @@ import { schema, KNOWN_PROPERTIES } from './schema_manager.js';
 import { googlePhotosService } from './services/googlePhotos.js';
 import { checkLimit, getPlanLimits, isAdmin, getUsageSummary, DEFAULT_PLAN } from './planLimits.js';
 import googleAuth from './services/googleAuth.js';
+import { uploadImage } from './services/imageUpload.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,7 +20,7 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Increased for base64 images
 
 // Debug helper (keep existing if needed)
 import '../debug_pkg.js';
@@ -73,6 +74,25 @@ app.get('/api/debug-mapping', async (req, res) => {
         res.json(info);
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// --- IMAGE UPLOAD ---
+app.post('/api/upload-image', async (req, res) => {
+    try {
+        const { image } = req.body;
+        if (!image) {
+            return res.status(400).json({ error: 'No image provided' });
+        }
+
+        console.log('📸 Uploading image to Cloudinary...');
+        const result = await uploadImage(image);
+        console.log('✅ Image uploaded:', result.url);
+
+        res.json({ success: true, url: result.url, publicId: result.publicId });
+    } catch (error) {
+        console.error('❌ Image upload failed:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 
