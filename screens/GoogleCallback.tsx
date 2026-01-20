@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 interface GoogleCallbackProps {
@@ -8,15 +8,22 @@ interface GoogleCallbackProps {
 const GoogleCallbackScreen: React.FC<GoogleCallbackProps> = ({ onLogin }) => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const hasProcessed = useRef(false);
 
     useEffect(() => {
+        // Prevent multiple executions
+        if (hasProcessed.current) {
+            return;
+        }
+
         const googleAuth = searchParams.get('googleAuth');
         const userData = searchParams.get('user');
         const error = searchParams.get('error');
 
         if (error) {
             console.error('[GOOGLE AUTH] Error:', error, searchParams.get('message'));
-            navigate('/login');
+            hasProcessed.current = true;
+            navigate('/login', { replace: true });
             return;
         }
 
@@ -24,6 +31,8 @@ const GoogleCallbackScreen: React.FC<GoogleCallbackProps> = ({ onLogin }) => {
             try {
                 const parsed = JSON.parse(decodeURIComponent(userData));
                 console.log('[GOOGLE AUTH] Login successful:', parsed.email);
+
+                hasProcessed.current = true;
 
                 // Call onLogin with parsed user data
                 onLogin(
@@ -36,16 +45,19 @@ const GoogleCallbackScreen: React.FC<GoogleCallbackProps> = ({ onLogin }) => {
                     parsed.plan || 'freemium'
                 );
 
-                // Redirect to dashboard
-                navigate('/dashboard');
+                // Redirect to dashboard with replace to prevent back navigation
+                navigate('/dashboard', { replace: true });
             } catch (e) {
                 console.error('[GOOGLE AUTH] Failed to parse user data:', e);
-                navigate('/login');
+                hasProcessed.current = true;
+                navigate('/login', { replace: true });
             }
         } else {
-            navigate('/login');
+            hasProcessed.current = true;
+            navigate('/login', { replace: true });
         }
-    }, [searchParams, onLogin, navigate]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams]); // Intentionally excluding onLogin and navigate to prevent re-runs
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-background-light dark:bg-background-dark">
