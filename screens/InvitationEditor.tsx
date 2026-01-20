@@ -87,19 +87,11 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
     setAiError('');
 
     try {
-      const aiStudio = (window as any).aistudio;
-      if (aiStudio) {
-        const hasKey = await aiStudio.hasSelectedApiKey();
-        if (!hasKey) {
-          await aiStudio.openSelectKey();
-        }
-      }
-
       let resultUrl = '';
       if (type === 'generate') {
-        resultUrl = await GeminiService.generateImage(aiPrompt, selectedSize);
+        resultUrl = await notionService.generateAiImage(aiPrompt);
       } else {
-        resultUrl = await GeminiService.editImage(formData.image, aiPrompt);
+        resultUrl = await notionService.editAiImage(formData.image, aiPrompt);
       }
 
       setFormData(prev => ({ ...prev, image: resultUrl }));

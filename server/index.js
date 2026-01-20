@@ -96,6 +96,45 @@ app.post('/api/upload-image', async (req, res) => {
     }
 });
 
+// --- AI IMAGE GENERATION ---
+import { generateImage as geminiGenerateImage, editImage as geminiEditImage } from './services/geminiService.js';
+
+app.post('/api/ai/generate-image', async (req, res) => {
+    try {
+        const { prompt } = req.body;
+        if (!prompt) {
+            return res.status(400).json({ error: 'No prompt provided' });
+        }
+
+        console.log('🎨 AI generating image with prompt:', prompt);
+        const imageDataUrl = await geminiGenerateImage(prompt);
+        console.log('✅ AI image generated successfully');
+
+        res.json({ success: true, image: imageDataUrl });
+    } catch (error) {
+        console.error('❌ AI image generation failed:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/ai/edit-image', async (req, res) => {
+    try {
+        const { image, prompt } = req.body;
+        if (!image || !prompt) {
+            return res.status(400).json({ error: 'Image and prompt are required' });
+        }
+
+        console.log('🎨 AI editing image with prompt:', prompt);
+        const editedImageDataUrl = await geminiEditImage(image, prompt);
+        console.log('✅ AI image edited successfully');
+
+        res.json({ success: true, image: editedImageDataUrl });
+    } catch (error) {
+        console.error('❌ AI image edit failed:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // --- LOGIN ---
 app.post('/api/login', async (req, res) => {
     const email = req.body.email?.trim();
