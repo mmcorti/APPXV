@@ -124,7 +124,10 @@ const App: React.FC = () => {
     }));
 
     try {
-      await notionService.saveGuest(eventId, guest);
+      await notionService.saveGuest(eventId, guest, {
+        userPlan: user?.plan || 'freemium',
+        userRole: user?.role || 'subscriber'
+      });
 
       // SYNC TABLE ASSIGNMENTS after guest edit
       if (inv) {
@@ -181,8 +184,13 @@ const App: React.FC = () => {
       }
 
       await refreshEventData(eventId);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Guest save failed:", e);
+      if (e.limitReached) {
+        alert(e.message || `Has alcanzado el límite de ${e.limit} invitados para tu plan.`);
+      } else {
+        alert("Error al guardar invitado. Intenta de nuevo.");
+      }
       await refreshEventData(eventId);
     }
   };

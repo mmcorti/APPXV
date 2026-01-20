@@ -60,7 +60,7 @@ export const notionService = {
         return await res.json();
     },
 
-    async saveGuest(eventId: string, guest: Guest) {
+    async saveGuest(eventId: string, guest: Guest, options?: { userPlan?: string; userRole?: string }) {
         // Use PUT if guest.id is a string (Notion UUID), POST if it's numeric/new
         const isUpdate = typeof guest.id === 'string' && guest.id.length > 20;
         const url = isUpdate ? `${API_URL}/guests/${guest.id}` : `${API_URL}/guests`;
@@ -69,9 +69,21 @@ export const notionService = {
         const res = await fetch(url, {
             method,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ eventId, guest })
+            body: JSON.stringify({
+                eventId,
+                guest,
+                userPlan: options?.userPlan,
+                userRole: options?.userRole
+            })
         });
-        if (!res.ok) throw new Error('Failed to save guest');
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            const error = new Error(errorData.error || 'Failed to save guest');
+            (error as any).limitReached = errorData.limitReached;
+            (error as any).current = errorData.current;
+            (error as any).limit = errorData.limit;
+            throw error;
+        }
         return await res.json();
     },
 
