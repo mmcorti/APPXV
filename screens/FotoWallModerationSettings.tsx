@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { User } from '../types';
 
 type ModerationMode = 'off' | 'ai' | 'manual';
 
@@ -30,7 +31,11 @@ const DEFAULT_FILTERS: FilterSettings = {
     confidenceThreshold: 70
 };
 
-const FotoWallModerationSettingsScreen: React.FC = () => {
+interface FotoWallModerationSettingsProps {
+    user?: User | null;
+}
+
+const FotoWallModerationSettingsScreen: React.FC<FotoWallModerationSettingsProps> = ({ user }) => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
 
@@ -39,6 +44,8 @@ const FotoWallModerationSettingsScreen: React.FC = () => {
     const [mode, setMode] = useState<ModerationMode>('ai');
     const [filters, setFilters] = useState<FilterSettings>(DEFAULT_FILTERS);
     const [saved, setSaved] = useState(false);
+
+    const userPlan = user?.plan || 'freemium';
 
     // Load saved settings on mount
     useEffect(() => {
@@ -162,30 +169,41 @@ const FotoWallModerationSettingsScreen: React.FC = () => {
                             </button>
 
                             {/* AI Mode */}
-                            <button
-                                onClick={() => setMode('ai')}
-                                className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${mode === 'ai'
-                                    ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20'
-                                    : 'border-slate-100 dark:border-slate-700 hover:border-slate-200'
-                                    }`}
-                            >
-                                <div className={`size-10 rounded-xl flex items-center justify-center ${mode === 'ai' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
-                                    }`}>
-                                    <span className="material-symbols-outlined">smart_toy</span>
-                                </div>
-                                <div className="text-left flex-1">
-                                    <p className="font-bold flex items-center gap-2">
-                                        Moderación IA
-                                        <span className="text-[8px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white px-1.5 py-0.5 rounded-full">AI</span>
-                                    </p>
-                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                                        Análisis automático con IA (usa API)
-                                    </p>
-                                </div>
-                                {mode === 'ai' && (
-                                    <span className="material-symbols-outlined text-pink-500">check_circle</span>
+                            <div className="relative">
+                                <button
+                                    onClick={() => userPlan !== 'freemium' && setMode('ai')}
+                                    className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${mode === 'ai'
+                                        ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20'
+                                        : 'border-slate-100 dark:border-slate-700 hover:border-slate-200'
+                                        } ${userPlan === 'freemium' ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                >
+                                    <div className={`size-10 rounded-xl flex items-center justify-center ${mode === 'ai' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
+                                        }`}>
+                                        <span className="material-symbols-outlined">smart_toy</span>
+                                    </div>
+                                    <div className="text-left flex-1">
+                                        <p className="font-bold flex items-center gap-2">
+                                            Moderación IA
+                                            <span className="text-[8px] font-bold bg-gradient-to-r from-pink-500 to-purple-600 text-white px-1.5 py-0.5 rounded-full">AI</span>
+                                        </p>
+                                        <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                                            {userPlan === 'freemium' ? 'Disponible en planes Premium/VIP' : 'Análisis automático con IA (usa API)'}
+                                        </p>
+                                    </div>
+                                    {mode === 'ai' && (
+                                        <span className="material-symbols-outlined text-pink-500">check_circle</span>
+                                    )}
+                                    {userPlan === 'freemium' && (
+                                        <span className="material-symbols-outlined text-amber-500">lock</span>
+                                    )}
+                                </button>
+                                {userPlan === 'freemium' && (
+                                    <div className="mt-2 px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-xl flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400">Actualiza para usar IA</span>
+                                        <button onClick={() => alert('¡Hazte Premium!')} className="text-[10px] font-black text-pink-600 hover:text-pink-700 underline">VER PLANES</button>
+                                    </div>
                                 )}
-                            </button>
+                            </div>
 
                             {/* Manual Mode */}
                             <button

@@ -1074,8 +1074,18 @@ app.post('/api/fotowall/album/moderated', async (req, res) => {
         const { url, moderationSettings, plan } = req.body;
         if (!url) return res.status(400).json({ error: "URL requerida" });
 
-        const mode = moderationSettings?.mode || 'manual';
-        console.log(`[FOTOWALL] Getting moderated album: ${url}, mode: ${mode}, plan: ${plan || 'freemium'}`);
+        const limits = getPlanLimits(plan);
+        const aiFeatures = limits.aiFeatures;
+        const photoLimit = limits.maxPhotosPerEvent;
+
+        // Force manual mode if plan doesn't support AI
+        let mode = moderationSettings?.mode || 'manual';
+        if (mode === 'ai' && !aiFeatures) {
+            console.log(`[FOTOWALL] Plan ${plan} does not support AI, forcing manual mode`);
+            mode = 'manual';
+        }
+
+        console.log(`[FOTOWALL] Getting moderated album: ${url}, mode: ${mode}, plan: ${plan || 'freemium'}, limit: ${photoLimit}`);
 
         // Get photos from album
         const photos = await googlePhotosService.getAlbumPhotos(url);
@@ -1142,8 +1152,6 @@ app.post('/api/fotowall/album/moderated', async (req, res) => {
         const pendingCount = moderatedPhotos.filter(p => p.moderation?.pending).length;
 
         // --- PLAN-BASED PHOTO LIMIT ---
-        const planLimits = getPlanLimits(plan || DEFAULT_PLAN);
-        const photoLimit = planLimits.maxPhotosPerEvent;
         const totalSafePhotos = safePhotos.length;
 
         if (safePhotos.length > photoLimit) {
@@ -1289,11 +1297,21 @@ app.post('/api/fotowall/clear-cache', async (req, res) => {
 // Get ALL photos with their moderation status
 app.post('/api/fotowall/all-photos', async (req, res) => {
     try {
-        const { url, moderationSettings } = req.body;
+        const { url, moderationSettings, plan } = req.body;
         if (!url) return res.status(400).json({ error: "URL requerida" });
 
-        const mode = moderationSettings?.mode || 'manual';
-        console.log(`[FOTOWALL] Getting all photos: ${url}, mode: ${mode}`);
+        const limits = getPlanLimits(plan);
+        const aiFeatures = limits.aiFeatures;
+        const photoLimit = limits.maxPhotosPerEvent;
+
+        // Force manual mode if plan doesn't support AI
+        let mode = moderationSettings?.mode || 'manual';
+        if (mode === 'ai' && !aiFeatures) {
+            console.log(`[FOTOWALL] Plan ${plan} does not support AI, forcing manual mode`);
+            mode = 'manual';
+        }
+
+        console.log(`[FOTOWALL] Getting all photos: ${url}, mode: ${mode}, limit: ${photoLimit}`);
 
         const photos = await googlePhotosService.getAlbumPhotos(url);
 
@@ -1338,9 +1356,14 @@ app.post('/api/fotowall/all-photos', async (req, res) => {
 
         res.json({
             photos: photosWithStatus,
-            total: photos.length,
-            blocked: photosWithStatus.filter(p => p.isBlocked).length,
-            approved: photosWithStatus.filter(p => p.isApproved).length
+            stats: {
+                total: photos.length,
+                safe: photosWithStatus.filter(p => p.isApproved).length,
+                blocked: photosWithStatus.filter(p => p.isBlocked).length,
+                pending: photosWithStatus.filter(p => !p.isApproved && !p.isBlocked).length,
+                limit: photoLimit,
+                plan: plan || 'freemium'
+            }
         });
     } catch (error) {
         console.error('[FOTOWALL] Error getting all photos:', error);
