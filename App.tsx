@@ -435,12 +435,16 @@ const App: React.FC = () => {
   };
 
   const handleAuthSuccess = (id: string, name: string, email: string, role?: string, permissions?: StaffPermissions, eventId?: string, plan?: string) => {
+    const userRole = (role as 'admin' | 'subscriber' | 'event_staff' | 'staff') || 'subscriber';
+    // Admins always have VIP plan regardless of Notion data
+    const userPlan = userRole === 'admin' ? 'vip' : ((plan || 'freemium') as string).toLowerCase() as 'freemium' | 'premium' | 'vip';
+
     setUser({
       id,
       name,
       email,
-      role: (role as 'admin' | 'subscriber' | 'event_staff' | 'staff') || 'admin',
-      plan: ((plan || 'freemium') as string).toLowerCase() as 'freemium' | 'premium' | 'vip',
+      role: userRole,
+      plan: userPlan,
       permissions,
       eventId,
       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=135bec&color=fff`
