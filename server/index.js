@@ -258,7 +258,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
             const userPage = existingUser.results[0];
             userId = userPage.id;
             userName = getText(findProp(userPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Name)) || profile.name;
-            userPlan = getText(findProp(userPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Plan)) || 'freemium';
+            userPlan = (getText(findProp(userPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Plan)) || 'freemium').toLowerCase();
 
             console.log('[GOOGLE AUTH] Existing user found, updating profile...');
             await notionClient.pages.update({
@@ -1594,7 +1594,7 @@ app.post('/api/staff-roster', async (req, res) => {
         // --- PLAN LIMIT ENFORCEMENT ---
         // 1. Get the user's plan (Subscriber)
         const subPage = await notionClient.pages.retrieve({ page_id: ownerId });
-        const plan = getText(subPage.properties.Plan) || 'freemium';
+        const plan = (getText(subPage.properties.Plan) || 'freemium').toLowerCase();
 
         // 2. Get current staff count for this owner
         const currentRoster = await notionClient.databases.query({
