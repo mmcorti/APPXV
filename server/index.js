@@ -2216,7 +2216,9 @@ app.get('/api/expenses/:expenseId/payments', async (req, res) => {
             expenseId: p.properties[schema.get('PAYMENTS', 'ExpenseId')]?.rich_text?.[0]?.text?.content || '',
             participantId: p.properties[schema.get('PAYMENTS', 'ParticipantId')]?.rich_text?.[0]?.text?.content || '',
             amount: p.properties[schema.get('PAYMENTS', 'Amount')]?.number || 0,
-            date: p.properties[schema.get('PAYMENTS', 'Date')]?.date?.start || null
+            date: p.properties[schema.get('PAYMENTS', 'Date')]?.date?.start || null,
+            description: p.properties[schema.get('PAYMENTS', 'Description')]?.title?.[0]?.text?.content || '',
+            receiptUrl: p.properties[schema.get('PAYMENTS', 'ReceiptURL')]?.url || ''
         }));
         res.json(payments);
     } catch (error) {
@@ -2229,13 +2231,17 @@ app.post('/api/expenses/:expenseId/payments', async (req, res) => {
     try {
         await schema.init();
         const { expenseId } = req.params;
-        const { participantId, amount, date } = req.body;
+        const { participantId, amount, date, description, receiptUrl } = req.body;
+
         const properties = {
             [schema.get('PAYMENTS', 'ExpenseId')]: { rich_text: [{ text: { content: expenseId } }] },
             [schema.get('PAYMENTS', 'ParticipantId')]: { rich_text: [{ text: { content: participantId } }] },
             [schema.get('PAYMENTS', 'Amount')]: { number: amount }
         };
+
         if (date) properties[schema.get('PAYMENTS', 'Date')] = { date: { start: date } };
+        if (description) properties[schema.get('PAYMENTS', 'Description')] = { title: [{ text: { content: description } }] };
+        if (receiptUrl) properties[schema.get('PAYMENTS', 'ReceiptURL')] = { url: receiptUrl };
 
         const response = await notionClient.pages.create({
             parent: { database_id: DB.PAYMENTS },
@@ -2246,7 +2252,9 @@ app.post('/api/expenses/:expenseId/payments', async (req, res) => {
             expenseId,
             participantId,
             amount,
-            date
+            date,
+            description,
+            receiptUrl
         });
     } catch (error) {
         console.error("❌ Error creating payment:", error);

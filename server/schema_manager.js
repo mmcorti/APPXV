@@ -100,10 +100,12 @@ const KNOWN_PROPERTIES = {
         Weight: ["Weight", "Peso"]
     },
     PAYMENTS: {
+        Description: ["Description", "Descripción", "Name", "Nombre"], // Mapped to Title usually
         ExpenseId: ["ExpenseId", "Expense ID", "Gasto"],
         ParticipantId: ["ParticipantId", "Participant ID", "Participante"],
         Amount: ["Amount", "Monto"],
-        Date: ["Date", "Fecha"]
+        Date: ["Date", "Fecha"],
+        ReceiptURL: ["ReceiptURL", "Receipt URL", "Comprobante", "Recibo"]
     },
 };
 
