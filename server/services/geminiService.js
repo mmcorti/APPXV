@@ -15,9 +15,9 @@ export async function generateImage(prompt) {
     }
 
     try {
-        // Use Gemini 2.0 Flash for image generation (supports native image output)
+        // Use Gemini 2.5 Flash Image for image generation (Nano Banana model)
         const model = genAI.getGenerativeModel({
-            model: 'gemini-2.0-flash-exp',
+            model: 'gemini-2.5-flash-image',
             generationConfig: {
                 responseModalities: ['image', 'text']
             }
@@ -64,7 +64,7 @@ export async function editImage(base64Image, prompt) {
 
     try {
         const model = genAI.getGenerativeModel({
-            model: 'gemini-2.0-flash-exp',
+            model: 'gemini-2.5-flash-image',
             generationConfig: {
                 responseModalities: ['image', 'text']
             }
