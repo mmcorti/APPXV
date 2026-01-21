@@ -124,9 +124,20 @@ app.post('/api/ai/generate-image', async (req, res) => {
 
 app.post('/api/ai/edit-image', async (req, res) => {
     try {
-        const { image, prompt } = req.body;
+        let { image, prompt } = req.body;
         if (!image || !prompt) {
             return res.status(400).json({ error: 'Image and prompt are required' });
+        }
+
+        // If image is a URL, fetch it and convert to base64
+        if (image.startsWith('http://') || image.startsWith('https://')) {
+            console.log('🔄 Fetching image from URL for editing...');
+            const response = await fetch(image);
+            const arrayBuffer = await response.arrayBuffer();
+            const base64 = Buffer.from(arrayBuffer).toString('base64');
+            const contentType = response.headers.get('content-type') || 'image/png';
+            image = `data:${contentType};base64,${base64}`;
+            console.log('✅ Image fetched and converted to base64');
         }
 
         console.log('🎨 AI editing image with prompt:', prompt);
