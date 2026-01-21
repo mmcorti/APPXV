@@ -15,7 +15,10 @@ export const NOTION_CONFIG = {
         USERS: process.env.NOTION_DS_USERS || process.env.NOTION_USERS_DB_ID || "",
         SUBSCRIBERS: process.env.NOTION_DB_SUBSCRIBERS || "2ecff613-0900-81f5-8d52-f8bcd4bc0940",
         STAFF_ROSTER: process.env.NOTION_DB_STAFF_ROSTER || "2edff613-0900-815b-bf07-ca361d92c10a",
-        STAFF_ASSIGNMENTS: process.env.NOTION_DB_STAFF_ASSIGNMENTS || "2edff613-0900-81db-8777-f40892c9ec9e"
+        STAFF_ASSIGNMENTS: process.env.NOTION_DB_STAFF_ASSIGNMENTS || "2edff613-0900-81db-8777-f40892c9ec9e",
+        EXPENSES: process.env.NOTION_DS_EXPENSES || "57ee8337f02b4ffb9dc8d3a57d61a3bd",
+        SUPPLIERS: process.env.NOTION_DS_SUPPLIERS || "384c7326d2b44e498935e6e63b60c3e0",
+        EXPENSE_CATEGORIES: process.env.NOTION_DS_EXPENSE_CATEGORIES || "edfcf67bffea4556838550590bc16c83"
     },
 
     // Database IDs (used for creation)
@@ -27,6 +30,9 @@ export const NOTION_CONFIG = {
         USERS: process.env.NOTION_DB_USERS || "",
         SUBSCRIBERS: process.env.NOTION_DB_SUBSCRIBERS || "2ecff613-0900-81f5-8d52-f8bcd4bc0940",
         STAFF_ROSTER: process.env.NOTION_DB_STAFF_ROSTER || "2edff613-0900-815b-bf07-ca361d92c10a",
-        STAFF_ASSIGNMENTS: process.env.NOTION_DB_STAFF_ASSIGNMENTS || "2edff613-0900-81db-8777-f40892c9ec9e"
+        STAFF_ASSIGNMENTS: process.env.NOTION_DB_STAFF_ASSIGNMENTS || "2edff613-0900-81db-8777-f40892c9ec9e",
+        EXPENSES: process.env.NOTION_DB_EXPENSES || "57ee8337f02b4ffb9dc8d3a57d61a3bd",
+        SUPPLIERS: process.env.NOTION_DB_SUPPLIERS || "384c7326d2b44e498935e6e63b60c3e0",
+        EXPENSE_CATEGORIES: process.env.NOTION_DB_EXPENSE_CATEGORIES || "edfcf67bffea4556838550590bc16c83"
     }
 };

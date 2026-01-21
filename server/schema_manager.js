@@ -72,6 +72,28 @@ const KNOWN_PROPERTIES = {
         AccessLink: ["access_link", "Access Link"],
         AccessFotowall: ["access_fotowall", "Access Fotowall"]
     },
+    EXPENSES: {
+        Name: ["Name", "Nombre", "Descripción"],
+        Category: ["Category", "Categoría", "Rubro"],
+        Supplier: ["Supplier", "Proveedor"],
+        Total: ["Total", "Monto Total"],
+        Paid: ["Paid", "Pagado", "Monto Pagado"],
+        Status: ["Status", "Estado"],
+        Event: ["Event", "Evento"]
+    },
+    SUPPLIERS: {
+        Name: ["Name", "Nombre"],
+        Category: ["Category", "Categoría", "Rubro"],
+        Phone: ["Phone", "Teléfono", "Telefono"],
+        Email: ["Email", "Correo"],
+        Event: ["Event", "Evento"]
+    },
+    EXPENSE_CATEGORIES: {
+        Name: ["Name", "Nombre"],
+        Icon: ["Icon", "Icono"],
+        Subtitle: ["Subtitle", "Subtítulo", "Descripción"],
+        Event: ["Event", "Evento"]
+    },
 };
 
 class SchemaManager {
@@ -83,7 +105,10 @@ class SchemaManager {
             SUBSCRIBERS: {},
             STAFF_ROSTER: {},
             STAFF_ASSIGNMENTS: {},
-            STAFF: {}
+            STAFF: {},
+            EXPENSES: {},
+            SUPPLIERS: {},
+            EXPENSE_CATEGORIES: {}
         };
         this.initialized = false;
     }
@@ -100,6 +125,9 @@ class SchemaManager {
             if (DS.STAFF_ROSTER) await this.mapDatabase(DS.STAFF_ROSTER, 'STAFF_ROSTER', KNOWN_PROPERTIES.STAFF_ROSTER);
             if (DS.STAFF_ASSIGNMENTS) await this.mapDatabase(DS.STAFF_ASSIGNMENTS, 'STAFF_ASSIGNMENTS', KNOWN_PROPERTIES.STAFF_ASSIGNMENTS);
             if (DS.STAFF) await this.mapDatabase(DS.STAFF, 'STAFF', KNOWN_PROPERTIES.STAFF);
+            if (DS.EXPENSES) await this.mapDatabase(DS.EXPENSES, 'EXPENSES', KNOWN_PROPERTIES.EXPENSES);
+            if (DS.SUPPLIERS) await this.mapDatabase(DS.SUPPLIERS, 'SUPPLIERS', KNOWN_PROPERTIES.SUPPLIERS);
+            if (DS.EXPENSE_CATEGORIES) await this.mapDatabase(DS.EXPENSE_CATEGORIES, 'EXPENSE_CATEGORIES', KNOWN_PROPERTIES.EXPENSE_CATEGORIES);
 
             this.initialized = true;
             console.log("✅ Schema Manager Initialized.");

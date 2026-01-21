@@ -155,8 +155,8 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
               <button
                 onClick={() => alert(`¡Próximamente! Podrás actualizar a ${user.plan === 'freemium' ? 'Premium' : 'VIP'} para obtener más beneficios.`)}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold transition-all hover:scale-105 active:scale-95 ${user.plan === 'freemium'
-                    ? 'bg-purple-500 hover:bg-purple-600 text-white shadow-lg shadow-purple-500/30'
-                    : 'bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/30'
+                  ? 'bg-purple-500 hover:bg-purple-600 text-white shadow-lg shadow-purple-500/30'
+                  : 'bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/30'
                   }`}
               >
                 <span className="material-symbols-outlined text-sm">upgrade</span>
@@ -311,6 +311,15 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                         >
                           <span className="material-symbols-outlined text-lg">badge</span>
                           Staff
+                        </button>
+                      )}
+                      {(user.role === 'admin' || user.role === 'subscriber') && (
+                        <button
+                          onClick={() => navigate(`/costs/${inv.id}`)}
+                          className="flex flex-col items-center justify-center gap-1 py-3 bg-amber-50 dark:bg-amber-900/20 text-amber-600 font-bold text-[10px] rounded-xl hover:scale-[0.98] transition-all"
+                        >
+                          <span className="material-symbols-outlined text-lg">account_balance_wallet</span>
+                          Gastos
                         </button>
                       )}
                     </div>

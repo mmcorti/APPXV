@@ -17,6 +17,10 @@ import FotoWallModerationSettingsScreen from './screens/FotoWallModerationSettin
 import ManageSubscribersScreen from './screens/ManageSubscribers';
 import StaffRosterScreen from './screens/StaffRoster';
 import EventStaffAssignmentsScreen from './screens/EventStaffAssignments';
+import CostControl from './screens/CostControl';
+import AddExpense from './screens/AddExpense';
+import Suppliers from './screens/Suppliers';
+import ExpenseCategories from './screens/ExpenseCategories';
 import GoogleCallbackScreen from './screens/GoogleCallback';
 import { InvitationData, User, Guest, Table, SeatedGuest, StaffPermissions } from './types';
 import { notionService } from './services/notion';
@@ -531,6 +535,22 @@ const App: React.FC = () => {
         <Route
           path="/event-staff/:id"
           element={user ? <EventStaffAssignmentsScreen user={user} invitations={invitations} /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/costs/:id"
+          element={user ? <CostControl invitations={invitations} /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/costs/:id/add"
+          element={user ? <AddExpense /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/costs/:id/suppliers"
+          element={user ? <Suppliers /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/costs/:id/categories"
+          element={user ? <ExpenseCategories /> : <Navigate to="/login" />}
         />
         <Route
           path="/location/:id"
