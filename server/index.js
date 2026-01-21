@@ -2273,6 +2273,8 @@ app.get('/api/events/:eventId/balances', async (req, res) => {
         await schema.init();
         const { eventId } = req.params;
 
+        console.log('📊 Calculating balances for event:', eventId);
+
         // Get all participants
         const participantsRes = await notionClient.databases.query({
             database_id: DS.PAYMENT_PARTICIPANTS,
@@ -2283,6 +2285,7 @@ app.get('/api/events/:eventId/balances', async (req, res) => {
             name: p.properties[schema.get('PAYMENT_PARTICIPANTS', 'Name')]?.title?.[0]?.text?.content || '',
             weight: p.properties[schema.get('PAYMENT_PARTICIPANTS', 'Weight')]?.number || 1
         }));
+        console.log('   Found participants:', participants.length, participants.map(p => p.name));
 
         // Get all expenses for event
         const expensesRes = await notionClient.databases.query({
@@ -2291,6 +2294,7 @@ app.get('/api/events/:eventId/balances', async (req, res) => {
         });
         const expenses = expensesRes.results;
         const expenseIds = expenses.map(e => e.id);
+        console.log('   Found expenses:', expenses.length);
 
         // Get all payments
         let allPayments = [];

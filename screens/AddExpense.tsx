@@ -21,6 +21,9 @@ interface Payment {
     id: number;
     amount: number;
     participantId: string;
+    description: string;
+    date: string;
+    receiptUrl: string;
 }
 
 interface Participant {
@@ -37,7 +40,7 @@ const AddExpense: React.FC = () => {
     const [category, setCategory] = useState('');
     const [supplier, setSupplier] = useState('');
     const [totalAmount, setTotalAmount] = useState(0);
-    const [payments, setPayments] = useState<Payment[]>([{ id: Date.now(), amount: 0, participantId: '' }]);
+    const [payments, setPayments] = useState<Payment[]>([{ id: Date.now(), amount: 0, participantId: '', description: '', date: new Date().toISOString().split('T')[0], receiptUrl: '' }]);
     const [categories, setCategories] = useState<ExpenseCategory[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [participants, setParticipants] = useState<Participant[]>([]);
@@ -75,7 +78,7 @@ const AddExpense: React.FC = () => {
                         participantId: p.participantId
                     })));
                 } else {
-                    setPayments([{ id: Date.now(), amount: expense.paid || 0, participantId: '' }]);
+                    setPayments([{ id: Date.now(), amount: expense.paid || 0, participantId: '', description: '', date: new Date().toISOString().split('T')[0], receiptUrl: '' }]);
                 }
             }
         } catch (error) {
@@ -124,15 +127,17 @@ const AddExpense: React.FC = () => {
     };
 
     const addPayment = () => {
-        setPayments([...payments, { id: Date.now(), amount: 0, participantId: '' }]);
+        setPayments([...payments, { id: Date.now(), amount: 0, participantId: '', description: '', date: new Date().toISOString().split('T')[0], receiptUrl: '' }]);
     };
 
-    const updatePayment = (id: number, field: 'amount' | 'participantId', value: string) => {
+    const updatePayment = (id: number, field: keyof Payment, value: string) => {
         if (field === 'amount') {
             const numValue = parseFloat(value) || 0;
             setPayments(payments.map(p => p.id === id ? { ...p, amount: numValue } : p));
+        } else if (field === 'id') {
+            // Skip id updates
         } else {
-            setPayments(payments.map(p => p.id === id ? { ...p, participantId: value } : p));
+            setPayments(payments.map(p => p.id === id ? { ...p, [field]: value } : p));
         }
     };
 
@@ -143,7 +148,7 @@ const AddExpense: React.FC = () => {
     };
 
     const handlePayTotal = () => {
-        setPayments([{ id: Date.now(), amount: totalAmount, participantId: participants[0]?.id || '' }]);
+        setPayments([{ id: Date.now(), amount: totalAmount, participantId: participants[0]?.id || '', description: 'Pago total', date: new Date().toISOString().split('T')[0], receiptUrl: '' }]);
     };
 
     const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -310,9 +315,15 @@ const AddExpense: React.FC = () => {
                                                     value={payment.amount || ''}
                                                     onChange={(e) => updatePayment(payment.id, 'amount', e.target.value)}
                                                     className="w-full h-12 bg-white dark:bg-[#193324] border border-slate-200 dark:border-[#326748] rounded-xl pl-8 pr-4 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
-                                                    placeholder={`Pago ${index + 1}`}
+                                                    placeholder={`Monto pago ${index + 1}`}
                                                 />
                                             </div>
+                                            <input
+                                                type="date"
+                                                value={payment.date}
+                                                onChange={(e) => updatePayment(payment.id, 'date', e.target.value)}
+                                                className="w-32 h-12 bg-white dark:bg-[#193324] border border-slate-200 dark:border-[#326748] rounded-xl px-3 text-sm focus:ring-2 focus:ring-primary/50 outline-none"
+                                            />
                                             {payments.length > 1 && (
                                                 <button
                                                     type="button"
@@ -323,6 +334,14 @@ const AddExpense: React.FC = () => {
                                                 </button>
                                             )}
                                         </div>
+                                        {/* Description */}
+                                        <input
+                                            type="text"
+                                            value={payment.description}
+                                            onChange={(e) => updatePayment(payment.id, 'description', e.target.value)}
+                                            className="w-full h-10 bg-white dark:bg-[#193324] border border-slate-200 dark:border-[#326748] rounded-lg px-3 text-sm focus:ring-2 focus:ring-primary/50 outline-none"
+                                            placeholder="Descripción (ej: Seña, Cuota 1...)"
+                                        />
                                         {/* Participant Selector */}
                                         <select
                                             value={payment.participantId}
@@ -334,6 +353,39 @@ const AddExpense: React.FC = () => {
                                                 <option key={p.id} value={p.id}>{p.name}</option>
                                             ))}
                                         </select>
+                                        {/* Receipt Upload */}
+                                        <div className="flex gap-2 items-center">
+                                            <label className="flex-1 h-10 border border-dashed border-slate-300 dark:border-[#326748] rounded-lg flex items-center justify-center gap-2 text-slate-400 dark:text-[#92c9a9] cursor-pointer hover:border-primary hover:text-primary transition-all">
+                                                <span className="material-symbols-outlined text-base">receipt_long</span>
+                                                <span className="text-xs font-medium">
+                                                    {payment.receiptUrl ? 'Comprobante cargado ✓' : 'Subir comprobante'}
+                                                </span>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            const reader = new FileReader();
+                                                            reader.onload = () => {
+                                                                updatePayment(payment.id, 'receiptUrl', reader.result as string);
+                                                            };
+                                                            reader.readAsDataURL(file);
+                                                        }
+                                                    }}
+                                                />
+                                            </label>
+                                            {payment.receiptUrl && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => updatePayment(payment.id, 'receiptUrl', '')}
+                                                    className="size-10 flex items-center justify-center text-rose-500 bg-rose-500/10 rounded-lg"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">delete</span>
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
 
