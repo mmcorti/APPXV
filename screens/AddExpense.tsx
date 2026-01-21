@@ -20,6 +20,13 @@ interface Supplier {
 interface Payment {
     id: number;
     amount: number;
+    participantId: string;
+}
+
+interface Participant {
+    id: string;
+    name: string;
+    weight: number;
 }
 
 const AddExpense: React.FC = () => {
@@ -30,9 +37,10 @@ const AddExpense: React.FC = () => {
     const [category, setCategory] = useState('');
     const [supplier, setSupplier] = useState('');
     const [totalAmount, setTotalAmount] = useState(0);
-    const [payments, setPayments] = useState<Payment[]>([{ id: Date.now(), amount: 0 }]);
+    const [payments, setPayments] = useState<Payment[]>([{ id: Date.now(), amount: 0, participantId: '' }]);
     const [categories, setCategories] = useState<ExpenseCategory[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+    const [participants, setParticipants] = useState<Participant[]>([]);
     const [hasContract, setHasContract] = useState(false);
     const [hasAdvance, setHasAdvance] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -42,6 +50,7 @@ const AddExpense: React.FC = () => {
         if (eventId) {
             loadCategories();
             loadSuppliers();
+            loadParticipants();
             if (isEditMode && expenseId) {
                 loadExpense();
             }
@@ -57,12 +66,31 @@ const AddExpense: React.FC = () => {
                 setCategory(expense.category || '');
                 setSupplier(expense.supplier || expense.name || '');
                 setTotalAmount(expense.total || 0);
-                setPayments([{ id: Date.now(), amount: expense.paid || 0 }]);
+                // Load existing payments from the Payments database
+                const existingPayments = await notionService.getPayments(expenseId!);
+                if (existingPayments.length > 0) {
+                    setPayments(existingPayments.map((p: any) => ({
+                        id: Date.now() + Math.random(),
+                        amount: p.amount,
+                        participantId: p.participantId
+                    })));
+                } else {
+                    setPayments([{ id: Date.now(), amount: expense.paid || 0, participantId: '' }]);
+                }
             }
         } catch (error) {
             console.error('Error loading expense:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadParticipants = async () => {
+        try {
+            const data = await notionService.getParticipants(eventId!);
+            setParticipants(data);
+        } catch (error) {
+            console.error('Error loading participants:', error);
         }
     };
 
@@ -96,12 +124,16 @@ const AddExpense: React.FC = () => {
     };
 
     const addPayment = () => {
-        setPayments([...payments, { id: Date.now(), amount: 0 }]);
+        setPayments([...payments, { id: Date.now(), amount: 0, participantId: '' }]);
     };
 
-    const updatePayment = (id: number, value: string) => {
-        const numValue = parseFloat(value) || 0;
-        setPayments(payments.map(p => p.id === id ? { ...p, amount: numValue } : p));
+    const updatePayment = (id: number, field: 'amount' | 'participantId', value: string) => {
+        if (field === 'amount') {
+            const numValue = parseFloat(value) || 0;
+            setPayments(payments.map(p => p.id === id ? { ...p, amount: numValue } : p));
+        } else {
+            setPayments(payments.map(p => p.id === id ? { ...p, participantId: value } : p));
+        }
     };
 
     const removePayment = (id: number) => {
@@ -111,7 +143,7 @@ const AddExpense: React.FC = () => {
     };
 
     const handlePayTotal = () => {
-        setPayments([{ id: Date.now(), amount: totalAmount }]);
+        setPayments([{ id: Date.now(), amount: totalAmount, participantId: participants[0]?.id || '' }]);
     };
 
     const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -140,9 +172,32 @@ const AddExpense: React.FC = () => {
 
             if (isEditMode && expenseId) {
                 await notionService.updateExpense(expenseId, expenseData);
+                // Delete old payments and save new ones
+                const oldPayments = await notionService.getPayments(expenseId);
+                for (const oldP of oldPayments) {
+                    await notionService.deletePayment(oldP.id);
+                }
             } else {
-                await notionService.createExpense(eventId, expenseData);
+                const newExpense = await notionService.createExpense(eventId, expenseData);
+                // Save payments to Payments database
+                for (const payment of payments.filter(p => p.amount > 0 && p.participantId)) {
+                    await notionService.createPayment(newExpense.id, {
+                        participantId: payment.participantId,
+                        amount: payment.amount
+                    });
+                }
             }
+
+            // For edit mode, also save the new payments
+            if (isEditMode && expenseId) {
+                for (const payment of payments.filter(p => p.amount > 0 && p.participantId)) {
+                    await notionService.createPayment(expenseId, {
+                        participantId: payment.participantId,
+                        amount: payment.amount
+                    });
+                }
+            }
+
             navigate(`/costs/${eventId}`);
         } catch (error) {
             console.error('Error saving expense:', error);
@@ -246,26 +301,39 @@ const AddExpense: React.FC = () => {
 
                             <div className="space-y-3">
                                 {payments.map((payment, index) => (
-                                    <div key={payment.id} className="flex gap-2 items-center">
-                                        <div className="relative flex-1">
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#92c9a9]">$</span>
-                                            <input
-                                                type="number"
-                                                value={payment.amount || ''}
-                                                onChange={(e) => updatePayment(payment.id, e.target.value)}
-                                                className="w-full h-12 bg-white dark:bg-[#193324] border border-slate-200 dark:border-[#326748] rounded-xl pl-8 pr-4 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
-                                                placeholder={`Pago ${index + 1}`}
-                                            />
+                                    <div key={payment.id} className="flex flex-col gap-2 p-3 bg-slate-50 dark:bg-[#102218] rounded-xl">
+                                        <div className="flex gap-2 items-center">
+                                            <div className="relative flex-1">
+                                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#92c9a9]">$</span>
+                                                <input
+                                                    type="number"
+                                                    value={payment.amount || ''}
+                                                    onChange={(e) => updatePayment(payment.id, 'amount', e.target.value)}
+                                                    className="w-full h-12 bg-white dark:bg-[#193324] border border-slate-200 dark:border-[#326748] rounded-xl pl-8 pr-4 text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
+                                                    placeholder={`Pago ${index + 1}`}
+                                                />
+                                            </div>
+                                            {payments.length > 1 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removePayment(payment.id)}
+                                                    className="size-10 flex items-center justify-center text-rose-500 bg-rose-500/10 rounded-xl"
+                                                >
+                                                    <span className="material-symbols-outlined text-xl">remove</span>
+                                                </button>
+                                            )}
                                         </div>
-                                        {payments.length > 1 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => removePayment(payment.id)}
-                                                className="size-10 flex items-center justify-center text-rose-500 bg-rose-500/10 rounded-xl"
-                                            >
-                                                <span className="material-symbols-outlined text-xl">remove</span>
-                                            </button>
-                                        )}
+                                        {/* Participant Selector */}
+                                        <select
+                                            value={payment.participantId}
+                                            onChange={(e) => updatePayment(payment.id, 'participantId', e.target.value)}
+                                            className="w-full h-10 bg-white dark:bg-[#193324] border border-slate-200 dark:border-[#326748] rounded-lg px-3 text-sm focus:ring-2 focus:ring-primary/50 outline-none"
+                                        >
+                                            <option value="" disabled>¿Quién pagó?</option>
+                                            {participants.map(p => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))}
+                                        </select>
                                     </div>
                                 ))}
 

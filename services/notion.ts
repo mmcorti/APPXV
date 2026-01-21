@@ -291,5 +291,63 @@ export const notionService = {
         const res = await fetch(`${API_URL}/expense-categories/${id}`, { method: 'DELETE' });
         if (!res.ok) throw new Error('Failed to delete expense category');
         return await res.json();
+    },
+
+    // === PAYMENT PARTICIPANTS ===
+    async getParticipants(eventId: string) {
+        const res = await fetch(`${API_URL}/events/${eventId}/participants`);
+        if (!res.ok) throw new Error('Failed to fetch participants');
+        return await res.json();
+    },
+    async createParticipant(eventId: string, participant: { name: string; weight?: number }) {
+        const res = await fetch(`${API_URL}/events/${eventId}/participants`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(participant)
+        });
+        if (!res.ok) throw new Error('Failed to create participant');
+        return await res.json();
+    },
+    async updateParticipant(id: string, participant: Partial<{ name: string; weight: number }>) {
+        const res = await fetch(`${API_URL}/participants/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(participant)
+        });
+        if (!res.ok) throw new Error('Failed to update participant');
+        return await res.json();
+    },
+    async deleteParticipant(id: string) {
+        const res = await fetch(`${API_URL}/participants/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete participant');
+        return await res.json();
+    },
+
+    // === PAYMENTS ===
+    async getPayments(expenseId: string) {
+        const res = await fetch(`${API_URL}/expenses/${expenseId}/payments`);
+        if (!res.ok) throw new Error('Failed to fetch payments');
+        return await res.json();
+    },
+    async createPayment(expenseId: string, payment: { participantId: string; amount: number; date?: string }) {
+        const res = await fetch(`${API_URL}/expenses/${expenseId}/payments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payment)
+        });
+        if (!res.ok) throw new Error('Failed to create payment');
+        return await res.json();
+    },
+    async deletePayment(id: string) {
+        const res = await fetch(`${API_URL}/payments/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete payment');
+        return await res.json();
+    },
+
+    // === BALANCES ===
+    async getBalances(eventId: string) {
+        const res = await fetch(`${API_URL}/events/${eventId}/balances`);
+        if (!res.ok) throw new Error('Failed to fetch balances');
+        return await res.json();
     }
 };

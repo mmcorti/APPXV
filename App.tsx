@@ -21,6 +21,8 @@ import CostControl from './screens/CostControl';
 import AddExpense from './screens/AddExpense';
 import Suppliers from './screens/Suppliers';
 import ExpenseCategories from './screens/ExpenseCategories';
+import Participants from './screens/Participants';
+import BalanceSummary from './screens/BalanceSummary';
 import GoogleCallbackScreen from './screens/GoogleCallback';
 import { InvitationData, User, Guest, Table, SeatedGuest, StaffPermissions } from './types';
 import { notionService } from './services/notion';
@@ -555,6 +557,14 @@ const App: React.FC = () => {
         <Route
           path="/costs/:id/categories"
           element={user ? <ExpenseCategories /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/costs/:id/participants"
+          element={user ? <Participants /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/costs/:id/balances"
+          element={user ? <BalanceSummary /> : <Navigate to="/login" />}
         />
         <Route
           path="/location/:id"

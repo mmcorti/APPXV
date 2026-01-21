@@ -2124,6 +2124,247 @@ app.delete('/api/expense-categories/:id', async (req, res) => {
     }
 });
 
+// ========================================
+// PAYMENT PARTICIPANTS ENDPOINTS
+// ========================================
+app.get('/api/events/:eventId/participants', async (req, res) => {
+    try {
+        await schema.init();
+        const { eventId } = req.params;
+        const response = await notionClient.databases.query({
+            database_id: DS.PAYMENT_PARTICIPANTS,
+            filter: { property: schema.get('PAYMENT_PARTICIPANTS', 'EventId'), rich_text: { equals: eventId } }
+        });
+        const participants = response.results.map(p => ({
+            id: p.id,
+            name: p.properties[schema.get('PAYMENT_PARTICIPANTS', 'Name')]?.title?.[0]?.text?.content || '',
+            eventId: p.properties[schema.get('PAYMENT_PARTICIPANTS', 'EventId')]?.rich_text?.[0]?.text?.content || '',
+            weight: p.properties[schema.get('PAYMENT_PARTICIPANTS', 'Weight')]?.number || 1
+        }));
+        res.json(participants);
+    } catch (error) {
+        console.error("❌ Error fetching participants:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/events/:eventId/participants', async (req, res) => {
+    try {
+        await schema.init();
+        const { eventId } = req.params;
+        const { name, weight = 1 } = req.body;
+        const response = await notionClient.pages.create({
+            parent: { database_id: DB.PAYMENT_PARTICIPANTS },
+            properties: {
+                [schema.get('PAYMENT_PARTICIPANTS', 'Name')]: { title: [{ text: { content: name } }] },
+                [schema.get('PAYMENT_PARTICIPANTS', 'EventId')]: { rich_text: [{ text: { content: eventId } }] },
+                [schema.get('PAYMENT_PARTICIPANTS', 'Weight')]: { number: weight }
+            }
+        });
+        res.json({
+            id: response.id,
+            name,
+            eventId,
+            weight
+        });
+    } catch (error) {
+        console.error("❌ Error creating participant:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.put('/api/participants/:id', async (req, res) => {
+    try {
+        await schema.init();
+        const { id } = req.params;
+        const { name, weight } = req.body;
+        const properties = {};
+        if (name !== undefined) properties[schema.get('PAYMENT_PARTICIPANTS', 'Name')] = { title: [{ text: { content: name } }] };
+        if (weight !== undefined) properties[schema.get('PAYMENT_PARTICIPANTS', 'Weight')] = { number: weight };
+        await notionClient.pages.update({ page_id: id, properties });
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Error updating participant:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/participants/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await notionClient.pages.update({ page_id: id, archived: true });
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Error deleting participant:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========================================
+// PAYMENTS ENDPOINTS
+// ========================================
+app.get('/api/expenses/:expenseId/payments', async (req, res) => {
+    try {
+        await schema.init();
+        const { expenseId } = req.params;
+        const response = await notionClient.databases.query({
+            database_id: DS.PAYMENTS,
+            filter: { property: schema.get('PAYMENTS', 'ExpenseId'), rich_text: { equals: expenseId } }
+        });
+        const payments = response.results.map(p => ({
+            id: p.id,
+            expenseId: p.properties[schema.get('PAYMENTS', 'ExpenseId')]?.rich_text?.[0]?.text?.content || '',
+            participantId: p.properties[schema.get('PAYMENTS', 'ParticipantId')]?.rich_text?.[0]?.text?.content || '',
+            amount: p.properties[schema.get('PAYMENTS', 'Amount')]?.number || 0,
+            date: p.properties[schema.get('PAYMENTS', 'Date')]?.date?.start || null
+        }));
+        res.json(payments);
+    } catch (error) {
+        console.error("❌ Error fetching payments:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/expenses/:expenseId/payments', async (req, res) => {
+    try {
+        await schema.init();
+        const { expenseId } = req.params;
+        const { participantId, amount, date } = req.body;
+        const properties = {
+            [schema.get('PAYMENTS', 'ExpenseId')]: { rich_text: [{ text: { content: expenseId } }] },
+            [schema.get('PAYMENTS', 'ParticipantId')]: { rich_text: [{ text: { content: participantId } }] },
+            [schema.get('PAYMENTS', 'Amount')]: { number: amount }
+        };
+        if (date) properties[schema.get('PAYMENTS', 'Date')] = { date: { start: date } };
+
+        const response = await notionClient.pages.create({
+            parent: { database_id: DB.PAYMENTS },
+            properties
+        });
+        res.json({
+            id: response.id,
+            expenseId,
+            participantId,
+            amount,
+            date
+        });
+    } catch (error) {
+        console.error("❌ Error creating payment:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/payments/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await notionClient.pages.update({ page_id: id, archived: true });
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Error deleting payment:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========================================
+// BALANCES ENDPOINT (calculate who owes whom)
+// ========================================
+app.get('/api/events/:eventId/balances', async (req, res) => {
+    try {
+        await schema.init();
+        const { eventId } = req.params;
+
+        // Get all participants
+        const participantsRes = await notionClient.databases.query({
+            database_id: DS.PAYMENT_PARTICIPANTS,
+            filter: { property: schema.get('PAYMENT_PARTICIPANTS', 'EventId'), rich_text: { equals: eventId } }
+        });
+        const participants = participantsRes.results.map(p => ({
+            id: p.id,
+            name: p.properties[schema.get('PAYMENT_PARTICIPANTS', 'Name')]?.title?.[0]?.text?.content || '',
+            weight: p.properties[schema.get('PAYMENT_PARTICIPANTS', 'Weight')]?.number || 1
+        }));
+
+        // Get all expenses for event
+        const expensesRes = await notionClient.databases.query({
+            database_id: DS.EXPENSES,
+            filter: { property: schema.get('EXPENSES', 'Event'), rich_text: { equals: eventId } }
+        });
+        const expenses = expensesRes.results;
+        const expenseIds = expenses.map(e => e.id);
+
+        // Get all payments
+        let allPayments = [];
+        for (const expenseId of expenseIds) {
+            const paymentsRes = await notionClient.databases.query({
+                database_id: DS.PAYMENTS,
+                filter: { property: schema.get('PAYMENTS', 'ExpenseId'), rich_text: { equals: expenseId } }
+            });
+            allPayments = allPayments.concat(paymentsRes.results.map(p => ({
+                expenseId: p.properties[schema.get('PAYMENTS', 'ExpenseId')]?.rich_text?.[0]?.text?.content || '',
+                participantId: p.properties[schema.get('PAYMENTS', 'ParticipantId')]?.rich_text?.[0]?.text?.content || '',
+                amount: p.properties[schema.get('PAYMENTS', 'Amount')]?.number || 0
+            })));
+        }
+
+        // Calculate totals
+        const totalExpenses = expenses.reduce((sum, e) => {
+            return sum + (e.properties[schema.get('EXPENSES', 'Total')]?.number || 0);
+        }, 0);
+
+        // Calculate weighted shares
+        const totalWeight = participants.reduce((sum, p) => sum + p.weight, 0);
+
+        // Calculate balance per participant
+        const balances = participants.map(p => {
+            const fairShare = totalWeight > 0 ? (totalExpenses * p.weight) / totalWeight : 0;
+            const totalPaid = allPayments
+                .filter(pay => pay.participantId === p.id)
+                .reduce((sum, pay) => sum + pay.amount, 0);
+            return {
+                participantId: p.id,
+                name: p.name,
+                weight: p.weight,
+                fairShare,
+                totalPaid,
+                balance: totalPaid - fairShare // positive = owed money, negative = owes money
+            };
+        });
+
+        // Calculate settlements (who pays whom)
+        const debtors = balances.filter(b => b.balance < 0).map(b => ({ ...b, owes: Math.abs(b.balance) }));
+        const creditors = balances.filter(b => b.balance > 0).map(b => ({ ...b, owed: b.balance }));
+
+        const settlements = [];
+        let i = 0, j = 0;
+        while (i < debtors.length && j < creditors.length) {
+            const debtor = debtors[i];
+            const creditor = creditors[j];
+            const amount = Math.min(debtor.owes, creditor.owed);
+            if (amount > 0.01) { // ignore tiny amounts
+                settlements.push({
+                    from: { id: debtor.participantId, name: debtor.name },
+                    to: { id: creditor.participantId, name: creditor.name },
+                    amount: Math.round(amount * 100) / 100
+                });
+            }
+            debtor.owes -= amount;
+            creditor.owed -= amount;
+            if (debtor.owes < 0.01) i++;
+            if (creditor.owed < 0.01) j++;
+        }
+
+        res.json({
+            totalExpenses,
+            totalWeight,
+            balances,
+            settlements
+        });
+    } catch (error) {
+        console.error("❌ Error calculating balances:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Catch-all for frontend
 app.get(/.*/, (req, res) => {
     res.sendFile(path.join(__dirname, '../dist', 'index.html'));
