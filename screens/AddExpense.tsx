@@ -9,6 +9,14 @@ interface ExpenseCategory {
     subtitle: string;
 }
 
+interface Supplier {
+    id: string;
+    name: string;
+    category: string;
+    phone: string;
+    email: string;
+}
+
 interface Payment {
     id: number;
     amount: number;
@@ -23,12 +31,16 @@ const AddExpense: React.FC = () => {
     const [totalAmount, setTotalAmount] = useState(0);
     const [payments, setPayments] = useState<Payment[]>([{ id: Date.now(), amount: 0 }]);
     const [categories, setCategories] = useState<ExpenseCategory[]>([]);
+    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [hasContract, setHasContract] = useState(false);
     const [hasAdvance, setHasAdvance] = useState(false);
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        if (eventId) loadCategories();
+        if (eventId) {
+            loadCategories();
+            loadSuppliers();
+        }
     }, [eventId]);
 
     const loadCategories = async () => {
@@ -38,6 +50,26 @@ const AddExpense: React.FC = () => {
         } catch (error) {
             console.error('Error loading categories:', error);
         }
+    };
+
+    const loadSuppliers = async () => {
+        try {
+            const data = await notionService.getSuppliers(eventId!);
+            setSuppliers(data);
+        } catch (error) {
+            console.error('Error loading suppliers:', error);
+        }
+    };
+
+    // Filter suppliers by selected category
+    const filteredSuppliers = category && category !== 'Otro'
+        ? suppliers.filter(s => s.category?.toLowerCase() === category.toLowerCase())
+        : suppliers;
+
+    // Reset supplier when category changes
+    const handleCategoryChange = (newCategory: string) => {
+        setCategory(newCategory);
+        setSupplier(''); // Reset supplier selection
     };
 
     const addPayment = () => {
@@ -110,7 +142,7 @@ const AddExpense: React.FC = () => {
                         <label className="block text-sm font-semibold text-slate-600 dark:text-slate-400 px-1">Categoría</label>
                         <select
                             value={category}
-                            onChange={(e) => setCategory(e.target.value)}
+                            onChange={(e) => handleCategoryChange(e.target.value)}
                             className="w-full h-14 bg-white dark:bg-[#193324] border border-slate-200 dark:border-[#326748] rounded-xl px-4 text-base focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
                         >
                             <option value="" disabled>Seleccionar categoría</option>
@@ -121,16 +153,41 @@ const AddExpense: React.FC = () => {
                         </select>
                     </div>
 
-                    {/* Supplier Input */}
+                    {/* Supplier Select */}
                     <div className="space-y-2">
                         <label className="block text-sm font-semibold text-slate-600 dark:text-slate-400 px-1">Proveedor</label>
-                        <input
-                            type="text"
-                            value={supplier}
-                            onChange={(e) => setSupplier(e.target.value)}
-                            className="w-full h-14 bg-white dark:bg-[#193324] border border-slate-200 dark:border-[#326748] rounded-xl px-4 text-base focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-[#92c9a9]/50"
-                            placeholder="Nombre del proveedor o empresa"
-                        />
+                        {filteredSuppliers.length > 0 ? (
+                            <select
+                                value={supplier}
+                                onChange={(e) => setSupplier(e.target.value)}
+                                disabled={!category}
+                                className="w-full h-14 bg-white dark:bg-[#193324] border border-slate-200 dark:border-[#326748] rounded-xl px-4 text-base focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all disabled:opacity-50"
+                            >
+                                <option value="" disabled>{category ? 'Seleccionar proveedor' : 'Primero selecciona una categoría'}</option>
+                                {filteredSuppliers.map(sup => (
+                                    <option key={sup.id} value={sup.name}>{sup.name}</option>
+                                ))}
+                                <option value="__new__">+ Agregar nuevo proveedor</option>
+                            </select>
+                        ) : (
+                            <input
+                                type="text"
+                                value={supplier}
+                                onChange={(e) => setSupplier(e.target.value)}
+                                className="w-full h-14 bg-white dark:bg-[#193324] border border-slate-200 dark:border-[#326748] rounded-xl px-4 text-base focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-[#92c9a9]/50"
+                                placeholder={category ? "No hay proveedores - Ingresa el nombre" : "Primero selecciona una categoría"}
+                                disabled={!category}
+                            />
+                        )}
+                        {supplier === '__new__' && (
+                            <input
+                                type="text"
+                                onChange={(e) => setSupplier(e.target.value)}
+                                className="w-full h-14 bg-white dark:bg-[#193324] border border-slate-200 dark:border-[#326748] rounded-xl px-4 text-base focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-[#92c9a9]/50 mt-2"
+                                placeholder="Nombre del nuevo proveedor"
+                                autoFocus
+                            />
+                        )}
                     </div>
 
                     {/* Total Amount */}
