@@ -74,14 +74,14 @@ const WelcomeScreen: React.FC = () => {
       <div className="relative z-10 flex flex-col items-center px-4 pt-10 pb-20 min-h-screen">
 
         {/* Logo and Main CTA Card (Transparent Glass) */}
-        <div className="w-full max-w-[380px] h-[340px] flex flex-col items-center justify-center rounded-[48px] bg-white/20 backdrop-blur-3xl border border-white/40 mb-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] px-10">
+        <div className="w-full max-w-[440px] h-[400px] flex flex-col items-center justify-center rounded-[48px] bg-white/20 backdrop-blur-3xl border border-white/40 mb-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] px-10">
           {/* Logo Section */}
           <div className="mb-10 scale-110">
-            <h1 className="text-white text-7xl font-black italic tracking-tighter flex items-end drop-shadow-md">
-              <span className="text-[90px] leading-none">A</span>
-              <span className="text-[#135bec] tracking-[-0.15em] ml-[-12px]">P</span>
-              <span className="ml-[4px]">PXV</span>
-            </h1>
+            <img
+              src="/logo.png"
+              alt="APPXV Logo"
+              className="w-[320px] h-auto drop-shadow-[0_0_20px_rgba(255,255,255,0.3)]"
+            />
           </div>
 
           {/* Main Button - Exactly as requested */}
@@ -94,11 +94,11 @@ const WelcomeScreen: React.FC = () => {
         </div>
 
         {/* Pricing Cards Container */}
-        <div className="w-full max-w-[1100px] grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16 px-4">
+        <div className="w-full max-w-[1000px] grid grid-cols-1 lg:grid-cols-3 gap-6 mb-16 px-4">
           {plans.map((plan, idx) => (
             <div
               key={idx}
-              className={`relative bg-white rounded-[40px] overflow-hidden flex flex-col shadow-2xl transition-all duration-300 hover:scale-[1.02] ${plan.isPopular ? 'ring-[6px] ring-[#135bec] border-transparent' : 'border border-slate-100'}`}
+              className={`relative bg-white rounded-[32px] overflow-hidden flex flex-col shadow-2xl transition-all duration-300 hover:scale-[1.02] ${plan.isPopular ? 'ring-[4px] ring-[#135bec] border-transparent' : 'border border-slate-100'}`}
             >
               {plan.isPopular && (
                 <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-5 py-2 rounded-full shadow-xl flex items-center gap-2 z-20 border border-slate-100">
@@ -108,18 +108,18 @@ const WelcomeScreen: React.FC = () => {
               )}
 
               {/* Card Header */}
-              <div className={`${plan.color} py-8 px-4 text-center shadow-inner`}>
-                <h3 className="text-white text-xl font-black tracking-[0.2em]">{plan.name}</h3>
+              <div className={`${plan.color} py-6 px-4 text-center shadow-inner`}>
+                <h3 className="text-white text-lg font-black tracking-[0.2em]">{plan.name}</h3>
               </div>
 
               {/* Card Body */}
-              <div className="p-10 flex-1 flex flex-col items-center">
-                <p className="text-[#1e293b] text-4xl font-black mb-8 tracking-tighter">{plan.price}</p>
+              <div className="p-8 flex-1 flex flex-col items-center">
+                <p className="text-[#1e293b] text-3xl font-black mb-6 tracking-tighter">{plan.price}</p>
 
-                <ul className="space-y-4 mb-12 w-full">
+                <ul className="space-y-3 mb-10 w-full">
                   {plan.features.map((feat, i) => (
-                    <li key={i} className="flex items-start gap-3.5 text-[14px] font-bold text-slate-600 leading-tight">
-                      <span className="material-symbols-outlined text-[#135bec] text-[20px] font-black">check</span>
+                    <li key={i} className="flex items-start gap-3 text-[13px] font-bold text-slate-600 leading-tight">
+                      <span className="material-symbols-outlined text-[#135bec] text-[18px] font-black">check</span>
                       <span className="text-left">{feat}</span>
                     </li>
                   ))}
@@ -127,9 +127,9 @@ const WelcomeScreen: React.FC = () => {
 
                 <button
                   onClick={plan.buttonAction}
-                  className={`w-full py-4 rounded-full border-2 font-black text-xs uppercase tracking-widest transition-all transform active:scale-95 ${plan.isPopular
-                      ? 'bg-[#135bec] text-white border-transparent shadow-xl shadow-blue-500/30'
-                      : 'bg-transparent border-[#135bec] text-[#135bec] hover:bg-blue-50'
+                  className={`w-full py-3.5 rounded-full border-2 font-black text-[10px] uppercase tracking-widest transition-all transform active:scale-95 ${plan.isPopular
+                    ? 'bg-[#135bec] text-white border-transparent shadow-xl shadow-blue-500/30'
+                    : 'bg-transparent border-[#135bec] text-[#135bec] hover:bg-blue-50'
                     }`}
                 >
                   {plan.buttonText}
