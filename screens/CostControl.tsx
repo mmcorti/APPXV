@@ -193,20 +193,37 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
             {/* FAB Buttons */}
             <div className="fixed bottom-24 right-6 flex flex-col items-end gap-4 z-50">
                 <button
+                    onClick={() => navigate(`/costs/${id}/balances`)}
+                    className="size-12 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-lg"
+                    title="Cuentas Parejas"
+                >
+                    <span className="material-symbols-outlined">calculate</span>
+                </button>
+                <button
+                    onClick={() => navigate(`/costs/${id}/participants`)}
+                    className="size-12 rounded-full bg-white dark:bg-[#193324] text-slate-700 dark:text-white flex items-center justify-center shadow-lg border border-slate-200 dark:border-white/10"
+                    title="Participantes"
+                >
+                    <span className="material-symbols-outlined">groups</span>
+                </button>
+                <button
                     onClick={() => navigate(`/costs/${id}/suppliers`)}
                     className="size-12 rounded-full bg-white dark:bg-[#193324] text-slate-700 dark:text-white flex items-center justify-center shadow-lg border border-slate-200 dark:border-white/10"
+                    title="Proveedores"
                 >
                     <span className="material-symbols-outlined">group</span>
                 </button>
                 <button
                     onClick={() => navigate(`/costs/${id}/categories`)}
                     className="size-12 rounded-full bg-white dark:bg-[#193324] text-slate-700 dark:text-white flex items-center justify-center shadow-lg border border-slate-200 dark:border-white/10"
+                    title="Categorías"
                 >
                     <span className="material-symbols-outlined">category</span>
                 </button>
                 <button
                     onClick={() => navigate(`/costs/${id}/add`)}
                     className="size-16 rounded-full bg-primary text-[#102218] flex items-center justify-center shadow-xl shadow-primary/20 hover:scale-105 transition-transform"
+                    title="Agregar Gasto"
                 >
                     <span className="material-symbols-outlined text-3xl font-bold">add</span>
                 </button>

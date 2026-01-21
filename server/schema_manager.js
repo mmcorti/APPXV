@@ -94,6 +94,17 @@ const KNOWN_PROPERTIES = {
         Subtitle: ["Subtitle", "Subtítulo", "Descripción"],
         Event: ["Event", "Evento"]
     },
+    PAYMENT_PARTICIPANTS: {
+        Name: ["Name", "Nombre"],
+        EventId: ["EventId", "Event ID", "Evento"],
+        Weight: ["Weight", "Peso"]
+    },
+    PAYMENTS: {
+        ExpenseId: ["ExpenseId", "Expense ID", "Gasto"],
+        ParticipantId: ["ParticipantId", "Participant ID", "Participante"],
+        Amount: ["Amount", "Monto"],
+        Date: ["Date", "Fecha"]
+    },
 };
 
 class SchemaManager {
@@ -108,7 +119,9 @@ class SchemaManager {
             STAFF: {},
             EXPENSES: {},
             SUPPLIERS: {},
-            EXPENSE_CATEGORIES: {}
+            EXPENSE_CATEGORIES: {},
+            PAYMENT_PARTICIPANTS: {},
+            PAYMENTS: {}
         };
         this.initialized = false;
     }
@@ -128,6 +141,8 @@ class SchemaManager {
             if (DS.EXPENSES) await this.mapDatabase(DS.EXPENSES, 'EXPENSES', KNOWN_PROPERTIES.EXPENSES);
             if (DS.SUPPLIERS) await this.mapDatabase(DS.SUPPLIERS, 'SUPPLIERS', KNOWN_PROPERTIES.SUPPLIERS);
             if (DS.EXPENSE_CATEGORIES) await this.mapDatabase(DS.EXPENSE_CATEGORIES, 'EXPENSE_CATEGORIES', KNOWN_PROPERTIES.EXPENSE_CATEGORIES);
+            if (DS.PAYMENT_PARTICIPANTS) await this.mapDatabase(DS.PAYMENT_PARTICIPANTS, 'PAYMENT_PARTICIPANTS', KNOWN_PROPERTIES.PAYMENT_PARTICIPANTS);
+            if (DS.PAYMENTS) await this.mapDatabase(DS.PAYMENTS, 'PAYMENTS', KNOWN_PROPERTIES.PAYMENTS);
 
             this.initialized = true;
             console.log("✅ Schema Manager Initialized.");
