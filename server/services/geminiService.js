@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Available models that support image generation (2026)
-const IMAGE_MODEL = 'gemini-2.5-flash';
+// Nano Banana model for image generation (2026)
+const IMAGE_MODEL = 'gemini-2.5-flash-image';
 
 /**
  * Generate an image using Gemini API
