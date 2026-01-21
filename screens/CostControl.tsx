@@ -25,7 +25,6 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
     const [filter, setFilter] = useState<'all' | 'Pagado' | 'Pendiente' | 'Adelanto'>('all');
 
     const event = invitations.find(inv => inv.id === id);
-    const budget = event?.budget || 50000;
 
     useEffect(() => {
         if (id) loadExpenses();
@@ -48,9 +47,12 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
         ? expenses
         : expenses.filter(e => e.status === filter);
 
-    const totalSpent = expenses.reduce((sum, e) => sum + e.paid, 0);
+    // Budget is the sum of all expense totals
+    const budget = expenses.reduce((sum, e) => sum + e.total, 0);
+    const totalPaid = expenses.reduce((sum, e) => sum + e.paid, 0);
     const totalPending = expenses.reduce((sum, e) => sum + (e.total - e.paid), 0);
-    const percentageUsed = Math.round((totalSpent / budget) * 100);
+    const percentagePaid = budget > 0 ? Math.round((totalPaid / budget) * 100) : 0;
+    const percentagePending = budget > 0 ? Math.round((totalPending / budget) * 100) : 0;
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -100,30 +102,30 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
                     <div className="flex flex-col items-stretch justify-start rounded-xl shadow-lg bg-white dark:bg-[#193324] overflow-hidden border border-slate-200 dark:border-white/5">
                         <div className="w-full h-32 bg-gradient-to-br from-[#13ec6d]/20 to-[#102218] flex items-center justify-center">
                             <div className="text-center">
-                                <p className="text-slate-600 dark:text-[#92c9a9] text-xs font-bold uppercase tracking-wider mb-1">Presupuesto Estimado Total</p>
+                                <p className="text-slate-600 dark:text-[#92c9a9] text-xs font-bold uppercase tracking-wider mb-1">Presupuesto Total</p>
                                 <p className="text-3xl font-extrabold leading-tight tracking-tight">${budget.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
                             </div>
                         </div>
                         <div className="flex flex-col gap-4 p-5">
                             <div className="flex flex-col gap-2">
                                 <div className="flex gap-6 justify-between items-end">
-                                    <p className="text-base font-semibold">Gasto Real</p>
-                                    <p className="text-sm font-bold">${totalSpent.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
+                                    <p className="text-base font-semibold">Total Pagado</p>
+                                    <p className="text-primary text-sm font-bold">${totalPaid.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
                                 </div>
                                 <div className="rounded-full bg-slate-200 dark:bg-[#326748] h-2.5 overflow-hidden">
-                                    <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(percentageUsed, 100)}%` }}></div>
+                                    <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(percentagePaid, 100)}%` }}></div>
                                 </div>
-                                <p className="text-slate-500 dark:text-[#92c9a9] text-xs font-medium">{percentageUsed}% del presupuesto utilizado</p>
+                                <p className="text-slate-500 dark:text-[#92c9a9] text-xs font-medium">{percentagePaid}% pagado</p>
                             </div>
                             <div className="flex flex-col gap-2">
                                 <div className="flex gap-6 justify-between items-end">
-                                    <p className="text-base font-semibold">Saldo Disponible</p>
-                                    <p className="text-primary text-sm font-bold">${(budget - totalSpent).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
+                                    <p className="text-base font-semibold">Total Pendiente</p>
+                                    <p className="text-rose-500 text-sm font-bold">${totalPending.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
                                 </div>
                                 <div className="rounded-full bg-slate-200 dark:bg-[#326748] h-2.5 overflow-hidden">
-                                    <div className="h-full rounded-full bg-primary" style={{ width: `${100 - percentageUsed}%` }}></div>
+                                    <div className="h-full rounded-full bg-rose-500" style={{ width: `${percentagePending}%` }}></div>
                                 </div>
-                                <p className="text-slate-500 dark:text-[#92c9a9] text-xs font-medium">{100 - percentageUsed}% restante disponible</p>
+                                <p className="text-slate-500 dark:text-[#92c9a9] text-xs font-medium">{percentagePending}% pendiente de pago</p>
                             </div>
                         </div>
                     </div>
@@ -136,8 +138,8 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
                             key={f}
                             onClick={() => setFilter(f)}
                             className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${filter === f
-                                    ? 'bg-primary text-[#102218]'
-                                    : 'bg-slate-200 dark:bg-[#193324] text-slate-700 dark:text-white border border-transparent dark:border-white/5'
+                                ? 'bg-primary text-[#102218]'
+                                : 'bg-slate-200 dark:bg-[#193324] text-slate-700 dark:text-white border border-transparent dark:border-white/5'
                                 }`}
                         >
                             {f === 'all' ? 'Todos' : f}
@@ -157,7 +159,11 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
                     ) : (
                         <div className="flex flex-col gap-3">
                             {filteredExpenses.map(expense => (
-                                <div key={expense.id} className="flex items-center p-3 bg-white dark:bg-[#193324] rounded-xl border border-slate-200 dark:border-white/5">
+                                <div
+                                    key={expense.id}
+                                    onClick={() => navigate(`/costs/${id}/edit/${expense.id}`)}
+                                    className="flex items-center p-3 bg-white dark:bg-[#193324] rounded-xl border border-slate-200 dark:border-white/5 cursor-pointer hover:border-primary/50 hover:shadow-md transition-all"
+                                >
                                     <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary mr-4">
                                         <span className="material-symbols-outlined">{getIcon(expense.category)}</span>
                                     </div>
@@ -170,11 +176,12 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
                                             </span>
                                         </div>
                                     </div>
-                                    <div className="text-right flex flex-col items-end gap-2">
+                                    <div className="text-right flex flex-col items-end gap-1">
                                         <p className="font-bold text-sm">${expense.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
-                                        <button className="text-slate-400 hover:text-primary transition-colors">
-                                            <span className="material-symbols-outlined text-xl">{expense.status === 'Pagado' ? 'receipt_long' : 'contract'}</span>
-                                        </button>
+                                        {expense.paid > 0 && expense.paid < expense.total && (
+                                            <p className="text-xs text-primary">Pagado: ${expense.paid.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
+                                        )}
+                                        <span className="material-symbols-outlined text-slate-400 text-lg">chevron_right</span>
                                     </div>
                                 </div>
                             ))}
