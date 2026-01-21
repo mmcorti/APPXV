@@ -329,7 +329,7 @@ export const notionService = {
         if (!res.ok) throw new Error('Failed to fetch payments');
         return await res.json();
     },
-    async createPayment(expenseId: string, payment: { participantId: string; amount: number; date?: string }) {
+    async createPayment(expenseId: string, payment: { participantId: string; amount: number; date?: string; description?: string; receiptUrl?: string }) {
         const res = await fetch(`${API_URL}/expenses/${expenseId}/payments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

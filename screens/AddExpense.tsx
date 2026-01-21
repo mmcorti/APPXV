@@ -160,6 +160,22 @@ const AddExpense: React.FC = () => {
         return 'Pendiente';
     };
 
+    const uploadReceipt = async (base64Image: string): Promise<string> => {
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:10000'}/api/upload-image`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: base64Image })
+            });
+            if (!res.ok) throw new Error('Failed to upload receipt');
+            const data = await res.json();
+            return data.url;
+        } catch (error) {
+            console.error('Error uploading receipt:', error);
+            return '';
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!eventId || !category || !supplier || totalAmount <= 0) return;
@@ -175,30 +191,34 @@ const AddExpense: React.FC = () => {
                 status: getStatus()
             };
 
+            let expenseIdToUse = expenseId;
+
             if (isEditMode && expenseId) {
                 await notionService.updateExpense(expenseId, expenseData);
-                // Delete old payments and save new ones
+                // Delete old payments (simpler strategy for now)
                 const oldPayments = await notionService.getPayments(expenseId);
                 for (const oldP of oldPayments) {
                     await notionService.deletePayment(oldP.id);
                 }
             } else {
                 const newExpense = await notionService.createExpense(eventId, expenseData);
-                // Save payments to Payments database
-                for (const payment of payments.filter(p => p.amount > 0 && p.participantId)) {
-                    await notionService.createPayment(newExpense.id, {
-                        participantId: payment.participantId,
-                        amount: payment.amount
-                    });
-                }
+                expenseIdToUse = newExpense.id;
             }
 
-            // For edit mode, also save the new payments
-            if (isEditMode && expenseId) {
+            // Save payments
+            if (expenseIdToUse) {
                 for (const payment of payments.filter(p => p.amount > 0 && p.participantId)) {
-                    await notionService.createPayment(expenseId, {
+                    let finalReceiptUrl = payment.receiptUrl;
+                    if (payment.receiptUrl && payment.receiptUrl.startsWith('data:image')) {
+                        finalReceiptUrl = await uploadReceipt(payment.receiptUrl);
+                    }
+
+                    await notionService.createPayment(expenseIdToUse, {
                         participantId: payment.participantId,
-                        amount: payment.amount
+                        amount: payment.amount,
+                        date: payment.date,
+                        description: payment.description,
+                        receiptUrl: finalReceiptUrl
                     });
                 }
             }
