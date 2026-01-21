@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import Cropper from 'react-easy-crop';
 import { InvitationData, ImageSize, User } from '../types';
 import { GeminiService } from '../services/gemini';
 import { notionService } from '../services/notion';
@@ -32,7 +31,6 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
     giftDetail: '',
     guests: []
   });
-
   const [aiLoading, setAiLoading] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [selectedSize, setSelectedSize] = useState<ImageSize>(ImageSize.SIZE_1K);
@@ -40,13 +38,37 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
   const [aiError, setAiError] = useState('');
   const [uploadLoading, setUploadLoading] = useState(false);
 
-  // Cropping State
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  // Refined Framing State
+  const [imgTransform, setImgTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const imgContainerRef = useRef<HTMLDivElement>(null);
 
-  const onCropComplete = (croppedArea: any, croppedAreaPixels: any) => {
-    setCroppedAreaPixels(croppedAreaPixels);
+  const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+    setIsDragging(true);
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    setDragStart({ x: clientX - imgTransform.x, y: clientY - imgTransform.y });
+  };
+
+  const handleDragMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDragging) return;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    setImgTransform(prev => ({
+      ...prev,
+      x: clientX - dragStart.x,
+      y: clientY - dragStart.y
+    }));
+  };
+
+  const handleDragEnd = () => setIsDragging(false);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    const delta = e.deltaY;
+    const scaleFactor = 1.1;
+    const newScale = delta < 0 ? imgTransform.scale * scaleFactor : imgTransform.scale / scaleFactor;
+    setImgTransform(prev => ({ ...prev, scale: Math.max(0.1, Math.min(5, newScale)) }));
   };
 
   useEffect(() => {
@@ -99,9 +121,8 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
       setFormData(prev => ({ ...prev, image: resultUrl }));
       setShowAiModal(false);
       setAiPrompt('');
-      // Reset cropping for new AI image
-      setZoom(1);
-      setCrop({ x: 0, y: 0 });
+      // Reset transform for new image
+      setImgTransform({ x: 0, y: 0, scale: 1 });
     } catch (error: any) {
       console.error('Gemini API Error:', error);
       setAiError(`Error: ${error.message || 'Error desconocido al procesar la imagen.'}`);
@@ -117,47 +138,77 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
 
   const [saving, setSaving] = useState(false);
 
-  const getCroppedImg = (imageSrc: string, pixelCrop: any) => {
+  const getCroppedImg = (imageSrc: string, transform: { x: number, y: number, scale: number }, container: HTMLDivElement) => {
     return new Promise<string>((resolve, reject) => {
       const image = new Image();
       image.src = imageSrc;
+      image.crossOrigin = 'anonymous';
       image.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         if (!ctx) return reject();
 
-        canvas.width = pixelCrop.width;
-        canvas.height = pixelCrop.height;
+        // Target: 3:4 aspect ratio. Let's use a standard size (e.g., 1200x1600)
+        canvas.width = 1200;
+        canvas.height = 1600;
+
+        const containerRect = container.getBoundingClientRect();
+        const containerWidth = containerRect.width;
+        const containerHeight = containerRect.height;
+
+        // How the image is actually rendered in the container
+        // We need to find the natural scale vs the container
+        const imageRatio = image.width / image.height;
+        const containerRatio = containerWidth / containerHeight;
+
+        let renderWidth, renderHeight;
+        if (imageRatio > containerRatio) {
+          renderHeight = containerHeight;
+          renderWidth = containerHeight * imageRatio;
+        } else {
+          renderWidth = containerWidth;
+          renderHeight = containerWidth / imageRatio;
+        }
+
+        // Apply scale and position
+        const finalWidth = renderWidth * transform.scale;
+        const finalHeight = renderHeight * transform.scale;
+
+        // Offset to keep it centered initially
+        const offsetX = (containerWidth - finalWidth) / 2 + transform.x;
+        const offsetY = (containerHeight - finalHeight) / 2 + transform.y;
+
+        // Map these offsets and sizes to the 1200x1600 canvas
+        const scaleX = 1200 / containerWidth;
+        const scaleY = 1600 / containerHeight;
+
+        ctx.fillStyle = 'white'; // Background
+        ctx.fillRect(0, 0, 1200, 1600);
 
         ctx.drawImage(
           image,
-          pixelCrop.x,
-          pixelCrop.y,
-          pixelCrop.width,
-          pixelCrop.height,
-          0,
-          0,
-          pixelCrop.width,
-          pixelCrop.height
+          offsetX * scaleX,
+          offsetY * scaleY,
+          finalWidth * scaleX,
+          finalHeight * scaleY
         );
 
         resolve(canvas.toDataURL('image/jpeg', 0.9));
       };
       image.onerror = (e) => reject(e);
-      // For cross-origin images (Cloudinary)
-      image.crossOrigin = 'anonymous';
     });
   };
 
   const handleSave = async () => {
+    if (!imgContainerRef.current) return;
     setSaving(true);
     try {
       let dataToSave = { ...formData };
 
       // CROP THE IMAGE BEFORE SAVING
-      if (dataToSave.image && croppedAreaPixels) {
-        console.log('✂️ Cropping image...');
-        const croppedImage = await getCroppedImg(dataToSave.image, croppedAreaPixels);
+      if (dataToSave.image) {
+        console.log('✂️ Capturing custom frame...');
+        const croppedImage = await getCroppedImg(dataToSave.image, imgTransform, imgContainerRef.current);
         dataToSave.image = croppedImage;
       }
 
@@ -198,20 +249,30 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
 
       <div className="p-4 space-y-6">
         <div className="rounded-3xl bg-white dark:bg-slate-800 shadow-xl overflow-hidden border border-slate-100 dark:border-slate-700">
-          <div className="relative aspect-[3/4] bg-slate-200 dark:bg-slate-900">
+          <div
+            ref={imgContainerRef}
+            className="relative aspect-[3/4] bg-slate-200 dark:bg-slate-900 overflow-hidden cursor-move touch-none"
+            onMouseDown={handleDragStart}
+            onMouseMove={handleDragMove}
+            onMouseUp={handleDragEnd}
+            onMouseLeave={handleDragEnd}
+            onTouchStart={handleDragStart}
+            onTouchMove={handleDragMove}
+            onTouchEnd={handleDragEnd}
+            onWheel={handleWheel}
+          >
             {formData.image ? (
-              <div className="relative w-full h-full">
-                <Cropper
-                  image={formData.image}
-                  crop={crop}
-                  zoom={zoom}
-                  aspect={3 / 4}
-                  onCropChange={setCrop}
-                  onCropComplete={onCropComplete}
-                  onZoomChange={setZoom}
-                  showGrid={false}
-                />
-              </div>
+              <img
+                src={formData.image}
+                alt="Preview"
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-none transition-transform duration-75 pointer-events-none"
+                style={{
+                  transform: `translate(calc(-50% + ${imgTransform.x}px), calc(-50% + ${imgTransform.y}px)) scale(${imgTransform.scale})`,
+                  height: '100%',
+                  width: 'auto',
+                  objectFit: 'contain'
+                }}
+              />
             ) : (
               <div className="flex items-center justify-center h-full text-slate-400">Sin imagen</div>
             )}
@@ -254,24 +315,6 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
             </div>
 
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"></div>
-
-            {/* Zoom Slider Overlay */}
-            {formData.image && (
-              <div className="absolute bottom-24 left-1/2 -translate-x-1/2 w-48 bg-black/60 backdrop-blur-md rounded-full px-4 py-2 flex items-center gap-2 z-20">
-                <span className="material-symbols-outlined text-white text-sm">zoom_out</span>
-                <input
-                  type="range"
-                  value={zoom}
-                  min={1}
-                  max={3}
-                  step={0.1}
-                  aria-labelledby="Zoom"
-                  onChange={(e: any) => setZoom(e.target.value)}
-                  className="w-full accent-primary h-1 bg-white/30 rounded-lg appearance-none cursor-pointer"
-                />
-                <span className="material-symbols-outlined text-white text-sm">zoom_in</span>
-              </div>
-            )}
 
             <div className="absolute bottom-6 left-6 right-6 text-white text-center pointer-events-none">
               <h2 className="text-3xl font-bold leading-tight mb-2 font-serif">{formData.eventName}</h2>
