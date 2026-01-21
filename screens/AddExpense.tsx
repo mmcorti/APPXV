@@ -23,8 +23,9 @@ interface Payment {
 }
 
 const AddExpense: React.FC = () => {
-    const { id: eventId } = useParams<{ id: string }>();
+    const { id: eventId, expenseId } = useParams<{ id: string; expenseId?: string }>();
     const navigate = useNavigate();
+    const isEditMode = !!expenseId;
 
     const [category, setCategory] = useState('');
     const [supplier, setSupplier] = useState('');
@@ -35,13 +36,35 @@ const AddExpense: React.FC = () => {
     const [hasContract, setHasContract] = useState(false);
     const [hasAdvance, setHasAdvance] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [loading, setLoading] = useState(isEditMode);
 
     useEffect(() => {
         if (eventId) {
             loadCategories();
             loadSuppliers();
+            if (isEditMode && expenseId) {
+                loadExpense();
+            }
         }
-    }, [eventId]);
+    }, [eventId, expenseId]);
+
+    const loadExpense = async () => {
+        try {
+            setLoading(true);
+            const expenses = await notionService.getExpenses(eventId!);
+            const expense = expenses.find((e: any) => e.id === expenseId);
+            if (expense) {
+                setCategory(expense.category || '');
+                setSupplier(expense.supplier || expense.name || '');
+                setTotalAmount(expense.total || 0);
+                setPayments([{ id: Date.now(), amount: expense.paid || 0 }]);
+            }
+        } catch (error) {
+            console.error('Error loading expense:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const loadCategories = async () => {
         try {
@@ -106,18 +129,24 @@ const AddExpense: React.FC = () => {
 
         setSaving(true);
         try {
-            await notionService.createExpense(eventId, {
+            const expenseData = {
                 name: supplier,
                 category,
                 supplier,
                 total: totalAmount,
                 paid: totalPaid,
                 status: getStatus()
-            });
+            };
+
+            if (isEditMode && expenseId) {
+                await notionService.updateExpense(expenseId, expenseData);
+            } else {
+                await notionService.createExpense(eventId, expenseData);
+            }
             navigate(`/costs/${eventId}`);
         } catch (error) {
-            console.error('Error creating expense:', error);
-            alert('Error al registrar el gasto');
+            console.error('Error saving expense:', error);
+            alert('Error al guardar el gasto');
         } finally {
             setSaving(false);
         }
@@ -130,7 +159,7 @@ const AddExpense: React.FC = () => {
                     <button onClick={() => navigate(-1)} className="flex items-center justify-center p-2 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-colors">
                         <span className="material-symbols-outlined text-2xl">arrow_back_ios_new</span>
                     </button>
-                    <h1 className="text-lg font-bold tracking-tight">Registrar Gasto</h1>
+                    <h1 className="text-lg font-bold tracking-tight">{isEditMode ? 'Editar Gasto' : 'Registrar Gasto'}</h1>
                     <div className="w-10"></div>
                 </div>
             </header>

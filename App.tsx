@@ -545,6 +545,10 @@ const App: React.FC = () => {
           element={user ? <AddExpense /> : <Navigate to="/login" />}
         />
         <Route
+          path="/costs/:id/edit/:expenseId"
+          element={user ? <AddExpense /> : <Navigate to="/login" />}
+        />
+        <Route
           path="/costs/:id/suppliers"
           element={user ? <Suppliers /> : <Navigate to="/login" />}
         />
