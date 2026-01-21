@@ -110,7 +110,12 @@ app.post('/api/ai/generate-image', async (req, res) => {
         const imageDataUrl = await geminiGenerateImage(prompt);
         console.log('✅ AI image generated successfully');
 
-        res.json({ success: true, image: imageDataUrl });
+        // Upload to Cloudinary to get a proper URL (Notion can't handle large base64)
+        console.log('📤 Uploading AI image to Cloudinary...');
+        const cloudinaryResult = await uploadImage(imageDataUrl, 'appxv-ai-images');
+        console.log('✅ AI image uploaded to Cloudinary:', cloudinaryResult.url);
+
+        res.json({ success: true, image: cloudinaryResult.url });
     } catch (error) {
         console.error('❌ AI image generation failed:', error);
         res.status(500).json({ error: error.message });
@@ -128,7 +133,12 @@ app.post('/api/ai/edit-image', async (req, res) => {
         const editedImageDataUrl = await geminiEditImage(image, prompt);
         console.log('✅ AI image edited successfully');
 
-        res.json({ success: true, image: editedImageDataUrl });
+        // Upload to Cloudinary
+        console.log('📤 Uploading edited image to Cloudinary...');
+        const cloudinaryResult = await uploadImage(editedImageDataUrl, 'appxv-ai-images');
+        console.log('✅ Edited image uploaded to Cloudinary:', cloudinaryResult.url);
+
+        res.json({ success: true, image: cloudinaryResult.url });
     } catch (error) {
         console.error('❌ AI image edit failed:', error);
         res.status(500).json({ error: error.message });
