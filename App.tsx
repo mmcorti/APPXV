@@ -494,7 +494,7 @@ const App: React.FC = () => {
         />
         <Route
           path="/edit/:id"
-          element={user ? <InvitationEditor invitations={invitations} onSave={handleUpdateInvitation} /> : <Navigate to="/login" />}
+          element={user ? <InvitationEditor invitations={invitations} onSave={handleUpdateInvitation} user={user} /> : <Navigate to="/login" />}
         />
         <Route
           path="/guests/:id"
