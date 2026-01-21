@@ -55,29 +55,15 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
 
   if (!invitation) return <div className="p-10 text-center font-bold">Invitación no encontrada</div>;
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setUploadLoading(true);
-      try {
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const base64Image = reader.result as string;
-          try {
-            const cloudinaryUrl = await notionService.uploadImage(base64Image);
-            setFormData(prev => ({ ...prev, image: cloudinaryUrl }));
-          } catch (error: any) {
-            console.error('Image upload error:', error);
-            alert('Error al subir la imagen: ' + error.message);
-          } finally {
-            setUploadLoading(false);
-          }
-        };
-        reader.readAsDataURL(file);
-      } catch (error) {
-        setUploadLoading(false);
-        console.error('File read error:', error);
-      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        // Keep as base64 locally - will upload to Cloudinary only when saving
+        setFormData(prev => ({ ...prev, image: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -110,9 +96,29 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSave = () => {
-    onSave(formData);
-    navigate('/dashboard');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      let dataToSave = { ...formData };
+
+      // If image is base64 (not a URL), upload to Cloudinary first
+      if (dataToSave.image && dataToSave.image.startsWith('data:')) {
+        console.log('📤 Uploading image to Cloudinary before saving...');
+        const cloudinaryUrl = await notionService.uploadImage(dataToSave.image);
+        dataToSave.image = cloudinaryUrl;
+        console.log('✅ Image uploaded:', cloudinaryUrl);
+      }
+
+      onSave(dataToSave);
+      navigate('/dashboard');
+    } catch (error: any) {
+      console.error('Error saving:', error);
+      alert('Error al guardar: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const openInGoogleMaps = () => {
@@ -128,7 +134,9 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
         <h1 className="text-base font-bold">Personalizar Invitación</h1>
-        <button onClick={handleSave} className="text-primary font-bold text-sm">Guardar</button>
+        <button onClick={handleSave} disabled={saving} className="text-primary font-bold text-sm disabled:opacity-50">
+          {saving ? 'Guardando...' : 'Guardar'}
+        </button>
       </header>
 
       <div className="p-4 space-y-6">
@@ -138,6 +146,16 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
               <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
             ) : (
               <div className="flex items-center justify-center h-full text-slate-400">Sin imagen</div>
+            )}
+
+            {aiLoading && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-3 text-white">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+                  <span className="text-sm font-bold">Generando con IA...</span>
+                  <span className="text-xs text-slate-300">Esto puede tardar unos segundos</span>
+                </div>
+              </div>
             )}
 
             {uploadLoading && (
