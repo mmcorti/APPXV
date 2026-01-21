@@ -10,10 +10,18 @@ interface Supplier {
     email: string;
 }
 
+interface ExpenseCategory {
+    id: string;
+    name: string;
+    icon: string;
+    subtitle: string;
+}
+
 const Suppliers: React.FC = () => {
     const { id: eventId } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+    const [categories, setCategories] = useState<ExpenseCategory[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [showForm, setShowForm] = useState(false);
@@ -22,7 +30,10 @@ const Suppliers: React.FC = () => {
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        if (eventId) loadSuppliers();
+        if (eventId) {
+            loadSuppliers();
+            loadCategories();
+        }
     }, [eventId]);
 
     const loadSuppliers = async () => {
@@ -35,6 +46,16 @@ const Suppliers: React.FC = () => {
             console.error('Error loading suppliers:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadCategories = async () => {
+        if (!eventId) return;
+        try {
+            const data = await notionService.getExpenseCategories(eventId);
+            setCategories(data);
+        } catch (error) {
+            console.error('Error loading categories:', error);
         }
     };
 
@@ -190,13 +211,17 @@ const Suppliers: React.FC = () => {
                                 className="w-full h-12 bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 text-base"
                                 required
                             />
-                            <input
-                                type="text"
+                            <select
                                 value={formData.category}
                                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                placeholder="Categoría (ej: Catering, Música)"
                                 className="w-full h-12 bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 text-base"
-                            />
+                            >
+                                <option value="" disabled>Seleccionar categoría</option>
+                                {categories.map(cat => (
+                                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                                ))}
+                                <option value="Otro">Otro</option>
+                            </select>
                             <input
                                 type="tel"
                                 value={formData.phone}
