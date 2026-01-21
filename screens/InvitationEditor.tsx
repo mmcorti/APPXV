@@ -1,16 +1,17 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { InvitationData, ImageSize } from '../types';
+import Cropper from 'react-easy-crop';
+import { InvitationData, ImageSize, User } from '../types';
 import { GeminiService } from '../services/gemini';
 import { notionService } from '../services/notion';
 
 interface InvitationEditorProps {
   invitations: InvitationData[];
   onSave: (data: InvitationData) => void;
+  user: User;
 }
 
-const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave }) => {
+const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave, user }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -38,6 +39,15 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiError, setAiError] = useState('');
   const [uploadLoading, setUploadLoading] = useState(false);
+
+  // Cropping State
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+
+  const onCropComplete = (croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  };
 
   useEffect(() => {
     if (invitation) {
@@ -68,6 +78,12 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
   };
 
   const handleAiAction = async (type: 'generate' | 'edit') => {
+    // PLAN CHECK: Only Premium/VIP can use AI
+    if (user.plan === 'freemium') {
+      alert('La generación de imágenes con IA está disponible para cuentas Premium y VIP.');
+      return;
+    }
+
     if (!aiPrompt) return;
     setAiLoading(true);
     setAiError('');
@@ -83,6 +99,9 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
       setFormData(prev => ({ ...prev, image: resultUrl }));
       setShowAiModal(false);
       setAiPrompt('');
+      // Reset cropping for new AI image
+      setZoom(1);
+      setCrop({ x: 0, y: 0 });
     } catch (error: any) {
       console.error('Gemini API Error:', error);
       setAiError(`Error: ${error.message || 'Error desconocido al procesar la imagen.'}`);
@@ -98,17 +117,55 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
 
   const [saving, setSaving] = useState(false);
 
+  const getCroppedImg = (imageSrc: string, pixelCrop: any) => {
+    return new Promise<string>((resolve, reject) => {
+      const image = new Image();
+      image.src = imageSrc;
+      image.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject();
+
+        canvas.width = pixelCrop.width;
+        canvas.height = pixelCrop.height;
+
+        ctx.drawImage(
+          image,
+          pixelCrop.x,
+          pixelCrop.y,
+          pixelCrop.width,
+          pixelCrop.height,
+          0,
+          0,
+          pixelCrop.width,
+          pixelCrop.height
+        );
+
+        resolve(canvas.toDataURL('image/jpeg', 0.9));
+      };
+      image.onerror = (e) => reject(e);
+      // For cross-origin images (Cloudinary)
+      image.crossOrigin = 'anonymous';
+    });
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
       let dataToSave = { ...formData };
 
-      // If image is base64 (not a URL), upload to Cloudinary first
+      // CROP THE IMAGE BEFORE SAVING
+      if (dataToSave.image && croppedAreaPixels) {
+        console.log('✂️ Cropping image...');
+        const croppedImage = await getCroppedImg(dataToSave.image, croppedAreaPixels);
+        dataToSave.image = croppedImage;
+      }
+
+      // If image is base64 (not a URL) or was just cropped, upload to Cloudinary
       if (dataToSave.image && dataToSave.image.startsWith('data:')) {
-        console.log('📤 Uploading image to Cloudinary before saving...');
+        console.log('📤 Uploading fixed image to Cloudinary...');
         const cloudinaryUrl = await notionService.uploadImage(dataToSave.image);
         dataToSave.image = cloudinaryUrl;
-        console.log('✅ Image uploaded:', cloudinaryUrl);
       }
 
       onSave(dataToSave);
@@ -143,7 +200,18 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
         <div className="rounded-3xl bg-white dark:bg-slate-800 shadow-xl overflow-hidden border border-slate-100 dark:border-slate-700">
           <div className="relative aspect-[3/4] bg-slate-200 dark:bg-slate-900">
             {formData.image ? (
-              <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+              <div className="relative w-full h-full">
+                <Cropper
+                  image={formData.image}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={3 / 4}
+                  onCropChange={setCrop}
+                  onCropComplete={onCropComplete}
+                  onZoomChange={setZoom}
+                  showGrid={false}
+                />
+              </div>
             ) : (
               <div className="flex items-center justify-center h-full text-slate-400">Sin imagen</div>
             )}
@@ -186,7 +254,26 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
             </div>
 
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"></div>
-            <div className="absolute bottom-6 left-6 right-6 text-white text-center">
+
+            {/* Zoom Slider Overlay */}
+            {formData.image && (
+              <div className="absolute bottom-24 left-1/2 -translate-x-1/2 w-48 bg-black/60 backdrop-blur-md rounded-full px-4 py-2 flex items-center gap-2 z-20">
+                <span className="material-symbols-outlined text-white text-sm">zoom_out</span>
+                <input
+                  type="range"
+                  value={zoom}
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  aria-labelledby="Zoom"
+                  onChange={(e: any) => setZoom(e.target.value)}
+                  className="w-full accent-primary h-1 bg-white/30 rounded-lg appearance-none cursor-pointer"
+                />
+                <span className="material-symbols-outlined text-white text-sm">zoom_in</span>
+              </div>
+            )}
+
+            <div className="absolute bottom-6 left-6 right-6 text-white text-center pointer-events-none">
               <h2 className="text-3xl font-bold leading-tight mb-2 font-serif">{formData.eventName}</h2>
               <p className="text-sm font-medium text-white/90 italic">{formData.message}</p>
             </div>
