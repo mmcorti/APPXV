@@ -1871,6 +1871,259 @@ app.get('/api/usage-summary', async (req, res) => {
     }
 });
 
+// =============================================
+// === EXPENSE CONTROL MODULE ENDPOINTS ===
+// =============================================
+
+// --- EXPENSES ---
+app.get('/api/events/:eventId/expenses', async (req, res) => {
+    try {
+        await schema.init();
+        const { eventId } = req.params;
+        const response = await notionClient.databases.query({
+            database_id: DS.EXPENSES,
+            filter: {
+                property: schema.get('EXPENSES', 'Event'),
+                relation: { contains: eventId }
+            }
+        });
+        const expenses = response.results.map(page => {
+            const p = page.properties;
+            return {
+                id: page.id,
+                name: getText(findProp(p, schema.getAliases('EXPENSES', 'Name'))),
+                category: getText(findProp(p, schema.getAliases('EXPENSES', 'Category'))),
+                supplier: getText(findProp(p, schema.getAliases('EXPENSES', 'Supplier'))),
+                total: parseFloat(getText(findProp(p, schema.getAliases('EXPENSES', 'Total')))) || 0,
+                paid: parseFloat(getText(findProp(p, schema.getAliases('EXPENSES', 'Paid')))) || 0,
+                status: getText(findProp(p, schema.getAliases('EXPENSES', 'Status')))
+            };
+        });
+        res.json(expenses);
+    } catch (error) {
+        console.error("❌ Error fetching expenses:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/events/:eventId/expenses', async (req, res) => {
+    try {
+        await schema.init();
+        const { eventId } = req.params;
+        const { name, category, supplier, total, paid, status } = req.body;
+        const properties = {};
+        properties[schema.get('EXPENSES', 'Name')] = { title: [{ text: { content: name || '' } }] };
+        properties[schema.get('EXPENSES', 'Category')] = { rich_text: [{ text: { content: category || '' } }] };
+        properties[schema.get('EXPENSES', 'Supplier')] = { rich_text: [{ text: { content: supplier || '' } }] };
+        properties[schema.get('EXPENSES', 'Total')] = { number: total || 0 };
+        properties[schema.get('EXPENSES', 'Paid')] = { number: paid || 0 };
+        if (status) properties[schema.get('EXPENSES', 'Status')] = { select: { name: status } };
+        properties[schema.get('EXPENSES', 'Event')] = { relation: [{ id: eventId }] };
+
+        const newPage = await notionClient.pages.create({
+            parent: { database_id: DB.EXPENSES },
+            properties
+        });
+        res.json({ success: true, id: newPage.id });
+    } catch (error) {
+        console.error("❌ Error creating expense:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.put('/api/expenses/:id', async (req, res) => {
+    try {
+        await schema.init();
+        const { id } = req.params;
+        const { name, category, supplier, total, paid, status } = req.body;
+        const properties = {};
+        if (name !== undefined) properties[schema.get('EXPENSES', 'Name')] = { title: [{ text: { content: name } }] };
+        if (category !== undefined) properties[schema.get('EXPENSES', 'Category')] = { rich_text: [{ text: { content: category } }] };
+        if (supplier !== undefined) properties[schema.get('EXPENSES', 'Supplier')] = { rich_text: [{ text: { content: supplier } }] };
+        if (total !== undefined) properties[schema.get('EXPENSES', 'Total')] = { number: total };
+        if (paid !== undefined) properties[schema.get('EXPENSES', 'Paid')] = { number: paid };
+        if (status !== undefined) properties[schema.get('EXPENSES', 'Status')] = { select: { name: status } };
+
+        await notionClient.pages.update({ page_id: id, properties });
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Error updating expense:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/expenses/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await notionClient.pages.update({ page_id: id, archived: true });
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Error deleting expense:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- SUPPLIERS ---
+app.get('/api/events/:eventId/suppliers', async (req, res) => {
+    try {
+        await schema.init();
+        const { eventId } = req.params;
+        const response = await notionClient.databases.query({
+            database_id: DS.SUPPLIERS,
+            filter: {
+                property: schema.get('SUPPLIERS', 'Event'),
+                relation: { contains: eventId }
+            }
+        });
+        const suppliers = response.results.map(page => {
+            const p = page.properties;
+            return {
+                id: page.id,
+                name: getText(findProp(p, schema.getAliases('SUPPLIERS', 'Name'))),
+                category: getText(findProp(p, schema.getAliases('SUPPLIERS', 'Category'))),
+                phone: getText(findProp(p, schema.getAliases('SUPPLIERS', 'Phone'))),
+                email: getText(findProp(p, schema.getAliases('SUPPLIERS', 'Email')))
+            };
+        });
+        res.json(suppliers);
+    } catch (error) {
+        console.error("❌ Error fetching suppliers:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/events/:eventId/suppliers', async (req, res) => {
+    try {
+        await schema.init();
+        const { eventId } = req.params;
+        const { name, category, phone, email } = req.body;
+        const properties = {};
+        properties[schema.get('SUPPLIERS', 'Name')] = { title: [{ text: { content: name || '' } }] };
+        properties[schema.get('SUPPLIERS', 'Category')] = { rich_text: [{ text: { content: category || '' } }] };
+        properties[schema.get('SUPPLIERS', 'Phone')] = { rich_text: [{ text: { content: phone || '' } }] };
+        properties[schema.get('SUPPLIERS', 'Email')] = { email: email || null };
+        properties[schema.get('SUPPLIERS', 'Event')] = { relation: [{ id: eventId }] };
+
+        const newPage = await notionClient.pages.create({
+            parent: { database_id: DB.SUPPLIERS },
+            properties
+        });
+        res.json({ success: true, id: newPage.id });
+    } catch (error) {
+        console.error("❌ Error creating supplier:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.put('/api/suppliers/:id', async (req, res) => {
+    try {
+        await schema.init();
+        const { id } = req.params;
+        const { name, category, phone, email } = req.body;
+        const properties = {};
+        if (name !== undefined) properties[schema.get('SUPPLIERS', 'Name')] = { title: [{ text: { content: name } }] };
+        if (category !== undefined) properties[schema.get('SUPPLIERS', 'Category')] = { rich_text: [{ text: { content: category } }] };
+        if (phone !== undefined) properties[schema.get('SUPPLIERS', 'Phone')] = { rich_text: [{ text: { content: phone } }] };
+        if (email !== undefined) properties[schema.get('SUPPLIERS', 'Email')] = { email: email || null };
+
+        await notionClient.pages.update({ page_id: id, properties });
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Error updating supplier:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/suppliers/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await notionClient.pages.update({ page_id: id, archived: true });
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Error deleting supplier:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- EXPENSE CATEGORIES ---
+app.get('/api/events/:eventId/expense-categories', async (req, res) => {
+    try {
+        await schema.init();
+        const { eventId } = req.params;
+        const response = await notionClient.databases.query({
+            database_id: DS.EXPENSE_CATEGORIES,
+            filter: {
+                property: schema.get('EXPENSE_CATEGORIES', 'Event'),
+                relation: { contains: eventId }
+            }
+        });
+        const categories = response.results.map(page => {
+            const p = page.properties;
+            return {
+                id: page.id,
+                name: getText(findProp(p, schema.getAliases('EXPENSE_CATEGORIES', 'Name'))),
+                icon: getText(findProp(p, schema.getAliases('EXPENSE_CATEGORIES', 'Icon'))),
+                subtitle: getText(findProp(p, schema.getAliases('EXPENSE_CATEGORIES', 'Subtitle')))
+            };
+        });
+        res.json(categories);
+    } catch (error) {
+        console.error("❌ Error fetching expense categories:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/events/:eventId/expense-categories', async (req, res) => {
+    try {
+        await schema.init();
+        const { eventId } = req.params;
+        const { name, icon, subtitle } = req.body;
+        const properties = {};
+        properties[schema.get('EXPENSE_CATEGORIES', 'Name')] = { title: [{ text: { content: name || '' } }] };
+        properties[schema.get('EXPENSE_CATEGORIES', 'Icon')] = { rich_text: [{ text: { content: icon || 'category' } }] };
+        properties[schema.get('EXPENSE_CATEGORIES', 'Subtitle')] = { rich_text: [{ text: { content: subtitle || '' } }] };
+        properties[schema.get('EXPENSE_CATEGORIES', 'Event')] = { relation: [{ id: eventId }] };
+
+        const newPage = await notionClient.pages.create({
+            parent: { database_id: DB.EXPENSE_CATEGORIES },
+            properties
+        });
+        res.json({ success: true, id: newPage.id });
+    } catch (error) {
+        console.error("❌ Error creating expense category:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.put('/api/expense-categories/:id', async (req, res) => {
+    try {
+        await schema.init();
+        const { id } = req.params;
+        const { name, icon, subtitle } = req.body;
+        const properties = {};
+        if (name !== undefined) properties[schema.get('EXPENSE_CATEGORIES', 'Name')] = { title: [{ text: { content: name } }] };
+        if (icon !== undefined) properties[schema.get('EXPENSE_CATEGORIES', 'Icon')] = { rich_text: [{ text: { content: icon } }] };
+        if (subtitle !== undefined) properties[schema.get('EXPENSE_CATEGORIES', 'Subtitle')] = { rich_text: [{ text: { content: subtitle } }] };
+
+        await notionClient.pages.update({ page_id: id, properties });
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Error updating expense category:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/expense-categories/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await notionClient.pages.update({ page_id: id, archived: true });
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Error deleting expense category:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Catch-all for frontend
 app.get(/.*/, (req, res) => {
     res.sendFile(path.join(__dirname, '../dist', 'index.html'));

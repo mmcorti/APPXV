@@ -199,5 +199,97 @@ export const notionService = {
         });
         if (!res.ok) throw new Error('Failed to delete table');
         return await res.json();
+    },
+
+    // === EXPENSE CONTROL MODULE ===
+
+    // Expenses
+    async getExpenses(eventId: string) {
+        const res = await fetch(`${API_URL}/events/${eventId}/expenses`);
+        if (!res.ok) throw new Error('Failed to fetch expenses');
+        return await res.json();
+    },
+    async createExpense(eventId: string, expense: { name: string; category: string; supplier: string; total: number; paid: number; status: string }) {
+        const res = await fetch(`${API_URL}/events/${eventId}/expenses`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(expense)
+        });
+        if (!res.ok) throw new Error('Failed to create expense');
+        return await res.json();
+    },
+    async updateExpense(id: string, expense: Partial<{ name: string; category: string; supplier: string; total: number; paid: number; status: string }>) {
+        const res = await fetch(`${API_URL}/expenses/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(expense)
+        });
+        if (!res.ok) throw new Error('Failed to update expense');
+        return await res.json();
+    },
+    async deleteExpense(id: string) {
+        const res = await fetch(`${API_URL}/expenses/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete expense');
+        return await res.json();
+    },
+
+    // Suppliers
+    async getSuppliers(eventId: string) {
+        const res = await fetch(`${API_URL}/events/${eventId}/suppliers`);
+        if (!res.ok) throw new Error('Failed to fetch suppliers');
+        return await res.json();
+    },
+    async createSupplier(eventId: string, supplier: { name: string; category: string; phone: string; email: string }) {
+        const res = await fetch(`${API_URL}/events/${eventId}/suppliers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(supplier)
+        });
+        if (!res.ok) throw new Error('Failed to create supplier');
+        return await res.json();
+    },
+    async updateSupplier(id: string, supplier: Partial<{ name: string; category: string; phone: string; email: string }>) {
+        const res = await fetch(`${API_URL}/suppliers/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(supplier)
+        });
+        if (!res.ok) throw new Error('Failed to update supplier');
+        return await res.json();
+    },
+    async deleteSupplier(id: string) {
+        const res = await fetch(`${API_URL}/suppliers/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete supplier');
+        return await res.json();
+    },
+
+    // Expense Categories
+    async getExpenseCategories(eventId: string) {
+        const res = await fetch(`${API_URL}/events/${eventId}/expense-categories`);
+        if (!res.ok) throw new Error('Failed to fetch expense categories');
+        return await res.json();
+    },
+    async createExpenseCategory(eventId: string, category: { name: string; icon: string; subtitle: string }) {
+        const res = await fetch(`${API_URL}/events/${eventId}/expense-categories`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(category)
+        });
+        if (!res.ok) throw new Error('Failed to create expense category');
+        return await res.json();
+    },
+    async updateExpenseCategory(id: string, category: Partial<{ name: string; icon: string; subtitle: string }>) {
+        const res = await fetch(`${API_URL}/expense-categories/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(category)
+        });
+        if (!res.ok) throw new Error('Failed to update expense category');
+        return await res.json();
+    },
+    async deleteExpenseCategory(id: string) {
+        const res = await fetch(`${API_URL}/expense-categories/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete expense category');
+        return await res.json();
     }
 };
