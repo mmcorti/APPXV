@@ -425,7 +425,28 @@ app.get('/api/events', async (req, res) => {
 
                     // Fetch owner's plan from CreatorEmail
                     const creatorEmail = getText(findProp(page.properties, KNOWN_PROPERTIES.EVENTS.CreatorEmail));
-                    if (creatorEmail && DS.SUBSCRIBERS) {
+
+                    // Check if the creator is an admin (exists in DS.USERS) - if so, staff inherits VIP
+                    let isCreatorAdmin = false;
+                    if (creatorEmail && DS.USERS) {
+                        try {
+                            const adminCheck = await notionClient.databases.query({
+                                database_id: DS.USERS,
+                                filter: {
+                                    property: schema.get('USERS', 'Email'),
+                                    email: { equals: creatorEmail }
+                                }
+                            });
+                            isCreatorAdmin = adminCheck.results.length > 0;
+                        } catch (e) {
+                            console.warn('Could not check admin status:', e.message);
+                        }
+                    }
+
+                    if (isCreatorAdmin) {
+                        page._ownerPlan = 'vip';
+                        console.log(`📋 [Staff] Event owner ${creatorEmail} is ADMIN - staff gets VIP plan`);
+                    } else if (creatorEmail && DS.SUBSCRIBERS) {
                         try {
                             const subscriberRes = await notionClient.databases.query({
                                 database_id: DS.SUBSCRIBERS,
@@ -439,6 +460,8 @@ app.get('/api/events', async (req, res) => {
                                 const planProp = findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Plan);
                                 page._ownerPlan = planProp?.select?.name?.toLowerCase() || 'freemium';
                                 console.log(`📋 [Staff] Event owner ${creatorEmail} has plan: ${page._ownerPlan}`);
+                            } else {
+                                page._ownerPlan = 'freemium';
                             }
                         } catch (e) {
                             console.warn('Could not fetch owner plan:', e.message);

@@ -250,15 +250,18 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                         >
                           <span className="material-symbols-outlined text-xl">edit</span>
                         </button>
-                        <button
-                          onClick={() => handleDeleteEvent(inv)}
-                          disabled={deletingEventId === inv.id}
-                          className={`p-2 rounded-xl bg-slate-50 dark:bg-slate-700 text-red-500 hover:bg-red-50 transition-colors ${deletingEventId === inv.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                          <span className={`material-symbols-outlined text-xl ${deletingEventId === inv.id ? 'animate-spin' : ''}`}>
-                            {deletingEventId === inv.id ? 'progress_activity' : 'delete'}
-                          </span>
-                        </button>
+                        {/* Only show delete button for admin/subscriber, not for staff */}
+                        {user.role !== 'staff' && user.role !== 'event_staff' && (
+                          <button
+                            onClick={() => handleDeleteEvent(inv)}
+                            disabled={deletingEventId === inv.id}
+                            className={`p-2 rounded-xl bg-slate-50 dark:bg-slate-700 text-red-500 hover:bg-red-50 transition-colors ${deletingEventId === inv.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            <span className={`material-symbols-outlined text-xl ${deletingEventId === inv.id ? 'animate-spin' : ''}`}>
+                              {deletingEventId === inv.id ? 'progress_activity' : 'delete'}
+                            </span>
+                          </button>
+                        )}
                       </div>
                     </div>
 
