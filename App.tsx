@@ -23,6 +23,7 @@ import Suppliers from './screens/Suppliers';
 import ExpenseCategories from './screens/ExpenseCategories';
 import Participants from './screens/Participants';
 import BalanceSummary from './screens/BalanceSummary';
+import GamesDashboard from './screens/GamesDashboard';
 import GoogleCallbackScreen from './screens/GoogleCallback';
 import { InvitationData, User, Guest, Table, SeatedGuest, StaffPermissions } from './types';
 import { notionService } from './services/notion';
@@ -565,6 +566,10 @@ const App: React.FC = () => {
         <Route
           path="/costs/:id/balances"
           element={user ? <BalanceSummary /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/games/:id"
+          element={user ? <GamesDashboard invitations={invitations} user={user} /> : <Navigate to="/login" />}
         />
         <Route
           path="/location/:id"
