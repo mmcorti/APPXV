@@ -265,7 +265,7 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                       </div>
                     </div>
 
-                    <div className={`grid gap-2 ${user.role === 'admin' ? 'grid-cols-5' : 'grid-cols-4'}`}>
+                    <div className={`grid gap-2 ${user.role === 'admin' ? 'grid-cols-6' : 'grid-cols-5'}`}>
                       <button
                         onClick={() => navigate(`/guests/${inv.id}`)}
                         disabled={(user.role === 'staff' || user.role === 'event_staff') && !(inv.permissions?.access_invitados || user.permissions?.access_invitados)}
@@ -309,6 +309,17 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                       >
                         <span className="material-symbols-outlined text-lg">photo_library</span>
                         FotoWall
+                      </button>
+                      <button
+                        onClick={() => navigate(`/games/${inv.id}`)}
+                        disabled={(user.role === 'staff' || user.role === 'event_staff') && !(inv.permissions?.access_fotowall || user.permissions?.access_fotowall)}
+                        className={`flex flex-col items-center justify-center gap-1 py-3 font-bold text-[10px] rounded-xl transition-all ${(user.role === 'staff' || user.role === 'event_staff') && !(inv.permissions?.access_fotowall || user.permissions?.access_fotowall)
+                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                          : 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 hover:scale-[0.98]'
+                          }`}
+                      >
+                        <span className="material-symbols-outlined text-lg">sports_esports</span>
+                        Juegos
                       </button>
                       {(user.role === 'admin' || user.role === 'subscriber') && (
                         <button
