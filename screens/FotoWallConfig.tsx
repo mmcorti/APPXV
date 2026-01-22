@@ -71,7 +71,9 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
   const [viewFilter, setViewFilter] = useState<'all' | 'blocked' | 'approved'>('all');
 
   const isAdmin = user?.role === 'admin';
-  const userPlan = isAdmin ? 'vip' : (user?.plan || 'freemium');
+  const isStaff = user?.role === 'staff' || user?.role === 'event_staff';
+  // For staff, use the event owner's plan if available (inherited from subscriber)
+  const userPlan = isAdmin ? 'vip' : (isStaff ? (event?.ownerPlan || 'freemium') : (user?.plan || 'freemium'));
   const photoLimit = userPlan === 'vip' ? 1000 : userPlan === 'premium' ? 200 : 20;
   const approvedCount = allPhotos.filter(p => !p.isBlocked).length;
   const isAtPhotoLimit = !isAdmin && approvedCount >= photoLimit;
