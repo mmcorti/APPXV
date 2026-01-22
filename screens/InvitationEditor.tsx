@@ -141,61 +141,78 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
   const getCroppedImg = (imageSrc: string, transform: { x: number, y: number, scale: number }, container: HTMLDivElement) => {
     return new Promise<string>((resolve, reject) => {
       const image = new Image();
-      image.src = imageSrc;
-      image.crossOrigin = 'anonymous';
+
+      // Handle CORS for external images
+      if (imageSrc.startsWith('http') && !imageSrc.startsWith(window.location.origin)) {
+        image.crossOrigin = 'anonymous';
+      }
+
       image.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return reject();
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('No se pudo crear el contexto del canvas'));
+            return;
+          }
 
-        // Target: 3:4 aspect ratio. Let's use a standard size (e.g., 1200x1600)
-        canvas.width = 1200;
-        canvas.height = 1600;
+          // Target: 3:4 aspect ratio. Let's use a standard size (e.g., 1200x1600)
+          canvas.width = 1200;
+          canvas.height = 1600;
 
-        const containerRect = container.getBoundingClientRect();
-        const containerWidth = containerRect.width;
-        const containerHeight = containerRect.height;
+          const containerRect = container.getBoundingClientRect();
+          const containerWidth = containerRect.width;
+          const containerHeight = containerRect.height;
 
-        // How the image is actually rendered in the container
-        // We need to find the natural scale vs the container
-        const imageRatio = image.width / image.height;
-        const containerRatio = containerWidth / containerHeight;
+          // How the image is actually rendered in the container
+          // We need to find the natural scale vs the container
+          const imageRatio = image.width / image.height;
+          const containerRatio = containerWidth / containerHeight;
 
-        let renderWidth, renderHeight;
-        if (imageRatio > containerRatio) {
-          renderHeight = containerHeight;
-          renderWidth = containerHeight * imageRatio;
-        } else {
-          renderWidth = containerWidth;
-          renderHeight = containerWidth / imageRatio;
+          let renderWidth, renderHeight;
+          if (imageRatio > containerRatio) {
+            renderHeight = containerHeight;
+            renderWidth = containerHeight * imageRatio;
+          } else {
+            renderWidth = containerWidth;
+            renderHeight = containerWidth / imageRatio;
+          }
+
+          // Apply scale and position
+          const finalWidth = renderWidth * transform.scale;
+          const finalHeight = renderHeight * transform.scale;
+
+          // Offset to keep it centered initially
+          const offsetX = (containerWidth - finalWidth) / 2 + transform.x;
+          const offsetY = (containerHeight - finalHeight) / 2 + transform.y;
+
+          // Map these offsets and sizes to the 1200x1600 canvas
+          const scaleX = 1200 / containerWidth;
+          const scaleY = 1600 / containerHeight;
+
+          ctx.fillStyle = 'white'; // Background
+          ctx.fillRect(0, 0, 1200, 1600);
+
+          ctx.drawImage(
+            image,
+            offsetX * scaleX,
+            offsetY * scaleY,
+            finalWidth * scaleX,
+            finalHeight * scaleY
+          );
+
+          resolve(canvas.toDataURL('image/jpeg', 0.9));
+        } catch (err: any) {
+          reject(new Error('Error al procesar la imagen: ' + (err?.message || 'desconocido')));
         }
-
-        // Apply scale and position
-        const finalWidth = renderWidth * transform.scale;
-        const finalHeight = renderHeight * transform.scale;
-
-        // Offset to keep it centered initially
-        const offsetX = (containerWidth - finalWidth) / 2 + transform.x;
-        const offsetY = (containerHeight - finalHeight) / 2 + transform.y;
-
-        // Map these offsets and sizes to the 1200x1600 canvas
-        const scaleX = 1200 / containerWidth;
-        const scaleY = 1600 / containerHeight;
-
-        ctx.fillStyle = 'white'; // Background
-        ctx.fillRect(0, 0, 1200, 1600);
-
-        ctx.drawImage(
-          image,
-          offsetX * scaleX,
-          offsetY * scaleY,
-          finalWidth * scaleX,
-          finalHeight * scaleY
-        );
-
-        resolve(canvas.toDataURL('image/jpeg', 0.9));
       };
-      image.onerror = (e) => reject(e);
+
+      image.onerror = (e) => {
+        console.error('Image load error:', e);
+        reject(new Error('Error al cargar la imagen. Puede ser un problema de CORS o la imagen no está disponible.'));
+      };
+
+      image.src = imageSrc;
     });
   };
 
@@ -208,8 +225,13 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
       // CROP THE IMAGE BEFORE SAVING
       if (dataToSave.image) {
         console.log('✂️ Capturing custom frame...');
-        const croppedImage = await getCroppedImg(dataToSave.image, imgTransform, imgContainerRef.current);
-        dataToSave.image = croppedImage;
+        try {
+          const croppedImage = await getCroppedImg(dataToSave.image, imgTransform, imgContainerRef.current);
+          dataToSave.image = croppedImage;
+        } catch (cropError: any) {
+          console.error('Error cropping image:', cropError);
+          throw new Error('Error al procesar la imagen. Intenta cargar una imagen diferente o verifica que la imagen sea válida.');
+        }
       }
 
       // If image is base64 (not a URL) or was just cropped, upload to Cloudinary
@@ -223,7 +245,8 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
       navigate('/dashboard');
     } catch (error: any) {
       console.error('Error saving:', error);
-      alert('Error al guardar: ' + error.message);
+      const errorMessage = error?.message || error?.toString() || 'Error desconocido. Por favor, intenta de nuevo.';
+      alert('Error al guardar: ' + errorMessage);
     } finally {
       setSaving(false);
     }
