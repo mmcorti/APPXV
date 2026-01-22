@@ -55,7 +55,7 @@ const TriviaAdmin: React.FC = () => {
         setShowQuestionForm(false);
     };
 
-    const handleSaveQuestion = () => {
+    const handleSaveQuestion = async () => {
         if (!questionText.trim() || !optionA.trim() || !optionB.trim() || !optionC.trim() || !optionD.trim()) {
             alert('Por favor completa todos los campos');
             return;
@@ -74,9 +74,9 @@ const TriviaAdmin: React.FC = () => {
         };
 
         if (editingQuestion) {
-            triviaService.updateQuestion(eventId, editingQuestion.id, questionData);
+            await triviaService.updateQuestion(eventId, editingQuestion.id, questionData);
         } else {
-            triviaService.addQuestion(eventId, questionData);
+            await triviaService.addQuestion(eventId, questionData);
         }
 
         resetForm();
@@ -94,38 +94,38 @@ const TriviaAdmin: React.FC = () => {
         setShowQuestionForm(true);
     };
 
-    const handleDeleteQuestion = (questionId: string) => {
+    const handleDeleteQuestion = async (questionId: string) => {
         if (window.confirm('¿Eliminar esta pregunta?')) {
-            triviaService.deleteQuestion(eventId, questionId);
+            await triviaService.deleteQuestion(eventId, questionId);
         }
     };
 
-    const handleStartGame = () => {
+    const handleStartGame = async () => {
         if (gameState.questions.length === 0) {
             alert('Necesitas al menos una pregunta para iniciar');
             return;
         }
-        triviaService.startGame(eventId);
+        await triviaService.startGame(eventId);
     };
 
-    const handleNextQuestion = () => {
-        const success = triviaService.nextQuestion(eventId);
+    const handleNextQuestion = async () => {
+        const success = await triviaService.nextQuestion(eventId);
         if (!success) {
             alert('No hay más preguntas. Finaliza el juego.');
         }
     };
 
-    const handleRevealAnswer = () => {
-        triviaService.revealAnswer(eventId);
+    const handleRevealAnswer = async () => {
+        await triviaService.revealAnswer(eventId);
     };
 
-    const handleEndGame = () => {
-        triviaService.endGame(eventId);
+    const handleEndGame = async () => {
+        await triviaService.endGame(eventId);
     };
 
-    const handleResetGame = () => {
+    const handleResetGame = async () => {
         if (window.confirm('¿Reiniciar todo el juego? Se borrarán jugadores y respuestas.')) {
-            triviaService.resetGame(eventId);
+            await triviaService.resetGame(eventId);
         }
     };
 
@@ -148,7 +148,7 @@ const TriviaAdmin: React.FC = () => {
                             <div className="flex items-center gap-2 text-sm">
                                 <span
                                     className={`px-2 py-0.5 rounded text-xs font-bold ${gameState.status === 'PLAYING' ? 'bg-green-600' :
-                                            gameState.status === 'FINISHED' ? 'bg-amber-600' : 'bg-slate-600'
+                                        gameState.status === 'FINISHED' ? 'bg-amber-600' : 'bg-slate-600'
                                         }`}
                                 >
                                     {gameState.status === 'WAITING' ? 'EN ESPERA' :
@@ -363,8 +363,8 @@ const TriviaAdmin: React.FC = () => {
                                 <div
                                     key={q.id}
                                     className={`p-4 rounded-lg border transition-all ${gameState.currentQuestionIndex === idx
-                                            ? 'border-green-500 bg-green-500/10'
-                                            : 'border-slate-700 bg-slate-800'
+                                        ? 'border-green-500 bg-green-500/10'
+                                        : 'border-slate-700 bg-slate-800'
                                         }`}
                                 >
                                     <div className="flex justify-between items-start">

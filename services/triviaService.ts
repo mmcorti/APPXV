@@ -1,5 +1,7 @@
 // Event-aware Trivia Game Service
-// Uses BroadcastChannel + localStorage for real-time sync across tabs
+// Uses SSE (Server-Sent Events) for real-time cross-device sync
+
+const API_BASE = '/api/trivia';
 
 export type OptionKey = 'A' | 'B' | 'C' | 'D';
 
@@ -35,13 +37,7 @@ export interface TriviaGameState {
     players: Record<string, TriviaPlayer>;
 }
 
-export type TriviaEvent =
-    | { type: 'STATE_UPDATE'; payload: TriviaGameState }
-    | { type: 'RESET_GAME' };
-
-const getChannelName = (eventId: string) => `trivia_channel_${eventId}`;
-const getStorageKey = (eventId: string) => `trivia_state_${eventId}`;
-
+// Create initial state (for loading state)
 const createInitialState = (eventId: string): TriviaGameState => ({
     eventId,
     status: 'WAITING',
@@ -52,201 +48,148 @@ const createInitialState = (eventId: string): TriviaGameState => ({
     players: {},
 });
 
-// Channel cache to avoid recreating
-const channelCache: Record<string, BroadcastChannel> = {};
-
-// Local subscribers (for same-tab updates - BroadcastChannel only notifies OTHER tabs)
-const localSubscribers: Record<string, Set<(state: TriviaGameState) => void>> = {};
-
-const getChannel = (eventId: string): BroadcastChannel => {
-    if (!channelCache[eventId]) {
-        channelCache[eventId] = new BroadcastChannel(getChannelName(eventId));
-    }
-    return channelCache[eventId];
-};
-
 export const getStoredState = (eventId: string): TriviaGameState => {
-    const stored = localStorage.getItem(getStorageKey(eventId));
-    return stored ? JSON.parse(stored) : createInitialState(eventId);
-};
-
-const saveState = (eventId: string, state: TriviaGameState) => {
-    localStorage.setItem(getStorageKey(eventId), JSON.stringify(state));
-
-    // Notify other tabs via BroadcastChannel
-    const channel = getChannel(eventId);
-    channel.postMessage({ type: 'STATE_UPDATE', payload: state });
-
-    // Notify local subscribers (same tab) - BroadcastChannel doesn't do this!
-    const subscribers = localSubscribers[eventId];
-    if (subscribers) {
-        subscribers.forEach(callback => callback(state));
-    }
+    return createInitialState(eventId);
 };
 
 export const triviaService = {
-    // Subscribe to state changes
+    // Subscribe to real-time state updates via SSE
     subscribe: (eventId: string, callback: (state: TriviaGameState) => void) => {
-        // Register local subscriber
-        if (!localSubscribers[eventId]) {
-            localSubscribers[eventId] = new Set();
-        }
-        localSubscribers[eventId].add(callback);
+        // Create SSE connection
+        const eventSource = new EventSource(`${API_BASE}/${eventId}/stream`);
 
-        // Initial load
-        callback(getStoredState(eventId));
-
-        // Listen to other tabs
-        const channel = getChannel(eventId);
-        const handler = (event: MessageEvent<TriviaEvent>) => {
-            if (event.data.type === 'STATE_UPDATE') {
-                callback(event.data.payload);
+        eventSource.onmessage = (event) => {
+            try {
+                const state = JSON.parse(event.data);
+                callback(state);
+            } catch (e) {
+                console.error('Failed to parse SSE data:', e);
             }
         };
-        channel.addEventListener('message', handler);
 
-        // Cleanup function
+        eventSource.onerror = (error) => {
+            console.error('SSE connection error:', error);
+            // Reconnect after 3 seconds
+            setTimeout(() => {
+                if (eventSource.readyState === EventSource.CLOSED) {
+                    console.log('SSE reconnecting...');
+                    triviaService.subscribe(eventId, callback);
+                }
+            }, 3000);
+        };
+
+        // Return cleanup function
         return () => {
-            channel.removeEventListener('message', handler);
-            localSubscribers[eventId]?.delete(callback);
+            eventSource.close();
         };
     },
 
     // --- Admin Actions ---
 
-    setQuestions: (eventId: string, questions: TriviaQuestion[]) => {
-        const state = getStoredState(eventId);
-        saveState(eventId, { ...state, questions });
-    },
-
-    addQuestion: (eventId: string, question: Omit<TriviaQuestion, 'id'>) => {
-        const state = getStoredState(eventId);
-        const newQuestion: TriviaQuestion = {
-            ...question,
-            id: crypto.randomUUID(),
-        };
-        saveState(eventId, { ...state, questions: [...state.questions, newQuestion] });
-    },
-
-    updateQuestion: (eventId: string, questionId: string, updates: Partial<TriviaQuestion>) => {
-        const state = getStoredState(eventId);
-        const questions = state.questions.map(q =>
-            q.id === questionId ? { ...q, ...updates } : q
-        );
-        saveState(eventId, { ...state, questions });
-    },
-
-    deleteQuestion: (eventId: string, questionId: string) => {
-        const state = getStoredState(eventId);
-        const questions = state.questions.filter(q => q.id !== questionId);
-        saveState(eventId, { ...state, questions });
-    },
-
-    startGame: (eventId: string) => {
-        const state = getStoredState(eventId);
-        saveState(eventId, {
-            ...state,
-            status: 'PLAYING',
-            currentQuestionIndex: -1,
-            isAnswerRevealed: false,
+    addQuestion: async (eventId: string, question: Omit<TriviaQuestion, 'id'>) => {
+        const response = await fetch(`${API_BASE}/${eventId}/questions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(question),
         });
+        return response.json();
     },
 
-    nextQuestion: (eventId: string) => {
-        const state = getStoredState(eventId);
-        const nextIndex = state.currentQuestionIndex + 1;
-
-        if (nextIndex >= state.questions.length) {
-            return false; // No more questions
-        }
-
-        saveState(eventId, {
-            ...state,
-            currentQuestionIndex: nextIndex,
-            questionStartTime: Date.now(),
-            isAnswerRevealed: false,
+    updateQuestion: async (eventId: string, questionId: string, updates: Partial<TriviaQuestion>) => {
+        const response = await fetch(`${API_BASE}/${eventId}/questions/${questionId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates),
         });
-        return true;
+        return response.json();
     },
 
-    revealAnswer: (eventId: string) => {
-        const state = getStoredState(eventId);
-        saveState(eventId, { ...state, isAnswerRevealed: true });
-    },
-
-    endGame: (eventId: string) => {
-        const state = getStoredState(eventId);
-        saveState(eventId, {
-            ...state,
-            status: 'FINISHED',
-            currentQuestionIndex: -1,
+    deleteQuestion: async (eventId: string, questionId: string) => {
+        const response = await fetch(`${API_BASE}/${eventId}/questions/${questionId}`, {
+            method: 'DELETE',
         });
+        return response.json();
     },
 
-    resetGame: (eventId: string) => {
-        saveState(eventId, createInitialState(eventId));
+    startGame: async (eventId: string) => {
+        const response = await fetch(`${API_BASE}/${eventId}/start`, {
+            method: 'POST',
+        });
+        return response.json();
+    },
+
+    nextQuestion: async (eventId: string) => {
+        const response = await fetch(`${API_BASE}/${eventId}/next`, {
+            method: 'POST',
+        });
+        const data = await response.json();
+        return data.success;
+    },
+
+    revealAnswer: async (eventId: string) => {
+        const response = await fetch(`${API_BASE}/${eventId}/reveal`, {
+            method: 'POST',
+        });
+        return response.json();
+    },
+
+    endGame: async (eventId: string) => {
+        const response = await fetch(`${API_BASE}/${eventId}/end`, {
+            method: 'POST',
+        });
+        return response.json();
+    },
+
+    resetGame: async (eventId: string) => {
+        const response = await fetch(`${API_BASE}/${eventId}/reset`, {
+            method: 'POST',
+        });
+        return response.json();
     },
 
     // --- Guest Actions ---
 
-    joinPlayer: (eventId: string, playerId: string, name: string) => {
-        const state = getStoredState(eventId);
-        if (!state.players[playerId]) {
-            const newPlayers = {
-                ...state.players,
-                [playerId]: { id: playerId, name, score: 0, answers: {} },
-            };
-            saveState(eventId, { ...state, players: newPlayers });
-        }
+    joinPlayer: async (eventId: string, playerId: string, name: string) => {
+        const response = await fetch(`${API_BASE}/${eventId}/join`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playerId, name }),
+        });
+        return response.json();
     },
 
-    submitAnswer: (eventId: string, playerId: string, questionId: string, answer: OptionKey) => {
-        const state = getStoredState(eventId);
-        const player = state.players[playerId];
-        const currentQuestion = state.questions[state.currentQuestionIndex];
-
-        // Validation
-        if (!player) return false;
-        if (!currentQuestion || currentQuestion.id !== questionId) return false;
-        if (player.answers[questionId]) return false; // Already answered
-
-        // Calculate score
-        let newScore = player.score;
-        if (currentQuestion.correctOption === answer) {
-            newScore += 1;
-        }
-
-        const updatedPlayer = {
-            ...player,
-            score: newScore,
-            answers: { ...player.answers, [questionId]: answer },
-        };
-
-        saveState(eventId, {
-            ...state,
-            players: { ...state.players, [playerId]: updatedPlayer },
+    submitAnswer: async (eventId: string, playerId: string, questionId: string, answer: OptionKey) => {
+        const response = await fetch(`${API_BASE}/${eventId}/answer`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playerId, questionId, answer }),
         });
-
-        return true;
+        const data = await response.json();
+        return data.success;
     },
 
     // --- Utility ---
 
-    getCurrentQuestion: (eventId: string): TriviaQuestion | null => {
-        const state = getStoredState(eventId);
+    getState: async (eventId: string): Promise<TriviaGameState> => {
+        const response = await fetch(`${API_BASE}/${eventId}`);
+        return response.json();
+    },
+
+    getCurrentQuestion: async (eventId: string): Promise<TriviaQuestion | null> => {
+        const state = await triviaService.getState(eventId);
         if (state.currentQuestionIndex < 0 || state.currentQuestionIndex >= state.questions.length) {
             return null;
         }
         return state.questions[state.currentQuestionIndex];
     },
 
-    getLeaderboard: (eventId: string): TriviaPlayer[] => {
-        const state = getStoredState(eventId);
+    getLeaderboard: async (eventId: string): Promise<TriviaPlayer[]> => {
+        const state = await triviaService.getState(eventId);
         return Object.values(state.players).sort((a, b) => b.score - a.score);
     },
 
-    getPlayerRank: (eventId: string, playerId: string): number => {
-        const leaderboard = triviaService.getLeaderboard(eventId);
+    getPlayerRank: async (eventId: string, playerId: string): Promise<number> => {
+        const leaderboard = await triviaService.getLeaderboard(eventId);
         const index = leaderboard.findIndex(p => p.id === playerId);
         return index >= 0 ? index + 1 : 0;
     },
