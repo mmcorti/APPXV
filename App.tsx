@@ -24,6 +24,9 @@ import ExpenseCategories from './screens/ExpenseCategories';
 import Participants from './screens/Participants';
 import BalanceSummary from './screens/BalanceSummary';
 import GamesDashboard from './screens/GamesDashboard';
+import TriviaAdmin from './screens/TriviaAdmin';
+import TriviaBigScreen from './screens/TriviaBigScreen';
+import TriviaGuest from './screens/TriviaGuest';
 import GoogleCallbackScreen from './screens/GoogleCallback';
 import { InvitationData, User, Guest, Table, SeatedGuest, StaffPermissions } from './types';
 import { notionService } from './services/notion';
@@ -570,6 +573,18 @@ const App: React.FC = () => {
         <Route
           path="/games/:id"
           element={user ? <GamesDashboard invitations={invitations} user={user} /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/trivia/:id/admin"
+          element={user ? <TriviaAdmin /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/trivia/:id/screen"
+          element={<TriviaBigScreen />}
+        />
+        <Route
+          path="/trivia/:id/play"
+          element={<TriviaGuest />}
         />
         <Route
           path="/location/:id"
