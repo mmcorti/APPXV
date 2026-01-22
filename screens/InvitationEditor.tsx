@@ -101,7 +101,11 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
 
   const handleAiAction = async (type: 'generate' | 'edit') => {
     // PLAN CHECK: Only Premium/VIP can use AI
-    if (user.plan === 'freemium') {
+    // For staff, use the event owner's plan (ownerPlan) instead of user.plan
+    const isStaff = user.role === 'staff' || user.role === 'event_staff';
+    const effectivePlan = isStaff ? (invitation?.ownerPlan || 'freemium') : user.plan;
+
+    if (effectivePlan === 'freemium') {
       alert('La generación de imágenes con IA está disponible para cuentas Premium y VIP.');
       return;
     }

@@ -422,6 +422,32 @@ app.get('/api/events', async (req, res) => {
                         access_link: findProp(r.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessLink)?.checkbox || false,
                         access_fotowall: findProp(r.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessFotowall)?.checkbox || false,
                     };
+
+                    // Fetch owner's plan from CreatorEmail
+                    const creatorEmail = getText(findProp(page.properties, KNOWN_PROPERTIES.EVENTS.CreatorEmail));
+                    if (creatorEmail && DS.SUBSCRIBERS) {
+                        try {
+                            const subscriberRes = await notionClient.databases.query({
+                                database_id: DS.SUBSCRIBERS,
+                                filter: {
+                                    property: schema.get('SUBSCRIBERS', 'Email'),
+                                    email: { equals: creatorEmail }
+                                }
+                            });
+                            if (subscriberRes.results.length > 0) {
+                                const subPage = subscriberRes.results[0];
+                                const planProp = findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Plan);
+                                page._ownerPlan = planProp?.select?.name?.toLowerCase() || 'freemium';
+                                console.log(`📋 [Staff] Event owner ${creatorEmail} has plan: ${page._ownerPlan}`);
+                            }
+                        } catch (e) {
+                            console.warn('Could not fetch owner plan:', e.message);
+                            page._ownerPlan = 'freemium';
+                        }
+                    } else {
+                        page._ownerPlan = 'freemium';
+                    }
+
                     return page;
                 } catch (e) {
                     return null;
@@ -493,7 +519,8 @@ app.get('/api/events', async (req, res) => {
                 // Client-side fields
                 guests: [],
                 tables: [],
-                permissions: page._permissions // Pass mapped permissions
+                permissions: page._permissions, // Pass mapped permissions
+                ownerPlan: page._ownerPlan // Pass owner's plan for staff permission inheritance
             };
             return event;
         });

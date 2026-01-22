@@ -167,12 +167,15 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
             <button onClick={onLogout} className="flex items-center justify-center size-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-500">
               <span className="material-symbols-outlined">logout</span>
             </button>
-            <button
-              onClick={() => canCreateEvent ? setShowAddModal(true) : setLimitError(`Límite de eventos alcanzado (${usage?.events.display})`)}
-              className={`flex items-center justify-center size-10 rounded-full shadow-lg transition-transform active:scale-90 ${canCreateEvent ? 'bg-primary text-white shadow-primary/20' : 'bg-slate-300 dark:bg-slate-600 text-slate-500 cursor-not-allowed'}`}
-            >
-              <span className="material-symbols-outlined">add</span>
-            </button>
+            {/* Only show create event button for admin/subscriber, not for staff */}
+            {user.role !== 'staff' && user.role !== 'event_staff' && (
+              <button
+                onClick={() => canCreateEvent ? setShowAddModal(true) : setLimitError(`Límite de eventos alcanzado (${usage?.events.display})`)}
+                className={`flex items-center justify-center size-10 rounded-full shadow-lg transition-transform active:scale-90 ${canCreateEvent ? 'bg-primary text-white shadow-primary/20' : 'bg-slate-300 dark:bg-slate-600 text-slate-500 cursor-not-allowed'}`}
+              >
+                <span className="material-symbols-outlined">add</span>
+              </button>
+            )}
           </div>
         </div>
         {/* Plan Upgrade Banner */}
@@ -333,13 +336,19 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
             <div className="size-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-400 mx-auto mb-4">
               <span className="material-symbols-outlined text-4xl">event_busy</span>
             </div>
-            <p className="text-slate-500 font-medium">No tienes eventos creados</p>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="mt-4 text-primary font-bold hover:underline"
-            >
-              Crea tu primer evento ahora
-            </button>
+            <p className="text-slate-500 font-medium">
+              {user.role === 'staff' || user.role === 'event_staff'
+                ? 'No tienes eventos asignados'
+                : 'No tienes eventos creados'}
+            </p>
+            {user.role !== 'staff' && user.role !== 'event_staff' && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="mt-4 text-primary font-bold hover:underline"
+              >
+                Crea tu primer evento ahora
+              </button>
+            )}
           </div>
         )}
       </div>
