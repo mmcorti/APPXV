@@ -2427,6 +2427,258 @@ app.get('/api/events/:eventId/balances', async (req, res) => {
     }
 });
 
+// =====================================================
+// TRIVIA GAME API - Real-time Cross-Device Sync via SSE
+// =====================================================
+
+// In-memory trivia game state (per event)
+const triviaGames = {};
+
+// SSE clients (per event)
+const triviaClients = {};
+
+// Helper to get or create game state
+const getTriviaState = (eventId) => {
+    if (!triviaGames[eventId]) {
+        triviaGames[eventId] = {
+            eventId,
+            status: 'WAITING',
+            questions: [],
+            currentQuestionIndex: -1,
+            questionStartTime: null,
+            isAnswerRevealed: false,
+            players: {}
+        };
+    }
+    return triviaGames[eventId];
+};
+
+// Broadcast state to all SSE clients for an event
+const broadcastTriviaState = (eventId) => {
+    const state = getTriviaState(eventId);
+    const clients = triviaClients[eventId] || [];
+    const data = JSON.stringify(state);
+
+    clients.forEach((res) => {
+        try {
+            res.write(`data: ${data}\n\n`);
+        } catch (e) {
+            console.error('SSE write error:', e);
+        }
+    });
+    console.log(`📡 [TRIVIA] Broadcast to ${clients.length} clients for event ${eventId.substring(0, 8)}...`);
+};
+
+// SSE endpoint for real-time updates
+app.get('/api/trivia/:eventId/stream', (req, res) => {
+    const { eventId } = req.params;
+    console.log(`📡 [TRIVIA SSE] New client connected for event ${eventId.substring(0, 8)}...`);
+
+    // SSE headers
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+    });
+
+    // Add client to list
+    if (!triviaClients[eventId]) {
+        triviaClients[eventId] = [];
+    }
+    triviaClients[eventId].push(res);
+
+    // Send current state immediately
+    const state = getTriviaState(eventId);
+    res.write(`data: ${JSON.stringify(state)}\n\n`);
+
+    // Keep-alive ping every 30 seconds
+    const keepAlive = setInterval(() => {
+        res.write(': ping\n\n');
+    }, 30000);
+
+    // Remove client on disconnect
+    req.on('close', () => {
+        console.log(`📡 [TRIVIA SSE] Client disconnected from event ${eventId.substring(0, 8)}...`);
+        clearInterval(keepAlive);
+        triviaClients[eventId] = triviaClients[eventId].filter(c => c !== res);
+    });
+});
+
+// Get current game state
+app.get('/api/trivia/:eventId', (req, res) => {
+    const { eventId } = req.params;
+    const state = getTriviaState(eventId);
+    res.json(state);
+});
+
+// Add question
+app.post('/api/trivia/:eventId/questions', (req, res) => {
+    const { eventId } = req.params;
+    const { text, options, correctOption, durationSeconds } = req.body;
+
+    const state = getTriviaState(eventId);
+    const newQuestion = {
+        id: crypto.randomUUID(),
+        text,
+        options,
+        correctOption,
+        durationSeconds: durationSeconds || 10
+    };
+    state.questions.push(newQuestion);
+
+    broadcastTriviaState(eventId);
+    res.json({ success: true, question: newQuestion });
+});
+
+// Update question
+app.put('/api/trivia/:eventId/questions/:questionId', (req, res) => {
+    const { eventId, questionId } = req.params;
+    const updates = req.body;
+
+    const state = getTriviaState(eventId);
+    const idx = state.questions.findIndex(q => q.id === questionId);
+    if (idx >= 0) {
+        state.questions[idx] = { ...state.questions[idx], ...updates };
+        broadcastTriviaState(eventId);
+        res.json({ success: true });
+    } else {
+        res.status(404).json({ error: 'Question not found' });
+    }
+});
+
+// Delete question
+app.delete('/api/trivia/:eventId/questions/:questionId', (req, res) => {
+    const { eventId, questionId } = req.params;
+
+    const state = getTriviaState(eventId);
+    state.questions = state.questions.filter(q => q.id !== questionId);
+
+    broadcastTriviaState(eventId);
+    res.json({ success: true });
+});
+
+// Start game
+app.post('/api/trivia/:eventId/start', (req, res) => {
+    const { eventId } = req.params;
+    const state = getTriviaState(eventId);
+
+    state.status = 'PLAYING';
+    state.currentQuestionIndex = -1;
+    state.isAnswerRevealed = false;
+
+    broadcastTriviaState(eventId);
+    res.json({ success: true });
+});
+
+// Next question
+app.post('/api/trivia/:eventId/next', (req, res) => {
+    const { eventId } = req.params;
+    const state = getTriviaState(eventId);
+
+    const nextIndex = state.currentQuestionIndex + 1;
+    if (nextIndex >= state.questions.length) {
+        return res.json({ success: false, message: 'No more questions' });
+    }
+
+    state.currentQuestionIndex = nextIndex;
+    state.questionStartTime = Date.now();
+    state.isAnswerRevealed = false;
+
+    broadcastTriviaState(eventId);
+    res.json({ success: true, questionIndex: nextIndex });
+});
+
+// Reveal answer
+app.post('/api/trivia/:eventId/reveal', (req, res) => {
+    const { eventId } = req.params;
+    const state = getTriviaState(eventId);
+
+    state.isAnswerRevealed = true;
+
+    broadcastTriviaState(eventId);
+    res.json({ success: true });
+});
+
+// End game
+app.post('/api/trivia/:eventId/end', (req, res) => {
+    const { eventId } = req.params;
+    const state = getTriviaState(eventId);
+
+    state.status = 'FINISHED';
+    state.currentQuestionIndex = -1;
+
+    broadcastTriviaState(eventId);
+    res.json({ success: true });
+});
+
+// Reset game
+app.post('/api/trivia/:eventId/reset', (req, res) => {
+    const { eventId } = req.params;
+
+    triviaGames[eventId] = {
+        eventId,
+        status: 'WAITING',
+        questions: [],
+        currentQuestionIndex: -1,
+        questionStartTime: null,
+        isAnswerRevealed: false,
+        players: {}
+    };
+
+    broadcastTriviaState(eventId);
+    res.json({ success: true });
+});
+
+// Join player
+app.post('/api/trivia/:eventId/join', (req, res) => {
+    const { eventId } = req.params;
+    const { playerId, name } = req.body;
+
+    const state = getTriviaState(eventId);
+    if (!state.players[playerId]) {
+        state.players[playerId] = {
+            id: playerId,
+            name,
+            score: 0,
+            answers: {}
+        };
+        broadcastTriviaState(eventId);
+    }
+
+    res.json({ success: true, player: state.players[playerId] });
+});
+
+// Submit answer
+app.post('/api/trivia/:eventId/answer', (req, res) => {
+    const { eventId } = req.params;
+    const { playerId, questionId, answer } = req.body;
+
+    const state = getTriviaState(eventId);
+    const player = state.players[playerId];
+    const currentQuestion = state.questions[state.currentQuestionIndex];
+
+    // Validations
+    if (!player) {
+        return res.status(400).json({ error: 'Player not found' });
+    }
+    if (!currentQuestion || currentQuestion.id !== questionId) {
+        return res.status(400).json({ error: 'Invalid question' });
+    }
+    if (player.answers[questionId]) {
+        return res.status(400).json({ error: 'Already answered' });
+    }
+
+    // Record answer and calculate score
+    player.answers[questionId] = answer;
+    if (currentQuestion.correctOption === answer) {
+        player.score += 1;
+    }
+
+    broadcastTriviaState(eventId);
+    res.json({ success: true, correct: currentQuestion.correctOption === answer });
+});
+
 // Catch-all for frontend
 app.get(/.*/, (req, res) => {
     res.sendFile(path.join(__dirname, '../dist', 'index.html'));

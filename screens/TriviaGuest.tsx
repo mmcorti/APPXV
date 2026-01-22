@@ -45,21 +45,21 @@ const TriviaGuest: React.FC = () => {
         return () => clearInterval(interval);
     }, [gameState?.currentQuestionIndex, gameState?.questionStartTime, eventId]);
 
-    const handleJoin = () => {
+    const handleJoin = async () => {
         if (!inputName.trim() || !eventId) return;
         const newId = crypto.randomUUID();
         localStorage.setItem(`${PLAYER_ID_KEY}_${eventId}`, newId);
         localStorage.setItem(`${PLAYER_NAME_KEY}_${eventId}`, inputName);
         setPlayerId(newId);
         setPlayerName(inputName);
-        triviaService.joinPlayer(eventId, newId, inputName);
+        await triviaService.joinPlayer(eventId, newId, inputName);
     };
 
-    const handleAnswer = (option: OptionKey) => {
+    const handleAnswer = async (option: OptionKey) => {
         if (!playerId || !eventId || !gameState) return;
         const currentQuestion = gameState.questions[gameState.currentQuestionIndex];
         if (!currentQuestion || timeLeft <= 0) return;
-        triviaService.submitAnswer(eventId, playerId, currentQuestion.id, option);
+        await triviaService.submitAnswer(eventId, playerId, currentQuestion.id, option);
     };
 
     if (!eventId || !gameState) {
