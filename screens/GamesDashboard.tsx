@@ -103,6 +103,12 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
     });
 
     const handleStartGame = (gameId: string) => {
+        // Navigate to Trivia Admin for 'event-trivia' game
+        if (gameId === 'event-trivia') {
+            navigate(`/trivia/${id}/admin`);
+            return;
+        }
+
         setGames(prev => prev.map(g => {
             if (g.id === gameId) {
                 return { ...g, status: 'running' as const, runningTime: '0M 0S', participantCount: Math.floor(Math.random() * 100) + 50 };
@@ -188,8 +194,8 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
                             onClick={handleStopAll}
                             disabled={!runningGame}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${runningGame
-                                    ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                                    : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                                ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                                : 'bg-slate-700 text-slate-400 cursor-not-allowed'
                                 }`}
                         >
                             <span className="material-symbols-outlined">stop_circle</span>
@@ -237,8 +243,8 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
                         <div
                             key={game.id}
                             className={`bg-slate-900 rounded-2xl overflow-hidden border transition-all hover:scale-[1.02] ${game.status === 'running'
-                                    ? 'border-pink-500/50 ring-2 ring-pink-500/20'
-                                    : 'border-slate-800 hover:border-slate-700'
+                                ? 'border-pink-500/50 ring-2 ring-pink-500/20'
+                                : 'border-slate-800 hover:border-slate-700'
                                 }`}
                         >
                             {/* Image */}

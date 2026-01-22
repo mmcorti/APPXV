@@ -1,0 +1,5 @@
+{
+  "name": "Antigravity Trivia",
+  "description": "A real-time, multi-screen interactive trivia game designed for live events. Features an Admin control panel, a Big Screen display, and a mobile-first Guest interface with synchronized timers and state.",
+  "requestFramePermissions": []
+}
