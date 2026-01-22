@@ -2298,7 +2298,7 @@ app.get('/api/events/:eventId/balances', async (req, res) => {
         // Get all expenses for event
         const expensesRes = await notionClient.databases.query({
             database_id: DS.EXPENSES,
-            filter: { property: schema.get('EXPENSES', 'Event'), rich_text: { equals: eventId } }
+            filter: { property: schema.get('EXPENSES', 'Event'), relation: { contains: eventId } }
         });
         const expenses = expensesRes.results;
         const expenseIds = expenses.map(e => e.id);

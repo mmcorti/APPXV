@@ -235,6 +235,50 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
             )}
           </div>
 
+          {/* Dress Code Section */}
+          {attending && invitation.dressCode && (
+            <div className="mt-4 p-5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 text-center">
+              <div className="flex justify-center items-end gap-1 mb-3">
+                {/* Female silhouette */}
+                <svg viewBox="0 0 24 40" className="w-8 h-12 fill-slate-800 dark:fill-slate-200">
+                  <circle cx="12" cy="4" r="3.5" />
+                  <path d="M12 8c-3 0-5.5 2-6 5l-1 8h3l1 18h6l1-18h3l-1-8c-.5-3-3-5-6-5z" />
+                </svg>
+                {/* Male silhouette */}
+                <svg viewBox="0 0 24 40" className="w-8 h-12 fill-slate-800 dark:fill-slate-200">
+                  <circle cx="12" cy="4" r="3.5" />
+                  <path d="M12 8c-2.5 0-4.5 1.5-5 4l-.5 4h2l-1 23h3v-12h3v12h3l-1-23h2l-.5-4c-.5-2.5-2.5-4-5-4z" />
+                  <path d="M10 12l2 4 2-4" className="fill-amber-500" />
+                </svg>
+              </div>
+              <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Dress Code</p>
+              <p className="text-lg font-bold text-slate-800 dark:text-white">{invitation.dressCode}</p>
+            </div>
+          )}
+
+          {/* Gift / Alias Section */}
+          {attending && invitation.giftDetail && (
+            <div className="mt-4 p-5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-700 text-center">
+              <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                <span className="material-symbols-outlined text-2xl text-primary">
+                  {invitation.giftType === 'alias' ? 'account_balance' : 'redeem'}
+                </span>
+              </div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">
+                {invitation.giftType === 'alias' ? 'Alias Bancario' : 'Lista de Regalos'}
+              </p>
+              <p className="text-lg font-bold text-primary break-all mb-2">{invitation.giftDetail}</p>
+              <button
+                type="button"
+                onClick={() => { navigator.clipboard.writeText(invitation.giftDetail); alert('¡Copiado!'); }}
+                className="text-xs font-bold text-slate-400 hover:text-primary transition-colors flex items-center justify-center gap-1 mx-auto"
+              >
+                <span className="material-symbols-outlined text-sm">content_copy</span>
+                COPIAR
+              </button>
+            </div>
+          )}
+
           <div className="mt-6 flex flex-col gap-3">
             <button onClick={() => navigate('/location/' + invitation.id)} className="w-full h-12 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all">Ver Ubicación</button>
             <button onClick={() => navigate(-1)} className="w-full h-12 bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white font-bold rounded-xl border border-slate-200 dark:border-slate-600 transition-all">Volver</button>

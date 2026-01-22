@@ -75,7 +75,10 @@ const AddExpense: React.FC = () => {
                     setPayments(existingPayments.map((p: any) => ({
                         id: Date.now() + Math.random(),
                         amount: p.amount,
-                        participantId: p.participantId
+                        participantId: p.participantId,
+                        description: p.description || '',
+                        date: p.date || new Date().toISOString().split('T')[0],
+                        receiptUrl: p.receiptUrl || ''
                     })));
                 } else {
                     setPayments([{ id: Date.now(), amount: expense.paid || 0, participantId: '', description: '', date: new Date().toISOString().split('T')[0], receiptUrl: '' }]);
