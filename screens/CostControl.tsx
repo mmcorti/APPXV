@@ -43,6 +43,19 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
         }
     };
 
+    const deleteExpense = async (expenseId: string, e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent navigation to edit
+        if (!confirm('¿Estás seguro de que quieres eliminar este gasto?')) return;
+
+        try {
+            await notionService.deleteExpense(expenseId);
+            setExpenses(prev => prev.filter(exp => exp.id !== expenseId));
+        } catch (error) {
+            console.error('Error deleting expense:', error);
+            alert('Error al eliminar el gasto');
+        }
+    };
+
     const filteredExpenses = filter === 'all'
         ? expenses
         : expenses.filter(e => e.status === filter);
@@ -162,7 +175,7 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
                                 <div
                                     key={expense.id}
                                     onClick={() => navigate(`/costs/${id}/edit/${expense.id}`)}
-                                    className="flex items-center p-3 bg-white dark:bg-[#193324] rounded-xl border border-slate-200 dark:border-white/5 cursor-pointer hover:border-primary/50 hover:shadow-md transition-all"
+                                    className="flex items-center p-3 bg-white dark:bg-[#193324] rounded-xl border border-slate-200 dark:border-white/5 cursor-pointer hover:border-primary/50 hover:shadow-md transition-all group"
                                 >
                                     <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary mr-4">
                                         <span className="material-symbols-outlined">{getIcon(expense.category)}</span>
@@ -176,11 +189,20 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
                                             </span>
                                         </div>
                                     </div>
-                                    <div className="text-right flex flex-col items-end gap-1">
+                                    <div className="text-right flex flex-col items-end gap-1 mr-2">
                                         <p className="font-bold text-sm">${expense.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
                                         {expense.paid > 0 && expense.paid < expense.total && (
                                             <p className="text-xs text-primary">Pagado: ${expense.paid.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
                                         )}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            onClick={(e) => deleteExpense(expense.id, e)}
+                                            className="size-9 rounded-lg flex items-center justify-center text-rose-500 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title="Eliminar gasto"
+                                        >
+                                            <span className="material-symbols-outlined text-xl">delete</span>
+                                        </button>
                                         <span className="material-symbols-outlined text-slate-400 text-lg">chevron_right</span>
                                     </div>
                                 </div>
