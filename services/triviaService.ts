@@ -55,6 +55,9 @@ const createInitialState = (eventId: string): TriviaGameState => ({
 // Channel cache to avoid recreating
 const channelCache: Record<string, BroadcastChannel> = {};
 
+// Local subscribers (for same-tab updates - BroadcastChannel only notifies OTHER tabs)
+const localSubscribers: Record<string, Set<(state: TriviaGameState) => void>> = {};
+
 const getChannel = (eventId: string): BroadcastChannel => {
     if (!channelCache[eventId]) {
         channelCache[eventId] = new BroadcastChannel(getChannelName(eventId));
@@ -69,16 +72,31 @@ export const getStoredState = (eventId: string): TriviaGameState => {
 
 const saveState = (eventId: string, state: TriviaGameState) => {
     localStorage.setItem(getStorageKey(eventId), JSON.stringify(state));
+
+    // Notify other tabs via BroadcastChannel
     const channel = getChannel(eventId);
     channel.postMessage({ type: 'STATE_UPDATE', payload: state });
+
+    // Notify local subscribers (same tab) - BroadcastChannel doesn't do this!
+    const subscribers = localSubscribers[eventId];
+    if (subscribers) {
+        subscribers.forEach(callback => callback(state));
+    }
 };
 
 export const triviaService = {
     // Subscribe to state changes
     subscribe: (eventId: string, callback: (state: TriviaGameState) => void) => {
+        // Register local subscriber
+        if (!localSubscribers[eventId]) {
+            localSubscribers[eventId] = new Set();
+        }
+        localSubscribers[eventId].add(callback);
+
         // Initial load
         callback(getStoredState(eventId));
 
+        // Listen to other tabs
         const channel = getChannel(eventId);
         const handler = (event: MessageEvent<TriviaEvent>) => {
             if (event.data.type === 'STATE_UPDATE') {
@@ -86,7 +104,12 @@ export const triviaService = {
             }
         };
         channel.addEventListener('message', handler);
-        return () => channel.removeEventListener('message', handler);
+
+        // Cleanup function
+        return () => {
+            channel.removeEventListener('message', handler);
+            localSubscribers[eventId]?.delete(callback);
+        };
     },
 
     // --- Admin Actions ---
