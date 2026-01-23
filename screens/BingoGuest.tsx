@@ -88,23 +88,60 @@ const BingoGuest: React.FC = () => {
         }, 100);
     };
 
+    // Compress image using Canvas API
+    const compressImage = (file: File, maxWidth = 800, quality = 0.7): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+
+            img.onload = () => {
+                // Calculate new dimensions maintaining aspect ratio
+                let { width, height } = img;
+                if (width > maxWidth) {
+                    height = (height * maxWidth) / width;
+                    width = maxWidth;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                // Draw and compress
+                ctx?.drawImage(img, 0, 0, width, height);
+                const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+
+                // Log compression results for debugging
+                console.log(`📸 Image compressed: ${(file.size / 1024).toFixed(0)}KB → ${(compressedDataUrl.length * 0.75 / 1024).toFixed(0)}KB`);
+
+                resolve(compressedDataUrl);
+            };
+
+            img.onerror = () => reject(new Error('Error al procesar imagen'));
+
+            // Load image from file
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                img.src = e.target?.result as string;
+            };
+            reader.onerror = () => reject(new Error('Error al leer archivo'));
+            reader.readAsDataURL(file);
+        });
+    };
+
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files?.[0] || !activePrompt || !playerId || !eventId) return;
 
         const file = e.target.files[0];
-        const reader = new FileReader();
 
-        reader.onload = async (ev) => {
-            const photoUrl = ev.target?.result as string;
-            try {
-                await bingoService.uploadPhoto(eventId, playerId, activePrompt.id, photoUrl);
-                setActivePrompt(null);
-            } catch (err: any) {
-                setError(err.message || 'Error al subir foto');
-            }
-        };
+        try {
+            // Compress image before uploading (max 800px, 70% quality)
+            const compressedPhotoUrl = await compressImage(file, 800, 0.7);
+            await bingoService.uploadPhoto(eventId, playerId, activePrompt.id, compressedPhotoUrl);
+            setActivePrompt(null);
+        } catch (err: any) {
+            setError(err.message || 'Error al subir foto');
+        }
 
-        reader.readAsDataURL(file);
         e.target.value = ''; // Reset input
     };
 

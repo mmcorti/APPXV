@@ -49,8 +49,8 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
     const handleStart = async () => {
         if (!eventId) return;
         if (!googlePhotosLink) {
-            alert("Por favor, configura el link de Google Photos primero.");
-            return;
+            const proceed = confirm("⚠️ No configuraste el link de Google Photos.\n\nLos invitados no podrán ver las fotos del evento.\n\n¿Deseas iniciar el juego de todas formas?");
+            if (!proceed) return;
         }
         await bingoService.startGame(eventId);
         setActiveTab('LIVE');
