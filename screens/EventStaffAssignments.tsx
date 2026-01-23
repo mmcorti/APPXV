@@ -37,7 +37,8 @@ const EventStaffAssignmentsScreen: React.FC<Props> = ({ user, invitations }) => 
         access_invitados: false,
         access_mesas: false,
         access_link: false,
-        access_fotowall: false
+        access_fotowall: false,
+        access_games: false
     });
 
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -172,6 +173,10 @@ const EventStaffAssignmentsScreen: React.FC<Props> = ({ user, invitations }) => 
                             <input type="checkbox" checked={permissions.access_fotowall} onChange={e => setPermissions({ ...permissions, access_fotowall: e.target.checked })} className="rounded text-black focus:ring-black" />
                             Moderación FotoWall
                         </label>
+                        <label className="flex items-center gap-2 text-sm text-gray-600">
+                            <input type="checkbox" checked={permissions.access_games} onChange={e => setPermissions({ ...permissions, access_games: e.target.checked })} className="rounded text-black focus:ring-black" />
+                            Games (Trivia, etc.)
+                        </label>
                     </div>
 
                     <button
@@ -201,6 +206,7 @@ const EventStaffAssignmentsScreen: React.FC<Props> = ({ user, invitations }) => 
                                             {assign.permissions.access_mesas && <span className="bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded">Mesas</span>}
                                             {assign.permissions.access_link && <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded">Link</span>}
                                             {assign.permissions.access_fotowall && <span className="bg-pink-100 text-pink-700 text-xs px-2 py-1 rounded">FotoWall</span>}
+                                            {assign.permissions.access_games && <span className="bg-orange-100 text-orange-700 text-xs px-2 py-1 rounded">Games</span>}
                                         </div>
                                     </div>
                                     <button onClick={() => handleDelete(assign.id)} className="text-red-400 hover:text-red-600">

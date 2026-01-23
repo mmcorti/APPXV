@@ -167,7 +167,7 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
                     {/* Left: Back + Event Info */}
                     <div className="flex items-center gap-4">
                         <button
-                            onClick={() => navigate(`/edit/${id}`)}
+                            onClick={() => navigate(`/dashboard`)}
                             className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
                         >
                             <span className="material-symbols-outlined">arrow_back</span>

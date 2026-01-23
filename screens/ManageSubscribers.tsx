@@ -22,7 +22,8 @@ const ManageSubscribersScreen: React.FC = () => {
         access_invitados: false,
         access_mesas: false,
         access_link: false,
-        access_fotowall: false
+        access_fotowall: false,
+        access_games: false
     });
     const [inviting, setInviting] = useState(false);
     const [savingId, setSavingId] = useState<string | null>(null);
@@ -59,7 +60,8 @@ const ManageSubscribersScreen: React.FC = () => {
             access_invitados: false,
             access_mesas: false,
             access_link: false,
-            access_fotowall: false
+            access_fotowall: false,
+            access_games: false
         });
         setEditingId(null);
     };
@@ -172,7 +174,8 @@ const ManageSubscribersScreen: React.FC = () => {
         access_invitados: { label: 'Invitados', color: 'blue' },
         access_mesas: { label: 'Mesas', color: 'purple' },
         access_link: { label: 'Link', color: 'green' },
-        access_fotowall: { label: 'FotoWall', color: 'pink' }
+        access_fotowall: { label: 'FotoWall', color: 'pink' },
+        access_games: { label: 'Games', color: 'orange' }
     };
 
     const planColors = {
@@ -303,8 +306,8 @@ const ManageSubscribersScreen: React.FC = () => {
                                 type="submit"
                                 disabled={inviting || !inviteEmail.trim() || (!editingId && !invitePassword.trim())}
                                 className={`flex-1 py-3 font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${editingId
-                                        ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
                                     }`}
                             >
                                 {inviting ? 'Guardando...' : editingId ? 'Guardar Cambios' : 'Crear Suscriptor'}

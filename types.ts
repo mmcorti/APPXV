@@ -79,6 +79,7 @@ export interface StaffPermissions {
   access_mesas: boolean;
   access_link: boolean;
   access_fotowall: boolean;
+  access_games: boolean;
 }
 
 export interface StaffMember {

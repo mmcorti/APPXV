@@ -54,7 +54,8 @@ const KNOWN_PROPERTIES = {
         AccessInvitados: ["access_invitados"],
         AccessMesas: ["access_mesas"],
         AccessLink: ["access_link"],
-        AccessFotowall: ["access_fotowall"]
+        AccessFotowall: ["access_fotowall"],
+        AccessGames: ["access_games"]
     },
     STAFF_ROSTER: {
         Name: ["Name", "Nombre"],
@@ -70,7 +71,8 @@ const KNOWN_PROPERTIES = {
         AccessInvitados: ["access_invitados", "Access Invitados"],
         AccessMesas: ["access_mesas", "Access Mesas"],
         AccessLink: ["access_link", "Access Link"],
-        AccessFotowall: ["access_fotowall", "Access Fotowall"]
+        AccessFotowall: ["access_fotowall", "Access Fotowall"],
+        AccessGames: ["access_games", "Access Games"]
     },
     EXPENSES: {
         Name: ["Name", "Nombre", "Descripción"],

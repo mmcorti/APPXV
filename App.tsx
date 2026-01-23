@@ -576,7 +576,7 @@ const App: React.FC = () => {
         />
         <Route
           path="/trivia/:id/admin"
-          element={user ? <TriviaAdmin /> : <Navigate to="/login" />}
+          element={user ? <TriviaAdmin user={user} /> : <Navigate to="/login" />}
         />
         <Route
           path="/trivia/:id/screen"
