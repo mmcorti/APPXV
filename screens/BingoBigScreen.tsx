@@ -41,8 +41,13 @@ const BingoBigScreen: React.FC = () => {
             .filter(([_, status]) => status === 'approved')
             .map(([id]) => parseInt(id));
 
-        // Check for bingo (all 9 approved)
-        const hasBingo = approvedPrompts.length === 9;
+        const rejectedPrompts = Object.entries(photoEvaluations)
+            .filter(([_, status]) => status === 'rejected')
+            .map(([id]) => parseInt(id));
+
+        // Check for bingo (all 9 approved AND none rejected)
+        // Must have exactly 9 approved and 0 rejected
+        const hasBingo = approvedPrompts.length === 9 && rejectedPrompts.length === 0;
 
         // Check for lines (3 in a row)
         // Assuming prompts are indexed 1-9 in a 3x3 grid:
@@ -279,18 +284,18 @@ const BingoBigScreen: React.FC = () => {
                                 onClick={() => sub.status === 'PENDING' && setSelectedSubmission(sub)}
                                 disabled={sub.status !== 'PENDING'}
                                 className={`w-full p-3 rounded-xl border transition-all text-left ${selectedSubmission?.id === sub.id
-                                        ? 'bg-indigo-600/50 border-indigo-400 ring-2 ring-indigo-400'
-                                        : sub.status === 'APPROVED'
-                                            ? 'bg-green-900/30 border-green-500/50 cursor-default'
-                                            : sub.status === 'REJECTED'
-                                                ? 'bg-red-900/30 border-red-500/50 opacity-60 cursor-default'
-                                                : 'bg-slate-700/50 border-slate-600 hover:bg-slate-700 hover:border-slate-500 cursor-pointer'
+                                    ? 'bg-indigo-600/50 border-indigo-400 ring-2 ring-indigo-400'
+                                    : sub.status === 'APPROVED'
+                                        ? 'bg-green-900/30 border-green-500/50 cursor-default'
+                                        : sub.status === 'REJECTED'
+                                            ? 'bg-red-900/30 border-red-500/50 opacity-60 cursor-default'
+                                            : 'bg-slate-700/50 border-slate-600 hover:bg-slate-700 hover:border-slate-500 cursor-pointer'
                                     }`}
                             >
                                 <div className="flex items-center gap-3 mb-2">
                                     <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${sub.status === 'APPROVED' ? 'bg-green-500' :
-                                            sub.status === 'REJECTED' ? 'bg-red-500' :
-                                                'bg-slate-600'
+                                        sub.status === 'REJECTED' ? 'bg-red-500' :
+                                            'bg-slate-600'
                                         }`}>
                                         {sub.status === 'APPROVED' ? '✓' : sub.status === 'REJECTED' ? '✕' : `#${idx + 1}`}
                                     </span>
@@ -298,8 +303,8 @@ const BingoBigScreen: React.FC = () => {
                                     <div className="flex-1 min-w-0">
                                         <span className="font-bold text-sm block truncate">{sub.player.name}</span>
                                         <span className={`text-xs ${sub.status === 'APPROVED' ? 'text-green-400' :
-                                                sub.status === 'REJECTED' ? 'text-red-400' :
-                                                    'text-gray-400'
+                                            sub.status === 'REJECTED' ? 'text-red-400' :
+                                                'text-gray-400'
                                             }`}>
                                             {sub.status === 'APPROVED'
                                                 ? (sub.card.isFullHouse ? '🎯 BINGO' : '📏 LÍNEA')
@@ -381,8 +386,8 @@ const BingoBigScreen: React.FC = () => {
                                     <div
                                         key={prompt.id}
                                         className={`relative aspect-square rounded-xl overflow-hidden border-4 transition-all ${evalStatus === 'approved' ? 'border-green-400 ring-2 ring-green-400/50' :
-                                                evalStatus === 'rejected' ? 'border-red-400 ring-2 ring-red-400/50' :
-                                                    cell?.photoUrl ? 'border-slate-500' : 'border-slate-600 bg-slate-800'
+                                            evalStatus === 'rejected' ? 'border-red-400 ring-2 ring-red-400/50' :
+                                                cell?.photoUrl ? 'border-slate-500' : 'border-slate-600 bg-slate-800'
                                             }`}
                                     >
                                         {cell?.photoUrl ? (
@@ -404,8 +409,8 @@ const BingoBigScreen: React.FC = () => {
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); togglePhotoEval(prompt.id, 'approved'); }}
                                                         className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg ${evalStatus === 'approved'
-                                                                ? 'bg-green-500 text-white scale-110'
-                                                                : 'bg-white/80 text-green-600 hover:bg-green-500 hover:text-white'
+                                                            ? 'bg-green-500 text-white scale-110'
+                                                            : 'bg-white/80 text-green-600 hover:bg-green-500 hover:text-white'
                                                             }`}
                                                     >
                                                         <span className="material-symbols-outlined text-xl">check</span>
@@ -413,8 +418,8 @@ const BingoBigScreen: React.FC = () => {
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); togglePhotoEval(prompt.id, 'rejected'); }}
                                                         className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg ${evalStatus === 'rejected'
-                                                                ? 'bg-red-500 text-white scale-110'
-                                                                : 'bg-white/80 text-red-600 hover:bg-red-500 hover:text-white'
+                                                            ? 'bg-red-500 text-white scale-110'
+                                                            : 'bg-white/80 text-red-600 hover:bg-red-500 hover:text-white'
                                                             }`}
                                                     >
                                                         <span className="material-symbols-outlined text-xl">close</span>
@@ -449,8 +454,8 @@ const BingoBigScreen: React.FC = () => {
                                 onClick={() => handleVerdict('LINE')}
                                 disabled={!hasLine}
                                 className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-xl shadow-lg transform transition-all ${hasLine
-                                        ? 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black hover:scale-105'
-                                        : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                                    ? 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black hover:scale-105'
+                                    : 'bg-slate-700 text-slate-400 cursor-not-allowed'
                                     }`}
                             >
                                 <span className="material-symbols-outlined">horizontal_rule</span>
@@ -460,8 +465,8 @@ const BingoBigScreen: React.FC = () => {
                                 onClick={() => handleVerdict('BINGO')}
                                 disabled={!hasBingo}
                                 className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-xl shadow-lg transform transition-all ${hasBingo
-                                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white hover:scale-105'
-                                        : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white hover:scale-105'
+                                    : 'bg-slate-700 text-slate-400 cursor-not-allowed'
                                     }`}
                             >
                                 <span className="material-symbols-outlined">grid_view</span>
@@ -513,8 +518,8 @@ const BingoBigScreen: React.FC = () => {
                         <button
                             onClick={(e) => { e.stopPropagation(); togglePhotoEval(fullscreenPhoto.promptId, 'approved'); }}
                             className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold text-lg transition-all ${photoEvaluations[fullscreenPhoto.promptId] === 'approved'
-                                    ? 'bg-green-500 text-white scale-110'
-                                    : 'bg-white/20 hover:bg-green-500 text-white'
+                                ? 'bg-green-500 text-white scale-110'
+                                : 'bg-white/20 hover:bg-green-500 text-white'
                                 }`}
                         >
                             <span className="material-symbols-outlined">check</span>
@@ -523,8 +528,8 @@ const BingoBigScreen: React.FC = () => {
                         <button
                             onClick={(e) => { e.stopPropagation(); togglePhotoEval(fullscreenPhoto.promptId, 'rejected'); }}
                             className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold text-lg transition-all ${photoEvaluations[fullscreenPhoto.promptId] === 'rejected'
-                                    ? 'bg-red-500 text-white scale-110'
-                                    : 'bg-white/20 hover:bg-red-500 text-white'
+                                ? 'bg-red-500 text-white scale-110'
+                                : 'bg-white/20 hover:bg-red-500 text-white'
                                 }`}
                         >
                             <span className="material-symbols-outlined">close</span>
