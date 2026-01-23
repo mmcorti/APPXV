@@ -172,4 +172,4 @@ export const bingoService = {
     createInitialState,
 };
 
-export { BingoGameState, BingoPrompt, BingoPlayer, BingoSubmission };
+export type { BingoGameState, BingoPrompt, BingoPlayer, BingoSubmission };
