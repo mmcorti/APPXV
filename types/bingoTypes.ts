@@ -18,6 +18,7 @@ export interface BingoPlayer {
 export interface BingoCell {
     promptId: number;
     photoUrl?: string; // DataURL or Blob URL
+    hasPhoto?: boolean; // Lightweight flag when server doesn't send full Base64
     timestamp?: number;
 }
 

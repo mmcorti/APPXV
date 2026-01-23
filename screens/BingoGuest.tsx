@@ -17,6 +17,7 @@ const BingoGuest: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [hasSubmitted, setHasSubmitted] = useState(false); // Local state for immediate UI feedback
+    const [localPhotos, setLocalPhotos] = useState<Record<number, string>>({}); // Cache photos locally
     const fileInputRef = useRef<HTMLInputElement>(null);
     const playerIdRef = useRef<string | null>(null); // Track playerId for SSE callback
 
@@ -132,13 +133,25 @@ const BingoGuest: React.FC = () => {
         if (!e.target.files?.[0] || !activePrompt || !playerId || !eventId) return;
 
         const file = e.target.files[0];
+        const promptId = activePrompt.id;
 
         try {
             // Compress image before uploading (max 800px, 70% quality)
             const compressedPhotoUrl = await compressImage(file, 800, 0.7);
-            await bingoService.uploadPhoto(eventId, playerId, activePrompt.id, compressedPhotoUrl);
+
+            // Cache photo locally FIRST (so it shows immediately)
+            setLocalPhotos(prev => ({ ...prev, [promptId]: compressedPhotoUrl }));
+
+            // Then upload to server
+            await bingoService.uploadPhoto(eventId, playerId, promptId, compressedPhotoUrl);
             setActivePrompt(null);
         } catch (err: any) {
+            // Remove from local cache if upload failed
+            setLocalPhotos(prev => {
+                const newPhotos = { ...prev };
+                delete newPhotos[promptId];
+                return newPhotos;
+            });
             setError(err.message || 'Error al subir foto');
         }
 
@@ -293,7 +306,9 @@ const BingoGuest: React.FC = () => {
             <div className="p-4 grid grid-cols-3 gap-3">
                 {state.prompts.map(prompt => {
                     const cell = card?.cells[prompt.id];
-                    const hasPhoto = !!cell?.photoUrl;
+                    // Use local cache OR server data (server may only send hasPhoto flag now)
+                    const photoUrl = localPhotos[prompt.id] || cell?.photoUrl;
+                    const hasPhoto = !!photoUrl || cell?.hasPhoto;
 
                     return (
                         <button
@@ -304,9 +319,9 @@ const BingoGuest: React.FC = () => {
                                 ${isSubmitted ? 'pointer-events-none opacity-70' : ''}`}
                             disabled={state.status !== 'PLAYING' || isSubmitted}
                         >
-                            {hasPhoto ? (
+                            {hasPhoto && photoUrl ? (
                                 <>
-                                    <img src={cell.photoUrl} className="w-full h-full object-cover" alt="Foto" />
+                                    <img src={photoUrl} className="w-full h-full object-cover" alt="Foto" />
                                     <div className="absolute top-1 right-1 bg-green-500 text-white rounded-full p-0.5 shadow-md">
                                         <span className="material-symbols-outlined text-sm block">check</span>
                                     </div>

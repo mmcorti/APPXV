@@ -2739,11 +2739,67 @@ const getBingoState = (eventId) => {
     return bingoGames[eventId];
 };
 
+// Create lightweight state for broadcasts (without full Base64 photos in cards)
+const createLightweightState = (state) => {
+    // Deep copy the state but remove photo URLs from cards (guests have them locally)
+    const lightState = {
+        ...state,
+        cards: {},
+        // Keep photos in submissions for admin review on BigScreen
+        submissions: state.submissions.map(sub => ({
+            ...sub,
+            card: {
+                ...sub.card,
+                cells: Object.fromEntries(
+                    Object.entries(sub.card.cells).map(([promptId, cell]) => [
+                        promptId,
+                        {
+                            promptId: cell.promptId,
+                            timestamp: cell.timestamp,
+                            hasPhoto: !!cell.photoUrl,
+                            // Keep photo URL for admin review
+                            photoUrl: cell.photoUrl
+                        }
+                    ])
+                )
+            }
+        }))
+    };
+
+    // For cards (guest views), only send hasPhoto flag, NOT the Base64 data
+    // Guests already have their own photos cached locally in their browser
+    for (const [playerId, card] of Object.entries(state.cards)) {
+        lightState.cards[playerId] = {
+            ...card,
+            cells: Object.fromEntries(
+                Object.entries(card.cells).map(([promptId, cell]) => [
+                    promptId,
+                    {
+                        promptId: cell.promptId,
+                        timestamp: cell.timestamp,
+                        hasPhoto: !!cell.photoUrl
+                        // NO photoUrl here - saves ~80KB per photo per broadcast
+                    }
+                ])
+            )
+        };
+    }
+
+    return lightState;
+};
+
 // Broadcast bingo state to all SSE clients for an event
 const broadcastBingoState = (eventId) => {
     const state = getBingoState(eventId);
     const clients = bingoClients[eventId] || [];
-    const data = JSON.stringify(state);
+
+    // Use lightweight state to reduce memory usage
+    const lightState = createLightweightState(state);
+    const data = JSON.stringify(lightState);
+
+    // Log the size for debugging
+    const sizeKB = (data.length / 1024).toFixed(1);
+    console.log(`📸 [BINGO] Broadcast ${sizeKB}KB to ${clients.length} clients for event ${eventId.substring(0, 8)}...`);
 
     clients.forEach((res) => {
         try {
@@ -2752,7 +2808,6 @@ const broadcastBingoState = (eventId) => {
             console.error('Bingo SSE write error:', e);
         }
     });
-    console.log(`📸 [BINGO] Broadcast to ${clients.length} clients for event ${eventId.substring(0, 8)}...`);
 };
 
 // Calculate bingo status (lines and full house)
