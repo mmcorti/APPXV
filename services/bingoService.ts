@@ -95,6 +95,13 @@ export const bingoService = {
         return response.json();
     },
 
+    finishGame: async (eventId: string) => {
+        const response = await fetch(`${API_BASE}/${eventId}/finish`, {
+            method: 'POST',
+        });
+        return response.json();
+    },
+
     approveSubmission: async (eventId: string, submissionId: string) => {
         const response = await fetch(`${API_BASE}/${eventId}/approve/${submissionId}`, {
             method: 'POST',

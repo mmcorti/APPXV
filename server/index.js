@@ -2925,7 +2925,18 @@ app.post('/api/bingo/:eventId/stop', (req, res) => {
     res.json({ success: true });
 });
 
-// --- ADMIN: APPROVE SUBMISSION (declare winner) ---
+// --- ADMIN: FINISH GAME ---
+app.post('/api/bingo/:eventId/finish', (req, res) => {
+    const { eventId } = req.params;
+
+    const state = getBingoState(eventId);
+    state.status = 'WINNER';
+
+    broadcastBingoState(eventId);
+    res.json({ success: true });
+});
+
+// --- ADMIN: APPROVE SUBMISSION (mark as winner but don't end game) ---
 app.post('/api/bingo/:eventId/approve/:submissionId', (req, res) => {
     const { eventId, submissionId } = req.params;
 
@@ -2936,14 +2947,18 @@ app.post('/api/bingo/:eventId/approve/:submissionId', (req, res) => {
         return res.status(404).json({ error: 'Submission not found' });
     }
 
+    // Only mark as approved - do NOT change game status to WINNER
+    // Game continues until admin explicitly ends it (allows multiple winners)
     submission.status = 'APPROVED';
-    state.status = 'WINNER';
-    state.winner = {
-        player: submission.player,
-        type: submission.card.isFullHouse ? 'BINGO' : 'LINE'
-    };
+
     broadcastBingoState(eventId);
-    res.json({ success: true, winner: state.winner });
+    res.json({
+        success: true,
+        winner: {
+            player: submission.player,
+            type: submission.card.isFullHouse ? 'BINGO' : 'LINE'
+        }
+    });
 });
 
 // --- ADMIN: REJECT SUBMISSION ---
