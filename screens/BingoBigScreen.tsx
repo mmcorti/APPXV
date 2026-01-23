@@ -5,6 +5,9 @@ import { bingoService, BingoGameState, BingoSubmission } from '../services/bingo
 const BingoBigScreen: React.FC = () => {
     const { id: eventId } = useParams<{ id: string }>();
     const [state, setState] = useState<BingoGameState | null>(null);
+    const [selectedSubmission, setSelectedSubmission] = useState<BingoSubmission | null>(null);
+    const [fullscreenPhoto, setFullscreenPhoto] = useState<{ url: string; prompt: string } | null>(null);
+    const [celebration, setCelebration] = useState<'LINE' | 'BINGO' | null>(null);
 
     useEffect(() => {
         if (!eventId) return;
@@ -16,6 +19,26 @@ const BingoBigScreen: React.FC = () => {
         return unsubscribe;
     }, [eventId]);
 
+    // Trigger celebration animation
+    const triggerCelebration = (type: 'LINE' | 'BINGO') => {
+        setCelebration(type);
+        setTimeout(() => setCelebration(null), 4000);
+    };
+
+    // Handle verdict
+    const handleVerdict = async (verdict: 'BINGO' | 'LINE' | 'REJECT') => {
+        if (!eventId || !selectedSubmission) return;
+
+        if (verdict === 'REJECT') {
+            await bingoService.rejectSubmission(eventId, selectedSubmission.id);
+        } else {
+            await bingoService.approveSubmission(eventId, selectedSubmission.id);
+            triggerCelebration(verdict === 'BINGO' ? 'BINGO' : 'LINE');
+        }
+
+        setSelectedSubmission(null);
+    };
+
     if (!state) {
         return (
             <div className="h-screen w-screen bg-slate-900 flex items-center justify-center">
@@ -24,7 +47,6 @@ const BingoBigScreen: React.FC = () => {
         );
     }
 
-    const latestPending = state.submissions.find(s => s.status === 'PENDING');
     const playerCount = Object.keys(state.players).length;
 
     // Generate QR URL (uses current page URL for guest access)
@@ -83,9 +105,9 @@ const BingoBigScreen: React.FC = () => {
     if (state.status === 'WINNER' && state.winner) {
         return (
             <div className="h-screen w-screen bg-indigo-900 flex flex-col items-center justify-center relative overflow-hidden">
-                {/* Confetti Effect */}
+                {/* Fireworks for BINGO */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    {[...Array(30)].map((_, i) => (
+                    {[...Array(40)].map((_, i) => (
                         <div
                             key={i}
                             className="absolute animate-bounce"
@@ -97,7 +119,7 @@ const BingoBigScreen: React.FC = () => {
                                 fontSize: `${Math.random() * 3 + 2}rem`
                             }}
                         >
-                            {['🎉', '🎊', '✨', '🏆', '📸', '🌟'][i % 6]}
+                            {['🎆', '🎇', '✨', '🏆', '🔥', '💫', '⭐', '🌟'][i % 8]}
                         </div>
                     ))}
                 </div>
@@ -117,92 +139,266 @@ const BingoBigScreen: React.FC = () => {
         );
     }
 
+    // Sort submissions by arrival order (submittedAt timestamp)
+    const sortedSubmissions = [...state.submissions].sort((a, b) => a.submittedAt - b.submittedAt);
+
     // PLAYING / REVIEW SCREEN
     return (
-        <div className="h-screen w-screen bg-slate-900 text-white p-8 flex gap-8 font-sans">
-            {/* Sidebar: Live Feed */}
-            <aside className="w-1/4 bg-slate-800/50 rounded-3xl p-6 border border-slate-700 flex flex-col">
-                <h2 className="text-2xl font-bold text-indigo-400 mb-6 flex items-center gap-2">
+        <div className="h-screen w-screen bg-slate-900 text-white p-6 flex gap-6 font-sans relative overflow-hidden">
+            {/* Celebration Animations */}
+            {celebration && (
+                <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden">
+                    {celebration === 'LINE' ? (
+                        // Confetti for LINE
+                        [...Array(60)].map((_, i) => (
+                            <div
+                                key={i}
+                                className="absolute animate-fall"
+                                style={{
+                                    left: `${Math.random() * 100}%`,
+                                    top: `-5%`,
+                                    animationDuration: `${Math.random() * 2 + 2}s`,
+                                    animationDelay: `${Math.random() * 1}s`,
+                                }}
+                            >
+                                <div
+                                    className="w-3 h-8 rounded-sm"
+                                    style={{
+                                        backgroundColor: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#FF69B4'][i % 8],
+                                        transform: `rotate(${Math.random() * 360}deg)`,
+                                    }}
+                                />
+                            </div>
+                        ))
+                    ) : (
+                        // Fireworks for BINGO
+                        [...Array(50)].map((_, i) => (
+                            <div
+                                key={i}
+                                className="absolute animate-firework"
+                                style={{
+                                    left: `${Math.random() * 100}%`,
+                                    top: `${Math.random() * 100}%`,
+                                    animationDuration: `${Math.random() * 1 + 0.5}s`,
+                                    animationDelay: `${Math.random() * 2}s`,
+                                    fontSize: `${Math.random() * 3 + 2}rem`
+                                }}
+                            >
+                                {['🎆', '🎇', '✨', '💥', '⭐', '🔥', '💫', '🌟'][i % 8]}
+                            </div>
+                        ))
+                    )}
+                </div>
+            )}
+
+            {/* Sidebar: Player Queue */}
+            <aside className="w-72 bg-slate-800/50 rounded-2xl p-5 border border-slate-700 flex flex-col">
+                <h2 className="text-xl font-bold text-indigo-400 mb-4 flex items-center gap-2">
                     <span className="material-symbols-outlined">leaderboard</span>
                     En Vivo
                 </h2>
                 <div className="mb-4 text-center">
-                    <span className="text-5xl font-bold">{playerCount}</span>
-                    <p className="text-gray-400">jugadores</p>
+                    <span className="text-4xl font-bold">{playerCount}</span>
+                    <p className="text-gray-400 text-sm">jugadores</p>
                 </div>
-                <div className="flex-1 overflow-y-auto space-y-4">
-                    {state.submissions.map((sub) => (
-                        <div
-                            key={sub.id}
-                            className={`p-4 rounded-xl border transition-all ${sub.status === 'APPROVED'
-                                    ? 'bg-green-900/40 border-green-500'
-                                    : sub.status === 'REJECTED'
-                                        ? 'bg-red-900/40 border-red-500 opacity-50'
-                                        : 'bg-slate-700/50 border-slate-600'
-                                }`}
-                        >
-                            <div className="flex justify-between items-center">
-                                <span className="font-bold text-lg">{sub.player.name}</span>
-                                <span className="text-xs opacity-70">
-                                    {sub.card.isFullHouse ? 'BINGO' : 'LÍNEA'}
-                                </span>
-                            </div>
-                        </div>
-                    ))}
-                    {state.submissions.length === 0 && (
-                        <div className="text-center text-slate-500 mt-10">
+
+                <div className="flex-1 overflow-y-auto space-y-2">
+                    {sortedSubmissions.length === 0 ? (
+                        <div className="text-center text-slate-500 mt-10 text-sm">
                             Esperando envíos...
                         </div>
+                    ) : (
+                        sortedSubmissions.map((sub, idx) => (
+                            <button
+                                key={sub.id}
+                                onClick={() => sub.status === 'PENDING' && setSelectedSubmission(sub)}
+                                disabled={sub.status !== 'PENDING'}
+                                className={`w-full p-3 rounded-xl border transition-all text-left ${selectedSubmission?.id === sub.id
+                                        ? 'bg-indigo-600/50 border-indigo-400 ring-2 ring-indigo-400'
+                                        : sub.status === 'APPROVED'
+                                            ? 'bg-green-900/30 border-green-500/50 cursor-default'
+                                            : sub.status === 'REJECTED'
+                                                ? 'bg-red-900/30 border-red-500/50 opacity-60 cursor-default'
+                                                : 'bg-slate-700/50 border-slate-600 hover:bg-slate-700 hover:border-slate-500 cursor-pointer'
+                                    }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    {/* Order Badge */}
+                                    <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${sub.status === 'APPROVED' ? 'bg-green-500' :
+                                            sub.status === 'REJECTED' ? 'bg-red-500' :
+                                                'bg-slate-600'
+                                        }`}>
+                                        {sub.status === 'APPROVED' ? '✓' : sub.status === 'REJECTED' ? '✕' : `#${idx + 1}`}
+                                    </span>
+
+                                    <div className="flex-1 min-w-0">
+                                        <span className="font-bold text-base block truncate">{sub.player.name}</span>
+                                        <span className={`text-xs ${sub.status === 'APPROVED' ? 'text-green-400' :
+                                                sub.status === 'REJECTED' ? 'text-red-400' :
+                                                    'text-gray-400'
+                                            }`}>
+                                            {sub.status === 'APPROVED'
+                                                ? (sub.card.isFullHouse ? '🎯 BINGO' : '📏 LÍNEA')
+                                                : sub.status === 'REJECTED'
+                                                    ? 'Rechazado'
+                                                    : (sub.card.isFullHouse ? 'Bingo' : 'Línea')}
+                                        </span>
+                                    </div>
+                                </div>
+                            </button>
+                        ))
                     )}
                 </div>
             </aside>
 
             {/* Main Area */}
-            <main className="flex-1 bg-slate-800/30 rounded-3xl border border-slate-700 flex items-center justify-center p-8 relative overflow-hidden">
-                {state.status === 'REVIEW' && latestPending ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center animate-fade-in">
-                        <div className="absolute top-8 right-8 flex items-center gap-3 bg-yellow-500 text-black px-6 py-2 rounded-full font-bold shadow-lg animate-pulse">
-                            <span className="material-symbols-outlined">hourglass_top</span>
-                            VERIFICANDO ENVÍO...
+            <main className="flex-1 bg-slate-800/30 rounded-2xl border border-slate-700 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+                {selectedSubmission ? (
+                    <div className="w-full h-full flex flex-col animate-fade-in">
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-3xl font-bold">
+                                Cartón de <span className="text-indigo-400">{selectedSubmission.player.name}</span>
+                            </h2>
+                            <button
+                                onClick={() => setSelectedSubmission(null)}
+                                className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                            >
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
                         </div>
 
-                        <h2 className="text-5xl font-bold mb-8">Cartón de {latestPending.player.name}</h2>
-
-                        {/* Card Grid */}
-                        <div className="grid grid-cols-3 gap-4 w-full max-w-3xl">
+                        {/* Photo Grid */}
+                        <div className="grid grid-cols-3 gap-3 flex-1 max-h-[calc(100vh-280px)]">
                             {state.prompts.map(prompt => {
-                                const cell = latestPending.card.cells[prompt.id];
+                                const cell = selectedSubmission.card.cells[prompt.id];
                                 return (
-                                    <div
+                                    <button
                                         key={prompt.id}
-                                        className={`relative aspect-square rounded-xl overflow-hidden border-4 ${cell?.photoUrl ? 'border-green-400' : 'border-slate-600 bg-slate-800'
+                                        onClick={() => cell?.photoUrl && setFullscreenPhoto({ url: cell.photoUrl, prompt: prompt.text })}
+                                        className={`relative aspect-square rounded-xl overflow-hidden border-4 transition-all group ${cell?.photoUrl
+                                                ? 'border-green-400 hover:border-green-300 hover:scale-[1.02] cursor-pointer'
+                                                : 'border-slate-600 bg-slate-800 cursor-default'
                                             }`}
                                     >
                                         {cell?.photoUrl ? (
-                                            <img src={cell.photoUrl} className="w-full h-full object-cover" alt="Bingo Cell" />
+                                            <>
+                                                <img src={cell.photoUrl} className="w-full h-full object-cover" alt="Bingo Cell" />
+                                                {/* Prompt Overlay */}
+                                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-3">
+                                                    <p className="text-white text-sm font-medium truncate">{prompt.text}</p>
+                                                </div>
+                                                {/* Zoom Icon */}
+                                                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                    <span className="material-symbols-outlined text-4xl text-white">zoom_in</span>
+                                                </div>
+                                            </>
                                         ) : (
-                                            <div className="flex items-center justify-center h-full text-slate-600">
-                                                <span className="material-symbols-outlined text-6xl">{prompt.icon}</span>
+                                            <div className="flex flex-col items-center justify-center h-full text-slate-600">
+                                                <span className="material-symbols-outlined text-4xl mb-2">{prompt.icon}</span>
+                                                <span className="text-xs text-center px-2">{prompt.text}</span>
                                             </div>
                                         )}
-                                    </div>
+                                    </button>
                                 );
                             })}
+                        </div>
+
+                        {/* Verdict Buttons */}
+                        <div className="flex gap-4 justify-center mt-6">
+                            <button
+                                onClick={() => handleVerdict('LINE')}
+                                className="flex items-center gap-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black px-8 py-4 rounded-2xl font-bold text-xl shadow-lg transform hover:scale-105 transition-all"
+                            >
+                                <span className="material-symbols-outlined">horizontal_rule</span>
+                                LÍNEA
+                            </button>
+                            <button
+                                onClick={() => handleVerdict('BINGO')}
+                                className="flex items-center gap-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-8 py-4 rounded-2xl font-bold text-xl shadow-lg transform hover:scale-105 transition-all"
+                            >
+                                <span className="material-symbols-outlined">grid_view</span>
+                                BINGO
+                            </button>
+                            <button
+                                onClick={() => handleVerdict('REJECT')}
+                                className="flex items-center gap-3 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white px-8 py-4 rounded-2xl font-bold text-xl shadow-lg transform hover:scale-105 transition-all"
+                            >
+                                <span className="material-symbols-outlined">close</span>
+                                RECHAZAR
+                            </button>
                         </div>
                     </div>
                 ) : (
                     <div className="text-center">
                         <span className="material-symbols-outlined text-9xl mb-4 text-slate-600">photo_camera</span>
-                        <h1 className="text-5xl font-bold text-slate-400">¡Toma Fotos!</h1>
-                        <p className="text-2xl mt-4 text-slate-500">Completa líneas para ganar.</p>
+                        <h1 className="text-4xl font-bold text-slate-400">¡Toma Fotos!</h1>
+                        <p className="text-xl mt-4 text-slate-500">Completa líneas para ganar.</p>
                         {state.status === 'PLAYING' && (
                             <div className="mt-8 bg-green-500/20 text-green-400 px-6 py-3 rounded-full text-xl font-bold inline-block">
                                 🟢 Juego en progreso
                             </div>
                         )}
+                        {sortedSubmissions.filter(s => s.status === 'PENDING').length > 0 && (
+                            <div className="mt-6 text-amber-400 animate-pulse">
+                                👈 Selecciona un cartón para revisar
+                            </div>
+                        )}
                     </div>
                 )}
             </main>
+
+            {/* Fullscreen Photo Modal */}
+            {fullscreenPhoto && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-8"
+                    onClick={() => setFullscreenPhoto(null)}
+                >
+                    <button
+                        onClick={() => setFullscreenPhoto(null)}
+                        className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                    >
+                        <span className="material-symbols-outlined text-3xl">close</span>
+                    </button>
+                    <div className="max-w-5xl max-h-[85vh] flex flex-col items-center">
+                        <img
+                            src={fullscreenPhoto.url}
+                            alt="Foto ampliada"
+                            className="max-w-full max-h-[75vh] object-contain rounded-2xl shadow-2xl"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="mt-4 bg-white/10 backdrop-blur-lg px-6 py-3 rounded-full">
+                            <p className="text-xl font-medium">{fullscreenPhoto.prompt}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* CSS for animations */}
+            <style>{`
+                @keyframes fall {
+                    0% { transform: translateY(-100px) rotate(0deg); opacity: 1; }
+                    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+                }
+                @keyframes firework {
+                    0% { transform: scale(0); opacity: 1; }
+                    50% { transform: scale(1.5); opacity: 1; }
+                    100% { transform: scale(2); opacity: 0; }
+                }
+                .animate-fall {
+                    animation: fall linear forwards;
+                }
+                .animate-firework {
+                    animation: firework ease-out forwards;
+                }
+                .animate-fade-in {
+                    animation: fadeIn 0.3s ease-out;
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: scale(0.95); }
+                    to { opacity: 1; transform: scale(1); }
+                }
+            `}</style>
         </div>
     );
 };
