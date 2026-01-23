@@ -2,12 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { bingoService, BingoGameState, BingoSubmission } from '../services/bingoService';
 
+// Photo evaluation state for each cell
+interface PhotoEvaluation {
+    [promptId: number]: 'approved' | 'rejected' | null;
+}
+
 const BingoBigScreen: React.FC = () => {
     const { id: eventId } = useParams<{ id: string }>();
     const [state, setState] = useState<BingoGameState | null>(null);
     const [selectedSubmission, setSelectedSubmission] = useState<BingoSubmission | null>(null);
-    const [fullscreenPhoto, setFullscreenPhoto] = useState<{ url: string; prompt: string } | null>(null);
+    const [fullscreenPhoto, setFullscreenPhoto] = useState<{ url: string; prompt: string; promptId: number } | null>(null);
     const [celebration, setCelebration] = useState<'LINE' | 'BINGO' | null>(null);
+    const [photoEvaluations, setPhotoEvaluations] = useState<PhotoEvaluation>({});
+    const [showWinner, setShowWinner] = useState(true);
 
     useEffect(() => {
         if (!eventId) return;
@@ -19,13 +26,59 @@ const BingoBigScreen: React.FC = () => {
         return unsubscribe;
     }, [eventId]);
 
+    // Reset evaluations when selecting a new submission
+    useEffect(() => {
+        if (selectedSubmission) {
+            setPhotoEvaluations({});
+        }
+    }, [selectedSubmission?.id]);
+
+    // Check for line or bingo based on evaluations
+    const checkForWin = () => {
+        if (!state) return { hasLine: false, hasBingo: false };
+
+        const approvedPrompts = Object.entries(photoEvaluations)
+            .filter(([_, status]) => status === 'approved')
+            .map(([id]) => parseInt(id));
+
+        // Check for bingo (all 9 approved)
+        const hasBingo = approvedPrompts.length === 9;
+
+        // Check for lines (3 in a row)
+        // Assuming prompts are indexed 1-9 in a 3x3 grid:
+        // 1 2 3
+        // 4 5 6
+        // 7 8 9
+        const lines = [
+            [1, 2, 3], [4, 5, 6], [7, 8, 9], // Rows
+            [1, 4, 7], [2, 5, 8], [3, 6, 9], // Columns
+            [1, 5, 9], [3, 5, 7]             // Diagonals
+        ];
+
+        const hasLine = lines.some(line =>
+            line.every(promptId => approvedPrompts.includes(promptId))
+        );
+
+        return { hasLine, hasBingo };
+    };
+
+    const { hasLine, hasBingo } = checkForWin();
+
+    // Toggle photo evaluation
+    const togglePhotoEval = (promptId: number, status: 'approved' | 'rejected') => {
+        setPhotoEvaluations(prev => ({
+            ...prev,
+            [promptId]: prev[promptId] === status ? null : status
+        }));
+    };
+
     // Trigger celebration animation
     const triggerCelebration = (type: 'LINE' | 'BINGO') => {
         setCelebration(type);
         setTimeout(() => setCelebration(null), 4000);
     };
 
-    // Handle verdict
+    // Handle final verdict
     const handleVerdict = async (verdict: 'BINGO' | 'LINE' | 'REJECT') => {
         if (!eventId || !selectedSubmission) return;
 
@@ -37,6 +90,12 @@ const BingoBigScreen: React.FC = () => {
         }
 
         setSelectedSubmission(null);
+        setPhotoEvaluations({});
+    };
+
+    // Dismiss winner screen
+    const dismissWinner = () => {
+        setShowWinner(false);
     };
 
     if (!state) {
@@ -49,7 +108,7 @@ const BingoBigScreen: React.FC = () => {
 
     const playerCount = Object.keys(state.players).length;
 
-    // Generate QR URL (uses current page URL for guest access)
+    // Generate QR URL
     const guestUrl = window.location.origin + `/#/bingo/${eventId}/play`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(guestUrl)}`;
 
@@ -57,7 +116,6 @@ const BingoBigScreen: React.FC = () => {
     if (state.status === 'WAITING') {
         return (
             <div className="h-screen w-screen bg-slate-900 text-white flex flex-col items-center justify-center overflow-hidden relative">
-                {/* Background Pattern */}
                 <div className="absolute inset-0 opacity-10 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"></div>
 
                 <div className="z-10 text-center space-y-8 p-12 bg-white/5 backdrop-blur-lg rounded-3xl border border-white/10 shadow-2xl max-w-4xl w-full">
@@ -101,11 +159,11 @@ const BingoBigScreen: React.FC = () => {
         );
     }
 
-    // WINNER SCREEN
-    if (state.status === 'WINNER' && state.winner) {
+    // WINNER SCREEN (with dismiss button)
+    if (state.status === 'WINNER' && state.winner && showWinner) {
         return (
             <div className="h-screen w-screen bg-indigo-900 flex flex-col items-center justify-center relative overflow-hidden">
-                {/* Fireworks for BINGO */}
+                {/* Fireworks */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                     {[...Array(40)].map((_, i) => (
                         <div
@@ -124,6 +182,15 @@ const BingoBigScreen: React.FC = () => {
                     ))}
                 </div>
 
+                {/* Dismiss Button */}
+                <button
+                    onClick={dismissWinner}
+                    className="absolute top-6 right-6 z-20 bg-white/20 hover:bg-white/30 backdrop-blur-sm px-6 py-3 rounded-full text-white font-bold flex items-center gap-2 transition-all"
+                >
+                    <span className="material-symbols-outlined">arrow_back</span>
+                    Volver al juego
+                </button>
+
                 <div className="text-center z-10">
                     <h2 className="text-5xl text-yellow-300 font-bold tracking-widest uppercase mb-6 drop-shadow-md animate-pulse">
                         ¡Tenemos Ganador!
@@ -139,7 +206,7 @@ const BingoBigScreen: React.FC = () => {
         );
     }
 
-    // Sort submissions by arrival order (submittedAt timestamp)
+    // Sort submissions by arrival order
     const sortedSubmissions = [...state.submissions].sort((a, b) => a.submittedAt - b.submittedAt);
 
     // PLAYING / REVIEW SCREEN
@@ -149,8 +216,7 @@ const BingoBigScreen: React.FC = () => {
             {celebration && (
                 <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden">
                     {celebration === 'LINE' ? (
-                        // Confetti for LINE
-                        [...Array(60)].map((_, i) => (
+                        [...Array(80)].map((_, i) => (
                             <div
                                 key={i}
                                 className="absolute animate-fall"
@@ -171,8 +237,7 @@ const BingoBigScreen: React.FC = () => {
                             </div>
                         ))
                     ) : (
-                        // Fireworks for BINGO
-                        [...Array(50)].map((_, i) => (
+                        [...Array(60)].map((_, i) => (
                             <div
                                 key={i}
                                 className="absolute animate-firework"
@@ -181,18 +246,18 @@ const BingoBigScreen: React.FC = () => {
                                     top: `${Math.random() * 100}%`,
                                     animationDuration: `${Math.random() * 1 + 0.5}s`,
                                     animationDelay: `${Math.random() * 2}s`,
-                                    fontSize: `${Math.random() * 3 + 2}rem`
+                                    fontSize: `${Math.random() * 4 + 2}rem`
                                 }}
                             >
-                                {['🎆', '🎇', '✨', '💥', '⭐', '🔥', '💫', '🌟'][i % 8]}
+                                {['🎆', '🎇', '✨', '💥', '⭐', '🔥', '💫', '🌟', '🎊', '🎉'][i % 10]}
                             </div>
                         ))
                     )}
                 </div>
             )}
 
-            {/* Sidebar: Player Queue */}
-            <aside className="w-72 bg-slate-800/50 rounded-2xl p-5 border border-slate-700 flex flex-col">
+            {/* Sidebar: Player Queue with Thumbnails */}
+            <aside className="w-80 bg-slate-800/50 rounded-2xl p-5 border border-slate-700 flex flex-col">
                 <h2 className="text-xl font-bold text-indigo-400 mb-4 flex items-center gap-2">
                     <span className="material-symbols-outlined">leaderboard</span>
                     En Vivo
@@ -202,7 +267,7 @@ const BingoBigScreen: React.FC = () => {
                     <p className="text-gray-400 text-sm">jugadores</p>
                 </div>
 
-                <div className="flex-1 overflow-y-auto space-y-2">
+                <div className="flex-1 overflow-y-auto space-y-3">
                     {sortedSubmissions.length === 0 ? (
                         <div className="text-center text-slate-500 mt-10 text-sm">
                             Esperando envíos...
@@ -222,8 +287,7 @@ const BingoBigScreen: React.FC = () => {
                                                 : 'bg-slate-700/50 border-slate-600 hover:bg-slate-700 hover:border-slate-500 cursor-pointer'
                                     }`}
                             >
-                                <div className="flex items-center gap-3">
-                                    {/* Order Badge */}
+                                <div className="flex items-center gap-3 mb-2">
                                     <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${sub.status === 'APPROVED' ? 'bg-green-500' :
                                             sub.status === 'REJECTED' ? 'bg-red-500' :
                                                 'bg-slate-600'
@@ -232,7 +296,7 @@ const BingoBigScreen: React.FC = () => {
                                     </span>
 
                                     <div className="flex-1 min-w-0">
-                                        <span className="font-bold text-base block truncate">{sub.player.name}</span>
+                                        <span className="font-bold text-sm block truncate">{sub.player.name}</span>
                                         <span className={`text-xs ${sub.status === 'APPROVED' ? 'text-green-400' :
                                                 sub.status === 'REJECTED' ? 'text-red-400' :
                                                     'text-gray-400'
@@ -244,6 +308,32 @@ const BingoBigScreen: React.FC = () => {
                                                     : (sub.card.isFullHouse ? 'Bingo' : 'Línea')}
                                         </span>
                                     </div>
+                                </div>
+
+                                {/* Mini Thumbnail Grid */}
+                                <div className="grid grid-cols-3 gap-1">
+                                    {state.prompts.slice(0, 9).map(prompt => {
+                                        const cell = sub.card.cells[prompt.id];
+                                        return (
+                                            <div
+                                                key={prompt.id}
+                                                className={`aspect-square rounded overflow-hidden ${cell?.photoUrl ? 'bg-slate-600' : 'bg-slate-700/50'
+                                                    }`}
+                                            >
+                                                {cell?.photoUrl ? (
+                                                    <img
+                                                        src={cell.photoUrl}
+                                                        className="w-full h-full object-cover"
+                                                        alt=""
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-slate-500 text-[8px]">
+                                                        <span className="material-symbols-outlined text-xs">{prompt.icon}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </button>
                         ))
@@ -257,41 +347,90 @@ const BingoBigScreen: React.FC = () => {
                     <div className="w-full h-full flex flex-col animate-fade-in">
                         {/* Header */}
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-3xl font-bold">
-                                Cartón de <span className="text-indigo-400">{selectedSubmission.player.name}</span>
-                            </h2>
+                            <div className="flex items-center gap-4">
+                                <h2 className="text-3xl font-bold">
+                                    Cartón de <span className="text-indigo-400">{selectedSubmission.player.name}</span>
+                                </h2>
+                                {/* Win indicators */}
+                                {hasBingo && (
+                                    <span className="bg-purple-600 px-4 py-1 rounded-full text-sm font-bold animate-pulse">
+                                        🎯 ¡BINGO DETECTADO!
+                                    </span>
+                                )}
+                                {hasLine && !hasBingo && (
+                                    <span className="bg-amber-500 text-black px-4 py-1 rounded-full text-sm font-bold animate-pulse">
+                                        📏 ¡LÍNEA DETECTADA!
+                                    </span>
+                                )}
+                            </div>
                             <button
-                                onClick={() => setSelectedSubmission(null)}
+                                onClick={() => { setSelectedSubmission(null); setPhotoEvaluations({}); }}
                                 className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
                             >
                                 <span className="material-symbols-outlined">close</span>
                             </button>
                         </div>
 
-                        {/* Photo Grid */}
-                        <div className="grid grid-cols-3 gap-3 flex-1 max-h-[calc(100vh-280px)]">
+                        {/* Photo Grid with Evaluation Buttons */}
+                        <div className="grid grid-cols-3 gap-4 flex-1 max-h-[calc(100vh-280px)]">
                             {state.prompts.map(prompt => {
                                 const cell = selectedSubmission.card.cells[prompt.id];
+                                const evalStatus = photoEvaluations[prompt.id];
+
                                 return (
-                                    <button
+                                    <div
                                         key={prompt.id}
-                                        onClick={() => cell?.photoUrl && setFullscreenPhoto({ url: cell.photoUrl, prompt: prompt.text })}
-                                        className={`relative aspect-square rounded-xl overflow-hidden border-4 transition-all group ${cell?.photoUrl
-                                                ? 'border-green-400 hover:border-green-300 hover:scale-[1.02] cursor-pointer'
-                                                : 'border-slate-600 bg-slate-800 cursor-default'
+                                        className={`relative aspect-square rounded-xl overflow-hidden border-4 transition-all ${evalStatus === 'approved' ? 'border-green-400 ring-2 ring-green-400/50' :
+                                                evalStatus === 'rejected' ? 'border-red-400 ring-2 ring-red-400/50' :
+                                                    cell?.photoUrl ? 'border-slate-500' : 'border-slate-600 bg-slate-800'
                                             }`}
                                     >
                                         {cell?.photoUrl ? (
                                             <>
-                                                <img src={cell.photoUrl} className="w-full h-full object-cover" alt="Bingo Cell" />
+                                                <img
+                                                    src={cell.photoUrl}
+                                                    className="w-full h-full object-cover cursor-pointer"
+                                                    onClick={() => setFullscreenPhoto({ url: cell.photoUrl!, prompt: prompt.text, promptId: prompt.id })}
+                                                    alt="Bingo Cell"
+                                                />
+
                                                 {/* Prompt Overlay */}
-                                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-3">
-                                                    <p className="text-white text-sm font-medium truncate">{prompt.text}</p>
+                                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-2">
+                                                    <p className="text-white text-xs font-medium truncate">{prompt.text}</p>
                                                 </div>
-                                                {/* Zoom Icon */}
-                                                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                    <span className="material-symbols-outlined text-4xl text-white">zoom_in</span>
+
+                                                {/* Evaluation Buttons */}
+                                                <div className="absolute top-2 right-2 flex gap-1">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); togglePhotoEval(prompt.id, 'approved'); }}
+                                                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg ${evalStatus === 'approved'
+                                                                ? 'bg-green-500 text-white scale-110'
+                                                                : 'bg-white/80 text-green-600 hover:bg-green-500 hover:text-white'
+                                                            }`}
+                                                    >
+                                                        <span className="material-symbols-outlined text-xl">check</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); togglePhotoEval(prompt.id, 'rejected'); }}
+                                                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg ${evalStatus === 'rejected'
+                                                                ? 'bg-red-500 text-white scale-110'
+                                                                : 'bg-white/80 text-red-600 hover:bg-red-500 hover:text-white'
+                                                            }`}
+                                                    >
+                                                        <span className="material-symbols-outlined text-xl">close</span>
+                                                    </button>
                                                 </div>
+
+                                                {/* Status Overlay */}
+                                                {evalStatus && (
+                                                    <div className={`absolute inset-0 pointer-events-none ${evalStatus === 'approved' ? 'bg-green-500/20' : 'bg-red-500/20'
+                                                        }`}>
+                                                        <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-6xl ${evalStatus === 'approved' ? 'text-green-400' : 'text-red-400'
+                                                            }`}>
+                                                            {evalStatus === 'approved' ? '✓' : '✕'}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </>
                                         ) : (
                                             <div className="flex flex-col items-center justify-center h-full text-slate-600">
@@ -299,7 +438,7 @@ const BingoBigScreen: React.FC = () => {
                                                 <span className="text-xs text-center px-2">{prompt.text}</span>
                                             </div>
                                         )}
-                                    </button>
+                                    </div>
                                 );
                             })}
                         </div>
@@ -308,14 +447,22 @@ const BingoBigScreen: React.FC = () => {
                         <div className="flex gap-4 justify-center mt-6">
                             <button
                                 onClick={() => handleVerdict('LINE')}
-                                className="flex items-center gap-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black px-8 py-4 rounded-2xl font-bold text-xl shadow-lg transform hover:scale-105 transition-all"
+                                disabled={!hasLine}
+                                className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-xl shadow-lg transform transition-all ${hasLine
+                                        ? 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black hover:scale-105'
+                                        : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                                    }`}
                             >
                                 <span className="material-symbols-outlined">horizontal_rule</span>
                                 LÍNEA
                             </button>
                             <button
                                 onClick={() => handleVerdict('BINGO')}
-                                className="flex items-center gap-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-8 py-4 rounded-2xl font-bold text-xl shadow-lg transform hover:scale-105 transition-all"
+                                disabled={!hasBingo}
+                                className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-bold text-xl shadow-lg transform transition-all ${hasBingo
+                                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white hover:scale-105'
+                                        : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                                    }`}
                             >
                                 <span className="material-symbols-outlined">grid_view</span>
                                 BINGO
@@ -360,12 +507,36 @@ const BingoBigScreen: React.FC = () => {
                     >
                         <span className="material-symbols-outlined text-3xl">close</span>
                     </button>
-                    <div className="max-w-5xl max-h-[85vh] flex flex-col items-center">
+
+                    {/* Evaluation buttons in fullscreen */}
+                    <div className="absolute top-6 left-1/2 -translate-x-1/2 flex gap-4">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); togglePhotoEval(fullscreenPhoto.promptId, 'approved'); }}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold text-lg transition-all ${photoEvaluations[fullscreenPhoto.promptId] === 'approved'
+                                    ? 'bg-green-500 text-white scale-110'
+                                    : 'bg-white/20 hover:bg-green-500 text-white'
+                                }`}
+                        >
+                            <span className="material-symbols-outlined">check</span>
+                            Aprobar
+                        </button>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); togglePhotoEval(fullscreenPhoto.promptId, 'rejected'); }}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold text-lg transition-all ${photoEvaluations[fullscreenPhoto.promptId] === 'rejected'
+                                    ? 'bg-red-500 text-white scale-110'
+                                    : 'bg-white/20 hover:bg-red-500 text-white'
+                                }`}
+                        >
+                            <span className="material-symbols-outlined">close</span>
+                            Rechazar
+                        </button>
+                    </div>
+
+                    <div className="max-w-5xl max-h-[80vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
                         <img
                             src={fullscreenPhoto.url}
                             alt="Foto ampliada"
-                            className="max-w-full max-h-[75vh] object-contain rounded-2xl shadow-2xl"
-                            onClick={(e) => e.stopPropagation()}
+                            className="max-w-full max-h-[70vh] object-contain rounded-2xl shadow-2xl"
                         />
                         <div className="mt-4 bg-white/10 backdrop-blur-lg px-6 py-3 rounded-full">
                             <p className="text-xl font-medium">{fullscreenPhoto.prompt}</p>
