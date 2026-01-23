@@ -2699,6 +2699,360 @@ app.post('/api/trivia/:eventId/answer', (req, res) => {
     res.json({ success: true, correct: currentQuestion.correctOption === answer });
 });
 
+// =====================================================
+// PHOTO BINGO GAME API - Real-time Cross-Device Sync via SSE
+// =====================================================
+
+// Default bingo prompts
+const DEFAULT_BINGO_PROMPTS = [
+    { id: 1, text: "Selfie con el anfitrión", icon: "person_pin" },
+    { id: 2, text: "Alguien riendo", icon: "sentiment_very_satisfied" },
+    { id: 3, text: "La persona más alta", icon: "height" },
+    { id: 4, text: "Un trago raro", icon: "local_bar" },
+    { id: 5, text: "Selfie grupal (3+)", icon: "groups" },
+    { id: 6, text: "Alguien de rojo", icon: "palette" },
+    { id: 7, text: "Paso de baile gracioso", icon: "music_note" },
+    { id: 8, text: "El invitado más viejo", icon: "elderly" },
+    { id: 9, text: "¡Brindis!", icon: "celebration" },
+];
+
+// In-memory bingo game state (per event)
+const bingoGames = {};
+
+// SSE clients for bingo (per event)
+const bingoClients = {};
+
+// Helper to get or create bingo game state
+const getBingoState = (eventId) => {
+    if (!bingoGames[eventId]) {
+        bingoGames[eventId] = {
+            eventId,
+            status: 'WAITING',
+            prompts: [...DEFAULT_BINGO_PROMPTS],
+            googlePhotosLink: '',
+            winner: null,
+            players: {},
+            cards: {},
+            submissions: []
+        };
+    }
+    return bingoGames[eventId];
+};
+
+// Broadcast bingo state to all SSE clients for an event
+const broadcastBingoState = (eventId) => {
+    const state = getBingoState(eventId);
+    const clients = bingoClients[eventId] || [];
+    const data = JSON.stringify(state);
+
+    clients.forEach((res) => {
+        try {
+            res.write(`data: ${data}\n\n`);
+        } catch (e) {
+            console.error('Bingo SSE write error:', e);
+        }
+    });
+    console.log(`📸 [BINGO] Broadcast to ${clients.length} clients for event ${eventId.substring(0, 8)}...`);
+};
+
+// Calculate bingo status (lines and full house)
+const calculateBingoStatus = (card, prompts) => {
+    const filledPromptIds = new Set(Object.keys(card.cells).map(Number));
+    const promptIds = prompts.map(p => p.id);
+
+    // Helper to check if a set of indices (0-8) are filled
+    const checkIndices = (indices) => {
+        return indices.every(idx => filledPromptIds.has(promptIds[idx]));
+    };
+
+    const winningLines = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+        [0, 3, 6], [1, 4, 7], [2, 5, 8], // Cols
+        [0, 4, 8], [2, 4, 6]             // Diagonals
+    ];
+
+    let lines = 0;
+    for (const line of winningLines) {
+        if (checkIndices(line)) lines++;
+    }
+
+    card.completedLines = lines;
+    card.isFullHouse = filledPromptIds.size === 9;
+};
+
+// --- BINGO SSE STREAM ---
+app.get('/api/bingo/:eventId/stream', (req, res) => {
+    const { eventId } = req.params;
+    console.log(`📸 [BINGO SSE] Client connected for event ${eventId.substring(0, 8)}...`);
+
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+    });
+
+    // Add client to list
+    if (!bingoClients[eventId]) {
+        bingoClients[eventId] = [];
+    }
+    bingoClients[eventId].push(res);
+
+    // Send current state immediately
+    const state = getBingoState(eventId);
+    res.write(`data: ${JSON.stringify(state)}\n\n`);
+
+    // Keep-alive ping every 30 seconds
+    const keepAlive = setInterval(() => {
+        res.write(': ping\n\n');
+    }, 30000);
+
+    // Remove client on disconnect
+    req.on('close', () => {
+        console.log(`📸 [BINGO SSE] Client disconnected from event ${eventId.substring(0, 8)}...`);
+        clearInterval(keepAlive);
+        bingoClients[eventId] = bingoClients[eventId].filter(c => c !== res);
+    });
+});
+
+// --- GET BINGO STATE ---
+app.get('/api/bingo/:eventId', (req, res) => {
+    const { eventId } = req.params;
+    const state = getBingoState(eventId);
+    res.json(state);
+});
+
+// --- ADMIN: UPDATE PROMPTS ---
+app.put('/api/bingo/:eventId/prompts', (req, res) => {
+    const { eventId } = req.params;
+    const { prompts } = req.body;
+
+    const state = getBingoState(eventId);
+    if (prompts && Array.isArray(prompts) && prompts.length === 9) {
+        state.prompts = prompts;
+        broadcastBingoState(eventId);
+        res.json({ success: true });
+    } else {
+        res.status(400).json({ error: 'Must provide exactly 9 prompts' });
+    }
+});
+
+// --- ADMIN: UPDATE SETTINGS (Google Photos link) ---
+app.put('/api/bingo/:eventId/settings', (req, res) => {
+    const { eventId } = req.params;
+    const { googlePhotosLink } = req.body;
+
+    const state = getBingoState(eventId);
+    state.googlePhotosLink = googlePhotosLink || '';
+    broadcastBingoState(eventId);
+    res.json({ success: true });
+});
+
+// --- ADMIN: START GAME ---
+app.post('/api/bingo/:eventId/start', (req, res) => {
+    const { eventId } = req.params;
+
+    const state = getBingoState(eventId);
+    state.status = 'PLAYING';
+    state.winner = null;
+    state.submissions = [];
+    broadcastBingoState(eventId);
+    res.json({ success: true });
+});
+
+// --- ADMIN: STOP GAME (enter review mode) ---
+app.post('/api/bingo/:eventId/stop', (req, res) => {
+    const { eventId } = req.params;
+
+    const state = getBingoState(eventId);
+    state.status = 'REVIEW';
+    broadcastBingoState(eventId);
+    res.json({ success: true });
+});
+
+// --- ADMIN: APPROVE SUBMISSION (declare winner) ---
+app.post('/api/bingo/:eventId/approve/:submissionId', (req, res) => {
+    const { eventId, submissionId } = req.params;
+
+    const state = getBingoState(eventId);
+    const submission = state.submissions.find(s => s.id === submissionId);
+
+    if (!submission) {
+        return res.status(404).json({ error: 'Submission not found' });
+    }
+
+    submission.status = 'APPROVED';
+    state.status = 'WINNER';
+    state.winner = {
+        player: submission.player,
+        type: submission.card.isFullHouse ? 'BINGO' : 'LINE'
+    };
+    broadcastBingoState(eventId);
+    res.json({ success: true, winner: state.winner });
+});
+
+// --- ADMIN: REJECT SUBMISSION ---
+app.post('/api/bingo/:eventId/reject/:submissionId', (req, res) => {
+    const { eventId, submissionId } = req.params;
+
+    const state = getBingoState(eventId);
+    const submission = state.submissions.find(s => s.id === submissionId);
+
+    if (!submission) {
+        return res.status(404).json({ error: 'Submission not found' });
+    }
+
+    submission.status = 'REJECTED';
+    broadcastBingoState(eventId);
+    res.json({ success: true });
+});
+
+// --- ADMIN: RESET GAME ---
+app.post('/api/bingo/:eventId/reset', (req, res) => {
+    const { eventId } = req.params;
+
+    bingoGames[eventId] = {
+        eventId,
+        status: 'WAITING',
+        prompts: [...DEFAULT_BINGO_PROMPTS],
+        googlePhotosLink: bingoGames[eventId]?.googlePhotosLink || '',
+        winner: null,
+        players: {},
+        cards: {},
+        submissions: []
+    };
+    broadcastBingoState(eventId);
+    res.json({ success: true });
+});
+
+// --- GUEST: JOIN GAME ---
+app.post('/api/bingo/:eventId/join', (req, res) => {
+    const { eventId } = req.params;
+    const { name, userPlan, userRole } = req.body;
+
+    const state = getBingoState(eventId);
+    const playerCount = Object.keys(state.players).length;
+
+    // Plan limit check (admins bypass)
+    if (!isAdmin(userRole)) {
+        const limitCheck = checkLimit({
+            plan: userPlan || 'freemium',
+            resource: 'bingoParticipants',
+            currentCount: playerCount
+        });
+
+        if (!limitCheck.allowed) {
+            return res.status(403).json({
+                error: limitCheck.reason,
+                limitReached: true,
+                current: playerCount,
+                limit: limitCheck.limit
+            });
+        }
+    }
+
+    const playerId = crypto.randomUUID();
+    const player = {
+        id: playerId,
+        name: name || 'Jugador Anónimo',
+        joinedAt: Date.now()
+    };
+
+    state.players[playerId] = player;
+
+    // Initialize empty card
+    state.cards[playerId] = {
+        playerId,
+        cells: {},
+        completedLines: 0,
+        isFullHouse: false
+    };
+
+    broadcastBingoState(eventId);
+    res.json({ success: true, player });
+});
+
+// --- GUEST: UPLOAD PHOTO ---
+app.post('/api/bingo/:eventId/upload', (req, res) => {
+    const { eventId } = req.params;
+    const { playerId, promptId, photoUrl } = req.body;
+
+    const state = getBingoState(eventId);
+
+    if (state.status !== 'PLAYING') {
+        return res.status(400).json({ error: 'Game is not in progress' });
+    }
+
+    const card = state.cards[playerId];
+    if (!card) {
+        return res.status(404).json({ error: 'Player not found' });
+    }
+
+    if (card.submittedAt) {
+        return res.status(400).json({ error: 'Card already submitted' });
+    }
+
+    // Update cell with photo
+    card.cells[promptId] = {
+        promptId,
+        photoUrl,
+        timestamp: Date.now()
+    };
+
+    // Recalculate bingo status
+    calculateBingoStatus(card, state.prompts);
+
+    broadcastBingoState(eventId);
+    res.json({
+        success: true,
+        completedLines: card.completedLines,
+        isFullHouse: card.isFullHouse
+    });
+});
+
+// --- GUEST: SUBMIT CARD ---
+app.post('/api/bingo/:eventId/submit', (req, res) => {
+    const { eventId } = req.params;
+    const { playerId } = req.body;
+
+    const state = getBingoState(eventId);
+    const player = state.players[playerId];
+    const card = state.cards[playerId];
+
+    if (!player || !card) {
+        return res.status(404).json({ error: 'Player not found' });
+    }
+
+    if (card.submittedAt) {
+        return res.status(400).json({ error: 'Card already submitted' });
+    }
+
+    // Validate that at least one line is completed
+    if (card.completedLines === 0 && !card.isFullHouse) {
+        return res.status(400).json({ error: 'Must complete at least one line to submit' });
+    }
+
+    card.submittedAt = Date.now();
+
+    const submission = {
+        id: crypto.randomUUID(),
+        player: { ...player },
+        card: { ...card },
+        status: 'PENDING',
+        submittedAt: card.submittedAt
+    };
+
+    state.submissions.push(submission);
+
+    // Auto-switch to review mode on first submission
+    if (state.status === 'PLAYING') {
+        state.status = 'REVIEW';
+    }
+
+    broadcastBingoState(eventId);
+    res.json({ success: true, submissionId: submission.id });
+});
+
 // Catch-all for frontend
 app.get(/.*/, (req, res) => {
     res.sendFile(path.join(__dirname, '../dist', 'index.html'));
