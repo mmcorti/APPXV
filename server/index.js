@@ -3044,10 +3044,9 @@ app.post('/api/bingo/:eventId/submit', (req, res) => {
 
     state.submissions.push(submission);
 
-    // Auto-switch to review mode on first submission
-    if (state.status === 'PLAYING') {
-        state.status = 'REVIEW';
-    }
+    // NOTE: Do NOT auto-switch to REVIEW mode - allow multiple submissions
+    // The admin can manually stop the game when they want to start reviewing
+    // This allows multiple winners (e.g., 3 bingos, 7 lines as the host decides)
 
     broadcastBingoState(eventId);
     res.json({ success: true, submissionId: submission.id });

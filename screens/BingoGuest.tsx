@@ -286,9 +286,9 @@ const BingoGuest: React.FC = () => {
 
             {/* Footer Action */}
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 z-30 max-w-md mx-auto">
-                {state.status === 'REVIEW' || isSubmitted ? (
+                {isSubmitted ? (
                     <div className="bg-yellow-100 text-yellow-800 p-3 rounded-xl text-center font-bold">
-                        {isSubmitted ? '⏳ Esperando revisión...' : '🔍 Juego en revisión'}
+                        ⏳ Esperando revisión...
                     </div>
                 ) : (
                     <button
