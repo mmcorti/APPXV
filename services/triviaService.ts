@@ -86,11 +86,11 @@ export const triviaService = {
 
     // --- Admin Actions ---
 
-    addQuestion: async (eventId: string, question: Omit<TriviaQuestion, 'id'>) => {
+    addQuestion: async (eventId: string, question: Omit<TriviaQuestion, 'id'>, userPlan?: string, userRole?: string) => {
         const response = await fetch(`${API_BASE}/${eventId}/questions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(question),
+            body: JSON.stringify({ ...question, userPlan, userRole }),
         });
         return response.json();
     },

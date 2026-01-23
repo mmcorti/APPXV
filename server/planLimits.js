@@ -11,6 +11,7 @@ export const PLAN_LIMITS = {
         maxSubscribers: 0, // Only ADMIN can create subscribers
         maxStaffRoster: 3,
         maxPhotosPerEvent: 20,
+        maxTriviaQuestions: 5,
         aiFeatures: false
     },
     premium: {
@@ -19,6 +20,7 @@ export const PLAN_LIMITS = {
         maxSubscribers: 0, // Only ADMIN can create subscribers
         maxStaffRoster: 20,
         maxPhotosPerEvent: 200,
+        maxTriviaQuestions: 40,
         aiFeatures: true
     },
     vip: {
@@ -27,6 +29,7 @@ export const PLAN_LIMITS = {
         maxSubscribers: 0, // Only ADMIN can create subscribers
         maxStaffRoster: Infinity,
         maxPhotosPerEvent: 1000,
+        maxTriviaQuestions: Infinity,
         aiFeatures: true
     }
 };
@@ -71,6 +74,10 @@ export const checkLimit = ({ plan, resource, currentCount }) => {
         case 'staffRoster':
             limit = limits.maxStaffRoster;
             resourceName = 'miembros del staff';
+            break;
+        case 'triviaQuestions':
+            limit = limits.maxTriviaQuestions;
+            resourceName = 'preguntas de trivia';
             break;
         case 'subscribers':
             // Subscribers can only be created by admins

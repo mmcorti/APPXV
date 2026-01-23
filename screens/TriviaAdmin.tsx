@@ -7,8 +7,13 @@ import {
     TriviaQuestion,
     OptionKey,
 } from '../services/triviaService';
+import { User } from '../types';
 
-const TriviaAdmin: React.FC = () => {
+interface TriviaAdminProps {
+    user: User;
+}
+
+const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
     const { id: eventId } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [gameState, setGameState] = useState<TriviaGameState | null>(null);
@@ -76,7 +81,11 @@ const TriviaAdmin: React.FC = () => {
         if (editingQuestion) {
             await triviaService.updateQuestion(eventId, editingQuestion.id, questionData);
         } else {
-            await triviaService.addQuestion(eventId, questionData);
+            const result = await triviaService.addQuestion(eventId, questionData, user.plan, user.role);
+            if (result.limitReached) {
+                alert(result.error);
+                return;
+            }
         }
 
         resetForm();

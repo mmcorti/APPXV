@@ -239,7 +239,8 @@ app.post('/api/login', async (req, res) => {
                                 access_invitados: findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessInvitados)?.checkbox || false,
                                 access_mesas: findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessMesas)?.checkbox || false,
                                 access_link: findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessLink)?.checkbox || false,
-                                access_fotowall: findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessFotowall)?.checkbox || false
+                                access_fotowall: findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessFotowall)?.checkbox || false,
+                                access_games: findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessGames)?.checkbox || false
                             }
                         }
                     });
@@ -415,12 +416,12 @@ app.get('/api/events', async (req, res) => {
                 if (!id) return null;
                 try {
                     const page = await notionClient.pages.retrieve({ page_id: id });
-                    // Attach permissions to the page object temporarily
                     page._permissions = {
                         access_invitados: findProp(r.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessInvitados)?.checkbox || false,
                         access_mesas: findProp(r.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessMesas)?.checkbox || false,
                         access_link: findProp(r.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessLink)?.checkbox || false,
                         access_fotowall: findProp(r.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessFotowall)?.checkbox || false,
+                        access_games: findProp(r.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessGames)?.checkbox || false,
                     };
 
                     // Fetch owner's plan from CreatorEmail
@@ -2515,9 +2516,28 @@ app.get('/api/trivia/:eventId', (req, res) => {
 // Add question
 app.post('/api/trivia/:eventId/questions', (req, res) => {
     const { eventId } = req.params;
-    const { text, options, correctOption, durationSeconds } = req.body;
+    const { text, options, correctOption, durationSeconds, userPlan, userRole } = req.body;
 
     const state = getTriviaState(eventId);
+
+    // Plan limit check (admins bypass)
+    if (!isAdmin(userRole)) {
+        const limitCheck = checkLimit({
+            plan: userPlan || 'freemium',
+            resource: 'triviaQuestions',
+            currentCount: state.questions.length
+        });
+
+        if (!limitCheck.allowed) {
+            return res.status(403).json({
+                error: limitCheck.reason,
+                limitReached: true,
+                current: state.questions.length,
+                limit: limitCheck.limit
+            });
+        }
+    }
+
     const newQuestion = {
         id: crypto.randomUUID(),
         text,
