@@ -61,6 +61,13 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
         await bingoService.stopGame(eventId);
     };
 
+    const handleFinish = async () => {
+        if (!eventId) return;
+        if (confirm('¿Estás seguro de finalizar el juego? Esto declarará a los ganadores actuales como definitivos.')) {
+            await bingoService.finishGame(eventId);
+        }
+    };
+
     const handleReset = async () => {
         if (!eventId) return;
         if (confirm('¿Estás seguro? Esto reiniciará todo el juego.')) {
@@ -309,8 +316,17 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
                                     onClick={handleStop}
                                     className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2"
                                 >
-                                    <span className="material-symbols-outlined">stop</span>
-                                    Detener Juego
+                                    <span className="material-symbols-outlined">pause</span>
+                                    Pausar / Revisar
+                                </button>
+                            )}
+                            {(state.status === 'PLAYING' || state.status === 'REVIEW') && (
+                                <button
+                                    onClick={handleFinish}
+                                    className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined">flag</span>
+                                    Finalizar Juego
                                 </button>
                             )}
                             {state.status !== 'PLAYING' && state.status !== 'WINNER' && (

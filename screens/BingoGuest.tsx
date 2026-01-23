@@ -239,8 +239,14 @@ const BingoGuest: React.FC = () => {
     }
 
     // Winner Screen (for guest)
-    if (state.status === 'WINNER' && state.winner) {
-        const isWinner = state.winner.player.id === playerId;
+    if (state.status === 'WINNER') {
+        // Check if ANY submission from this player is approved
+        const myWinningSubmission = state.submissions.find(s => s.player.id === playerId && s.status === 'APPROVED');
+        const isWinner = !!myWinningSubmission;
+
+        // Get all winners
+        const winners = state.submissions.filter(s => s.status === 'APPROVED');
+
         return (
             <div className={`min-h-screen flex flex-col items-center justify-center p-8 text-center font-sans ${isWinner ? 'bg-gradient-to-b from-yellow-400 to-orange-500' : 'bg-gray-100'}`}>
                 {isWinner ? (
@@ -248,15 +254,22 @@ const BingoGuest: React.FC = () => {
                         <div className="text-8xl mb-4">🏆</div>
                         <h1 className="text-4xl font-black text-white mb-2">¡GANASTE!</h1>
                         <p className="text-xl text-white/80">
-                            {state.winner.type === 'BINGO' ? '¡Bingo Completo!' : '¡Línea Completada!'}
+                            {myWinningSubmission?.card.isFullHouse ? '¡Bingo Completo!' : '¡Línea Completada!'}
                         </p>
                     </>
                 ) : (
                     <>
                         <div className="text-6xl mb-4">🎉</div>
                         <h1 className="text-2xl font-bold text-gray-800 mb-2">¡Juego Terminado!</h1>
-                        <p className="text-gray-600 mb-4">El ganador es...</p>
-                        <p className="text-3xl font-black text-indigo-600">{state.winner.player.name}</p>
+                        <p className="text-gray-600 mb-4">Ganadores:</p>
+                        <div className="space-y-2">
+                            {winners.map(w => (
+                                <div key={w.id} className="bg-white px-4 py-2 rounded-lg shadow-sm">
+                                    <p className="font-bold text-indigo-600">{w.player.name}</p>
+                                    <span className="text-xs text-gray-500">{w.card.isFullHouse ? 'Bingo' : 'Línea'}</span>
+                                </div>
+                            ))}
+                        </div>
                     </>
                 )}
             </div>
@@ -267,6 +280,10 @@ const BingoGuest: React.FC = () => {
     const cellCount = card ? Object.keys(card.cells).length : 0;
     const isEligible = (card?.completedLines || 0) > 0 || card?.isFullHouse;
     const isSubmitted = hasSubmitted || !!card?.submittedAt; // Use local state OR server state
+
+    // Check if my submission is approved
+    const mySubmission = state.submissions.find(s => s.player.id === playerId);
+    const isApproved = mySubmission?.status === 'APPROVED';
 
     return (
         <div className="min-h-screen bg-gray-100 pb-24 font-sans max-w-md mx-auto relative shadow-2xl">
@@ -293,12 +310,21 @@ const BingoGuest: React.FC = () => {
                 </div>
             )}
 
-            {/* Submitted Notice */}
+            {/* Submitted/Approved Notice */}
             {isSubmitted && (
-                <div className="mx-4 mt-4 p-4 bg-green-100 text-green-800 rounded-xl text-center">
-                    <span className="material-symbols-outlined text-2xl mb-1">check_circle</span>
-                    <p className="font-bold">¡Cartón Enviado!</p>
-                    <p className="text-sm">Esperando revisión del host...</p>
+                <div className={`mx-4 mt-4 p-4 rounded-xl text-center shadow-sm ${isApproved
+                    ? 'bg-green-100 text-green-800 border border-green-200'
+                    : 'bg-yellow-50 text-yellow-800 border border-yellow-100'
+                    }`}>
+                    <span className="material-symbols-outlined text-3xl mb-1">
+                        {isApproved ? 'emoji_events' : 'check_circle'}
+                    </span>
+                    <p className="font-bold text-lg">
+                        {isApproved ? '¡GANADOR CONFIRMADO!' : '¡Cartón Enviado!'}
+                    </p>
+                    <p className="text-sm opacity-80">
+                        {isApproved ? 'El host ha validado tu victoria.' : 'Esperando revisión del host...'}
+                    </p>
                 </div>
             )}
 
@@ -350,8 +376,9 @@ const BingoGuest: React.FC = () => {
             {/* Footer Action */}
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 z-30 max-w-md mx-auto">
                 {isSubmitted ? (
-                    <div className="bg-yellow-100 text-yellow-800 p-3 rounded-xl text-center font-bold">
-                        ⏳ Esperando revisión...
+                    <div className={`p-3 rounded-xl text-center font-bold ${isApproved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                        {isApproved ? '🏆 GANADOR CONFIRMADO' : '⏳ Esperando revisión...'}
                     </div>
                 ) : (
                     <button
