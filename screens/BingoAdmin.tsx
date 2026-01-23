@@ -101,22 +101,34 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
                     >
                         <span className="material-symbols-outlined">arrow_back</span>
                     </button>
-                    <h1 className="text-xl font-bold flex items-center gap-2">
-                        <span className="material-symbols-outlined text-yellow-400">photo_camera</span>
-                        Photo Bingo - Admin
-                    </h1>
+                    <div>
+                        <h1 className="text-xl font-bold flex items-center gap-2">
+                            <span className="material-symbols-outlined text-yellow-400">photo_camera</span>
+                            Photo Bingo - Admin
+                        </h1>
+                        <div className="flex items-center gap-2 text-sm">
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${state.status === 'PLAYING' ? 'bg-green-500' :
+                                state.status === 'REVIEW' ? 'bg-yellow-500' :
+                                    state.status === 'WINNER' ? 'bg-purple-500' :
+                                        'bg-gray-600'
+                                }`}>
+                                {state.status === 'WAITING' ? 'EN ESPERA' :
+                                    state.status === 'PLAYING' ? 'EN VIVO' :
+                                        state.status === 'REVIEW' ? 'REVISIÓN' :
+                                            state.status === 'WINNER' ? 'GANADOR' : state.status}
+                            </span>
+                            <span className="text-pink-400">{playerCount} jugadores</span>
+                        </div>
+                    </div>
                 </div>
-                <div className="flex gap-2 text-sm">
-                    <span className={`px-3 py-1 rounded-full ${state.status === 'PLAYING' ? 'bg-green-500' :
-                            state.status === 'REVIEW' ? 'bg-yellow-500' :
-                                state.status === 'WINNER' ? 'bg-purple-500' :
-                                    'bg-gray-600'
-                        }`}>
-                        {state.status}
-                    </span>
-                    <span className="px-3 py-1 rounded-full bg-blue-600">
-                        {playerCount} jugadores
-                    </span>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => window.open(`#/bingo/${eventId}/screen`, '_blank')}
+                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg font-medium transition-colors"
+                    >
+                        <span className="material-symbols-outlined text-sm">tv</span>
+                        Pantalla Gigante
+                    </button>
                 </div>
             </header>
 
@@ -138,88 +150,137 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
                 </div>
 
                 {activeTab === 'CONFIG' && (
-                    <div className="space-y-8 animate-fade-in">
-                        {/* Global Settings */}
-                        <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                <span className="material-symbols-outlined">settings</span>
-                                Configuración Global
-                            </h2>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Link de Google Photos</label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        className="flex-1 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
-                                        placeholder="https://photos.app.goo.gl/..."
-                                        value={googlePhotosLink}
-                                        onChange={(e) => setGooglePhotosLink(e.target.value)}
-                                    />
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
+                        {/* Left Column: Settings & Controls */}
+                        <div className="lg:col-span-2 space-y-6">
+                            {/* Global Settings */}
+                            <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                                <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                    <span className="material-symbols-outlined">settings</span>
+                                    Configuración Global
+                                </h2>
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Link de Google Photos</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            className="flex-1 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            placeholder="https://photos.app.goo.gl/..."
+                                            value={googlePhotosLink}
+                                            onChange={(e) => setGooglePhotosLink(e.target.value)}
+                                        />
+                                        <button
+                                            onClick={handleSaveSettings}
+                                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                                        >
+                                            Guardar
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">Las fotos se mostrarán aquí (backup simulado).</p>
+                                </div>
+                                <div className="flex gap-4">
                                     <button
-                                        onClick={handleSaveSettings}
-                                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                                        onClick={handleStart}
+                                        disabled={state.status === 'PLAYING'}
+                                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                     >
-                                        Guardar
+                                        <span className="material-symbols-outlined">play_arrow</span>
+                                        Iniciar Juego
+                                    </button>
+                                    <button
+                                        onClick={handleReset}
+                                        className="bg-red-100 text-red-700 hover:bg-red-200 px-6 py-2 rounded-lg font-bold flex items-center gap-2"
+                                    >
+                                        <span className="material-symbols-outlined">restart_alt</span>
+                                        Reiniciar Juego
                                     </button>
                                 </div>
-                                <p className="text-xs text-gray-500 mt-1">Las fotos se mostrarán aquí (backup simulado).</p>
-                            </div>
-                            <div className="flex gap-4">
-                                <button
-                                    onClick={handleStart}
-                                    disabled={state.status === 'PLAYING'}
-                                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                >
-                                    <span className="material-symbols-outlined">play_arrow</span>
-                                    Iniciar Juego
-                                </button>
-                                <button
-                                    onClick={handleReset}
-                                    className="bg-red-100 text-red-700 hover:bg-red-200 px-6 py-2 rounded-lg font-bold flex items-center gap-2"
-                                >
-                                    <span className="material-symbols-outlined">restart_alt</span>
-                                    Reiniciar Juego
-                                </button>
-                            </div>
-                        </section>
+                            </section>
 
-                        {/* Prompt Grid Editor */}
-                        <section>
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-lg font-bold flex items-center gap-2">
-                                    <span className="material-symbols-outlined">grid_on</span>
-                                    Tablero de Bingo (9 Consignas)
-                                </h2>
-                                <button
-                                    onClick={handleSavePrompts}
-                                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
-                                >
-                                    <span className="material-symbols-outlined">save</span>
-                                    Guardar Cambios
-                                </button>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {editingPrompts.map((prompt, idx) => (
-                                    <div key={prompt.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative group">
-                                        <div className="absolute top-2 right-2 text-gray-300 font-mono text-xs">#{idx + 1}</div>
-                                        <div className="flex items-start gap-3">
-                                            <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600">
-                                                <span className="material-symbols-outlined">{prompt.icon}</span>
-                                            </div>
-                                            <div className="w-full">
-                                                <label className="text-xs font-bold text-gray-500 uppercase">Consigna</label>
-                                                <textarea
-                                                    className="w-full text-sm border-gray-300 border-b focus:border-indigo-500 outline-none py-1 resize-none bg-transparent"
-                                                    rows={2}
-                                                    value={prompt.text}
-                                                    onChange={(e) => handlePromptChange(prompt.id, e.target.value)}
-                                                />
+                            {/* Prompt Grid Editor */}
+                            <section>
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-lg font-bold flex items-center gap-2">
+                                        <span className="material-symbols-outlined">grid_on</span>
+                                        Tablero de Bingo (9 Consignas)
+                                    </h2>
+                                    <button
+                                        onClick={handleSavePrompts}
+                                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+                                    >
+                                        <span className="material-symbols-outlined">save</span>
+                                        Guardar Cambios
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {editingPrompts.map((prompt, idx) => (
+                                        <div key={prompt.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative group">
+                                            <div className="absolute top-2 right-2 text-gray-300 font-mono text-xs">#{idx + 1}</div>
+                                            <div className="flex items-start gap-3">
+                                                <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600">
+                                                    <span className="material-symbols-outlined">{prompt.icon}</span>
+                                                </div>
+                                                <div className="w-full">
+                                                    <label className="text-xs font-bold text-gray-500 uppercase">Consigna</label>
+                                                    <textarea
+                                                        className="w-full text-sm border-gray-300 border-b focus:border-indigo-500 outline-none py-1 resize-none bg-transparent"
+                                                        rows={2}
+                                                        value={prompt.text}
+                                                        onChange={(e) => handlePromptChange(prompt.id, e.target.value)}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
+                                    ))}
+                                </div>
+                            </section>
+                        </div>
+
+                        {/* Right Column: QR Code & Links */}
+                        <div className="space-y-6">
+                            {/* QR Code for Players */}
+                            <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
+                                <h2 className="text-lg font-bold mb-3 flex items-center justify-center gap-2">
+                                    <span className="material-symbols-outlined">qr_code_2</span>
+                                    Enlace para Jugadores
+                                </h2>
+                                <div className="bg-gray-50 p-4 rounded-lg inline-block">
+                                    <img
+                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`${window.location.origin}/#/bingo/${eventId}/play`)}`}
+                                        alt="QR Code para jugar"
+                                        className="w-44 h-44 mx-auto"
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-500 mt-3 break-all px-2">
+                                    {`${window.location.origin}/#/bingo/${eventId}/play`}
+                                </p>
+                                <button
+                                    onClick={() => navigator.clipboard.writeText(`${window.location.origin}/#/bingo/${eventId}/play`)}
+                                    className="mt-3 text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1 mx-auto"
+                                >
+                                    <span className="material-symbols-outlined text-sm">content_copy</span>
+                                    Copiar enlace
+                                </button>
+                            </section>
+
+                            {/* Big Screen Link */}
+                            <section className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                                <h3 className="font-bold text-indigo-900 mb-2 flex items-center gap-2">
+                                    <span className="material-symbols-outlined">tv</span>
+                                    Pantalla Gigante
+                                </h3>
+                                <p className="text-sm text-indigo-700 mb-3">
+                                    Abre esta pantalla en un proyector o TV grande para que todos vean el juego.
+                                </p>
+                                <button
+                                    onClick={() => window.open(`#/bingo/${eventId}/screen`, '_blank')}
+                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined text-sm">open_in_new</span>
+                                    Abrir Pantalla Gigante
+                                </button>
+                            </section>
+                        </div>
                     </div>
                 )}
 
