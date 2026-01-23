@@ -150,7 +150,16 @@ export const bingoService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ playerId }),
         });
-        const data = await response.json();
+
+        // Handle empty or error responses gracefully
+        const text = await response.text();
+        let data;
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch (e) {
+            throw new Error('Error de conexión con el servidor');
+        }
+
         if (!response.ok) {
             throw new Error(data.error || 'Failed to submit card');
         }

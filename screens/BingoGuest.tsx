@@ -16,7 +16,9 @@ const BingoGuest: React.FC = () => {
     const [activePrompt, setActivePrompt] = useState<BingoPrompt | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [hasSubmitted, setHasSubmitted] = useState(false); // Local state for immediate UI feedback
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const playerIdRef = useRef<string | null>(null); // Track playerId for SSE callback
 
     useEffect(() => {
         if (!eventId) return;
@@ -26,6 +28,7 @@ const BingoGuest: React.FC = () => {
         const savedPlayerName = sessionStorage.getItem(`${PLAYER_NAME_KEY}_${eventId}`);
         if (savedPlayerId && savedPlayerName) {
             setPlayerId(savedPlayerId);
+            playerIdRef.current = savedPlayerId;
             setPlayerName(savedPlayerName);
             setIsRegistered(true);
         }
@@ -33,9 +36,15 @@ const BingoGuest: React.FC = () => {
         // Subscribe to real-time updates
         const unsubscribe = bingoService.subscribe(eventId, (newState) => {
             setState(newState);
-            // Update local card from state
-            if (savedPlayerId && newState.cards[savedPlayerId]) {
-                setCard(newState.cards[savedPlayerId]);
+            // Update local card from state using ref (which always has current value)
+            const currentPlayerId = playerIdRef.current;
+            if (currentPlayerId && newState.cards[currentPlayerId]) {
+                const updatedCard = newState.cards[currentPlayerId];
+                setCard(updatedCard);
+                // Sync hasSubmitted with server state
+                if (updatedCard.submittedAt) {
+                    setHasSubmitted(true);
+                }
             }
         });
 
@@ -61,6 +70,7 @@ const BingoGuest: React.FC = () => {
             sessionStorage.setItem(`${PLAYER_ID_KEY}_${eventId}`, result.player.id);
             sessionStorage.setItem(`${PLAYER_NAME_KEY}_${eventId}`, playerName);
             setPlayerId(result.player.id);
+            playerIdRef.current = result.player.id; // Update ref for SSE callback
             setIsRegistered(true);
         } catch (err: any) {
             setError(err.message || 'Error al unirse al juego');
@@ -99,7 +109,7 @@ const BingoGuest: React.FC = () => {
     };
 
     const handleSubmit = async () => {
-        if (!playerId || !eventId) return;
+        if (!playerId || !eventId || hasSubmitted) return; // Prevent double submit
 
         if (!confirm('¿Estás seguro? No podrás cambiar las fotos después de enviar.')) {
             return;
@@ -108,6 +118,7 @@ const BingoGuest: React.FC = () => {
         setIsLoading(true);
         try {
             await bingoService.submitCard(eventId, playerId);
+            setHasSubmitted(true); // Immediately update local state
         } catch (err: any) {
             setError(err.message || 'Error al enviar cartón');
         } finally {
@@ -205,7 +216,7 @@ const BingoGuest: React.FC = () => {
     // Game Grid
     const cellCount = card ? Object.keys(card.cells).length : 0;
     const isEligible = (card?.completedLines || 0) > 0 || card?.isFullHouse;
-    const isSubmitted = !!card?.submittedAt;
+    const isSubmitted = hasSubmitted || !!card?.submittedAt; // Use local state OR server state
 
     return (
         <div className="min-h-screen bg-gray-100 pb-24 font-sans max-w-md mx-auto relative shadow-2xl">
