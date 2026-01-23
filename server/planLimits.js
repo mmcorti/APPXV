@@ -12,6 +12,7 @@ export const PLAN_LIMITS = {
         maxStaffRoster: 3,
         maxPhotosPerEvent: 20,
         maxTriviaQuestions: 5,
+        maxBingoParticipants: 5,
         aiFeatures: false
     },
     premium: {
@@ -21,6 +22,7 @@ export const PLAN_LIMITS = {
         maxStaffRoster: 20,
         maxPhotosPerEvent: 200,
         maxTriviaQuestions: 40,
+        maxBingoParticipants: 100,
         aiFeatures: true
     },
     vip: {
@@ -30,6 +32,7 @@ export const PLAN_LIMITS = {
         maxStaffRoster: Infinity,
         maxPhotosPerEvent: 1000,
         maxTriviaQuestions: Infinity,
+        maxBingoParticipants: Infinity,
         aiFeatures: true
     }
 };
@@ -78,6 +81,10 @@ export const checkLimit = ({ plan, resource, currentCount }) => {
         case 'triviaQuestions':
             limit = limits.maxTriviaQuestions;
             resourceName = 'preguntas de trivia';
+            break;
+        case 'bingoParticipants':
+            limit = limits.maxBingoParticipants;
+            resourceName = 'participantes de bingo';
             break;
         case 'subscribers':
             // Subscribers can only be created by admins

@@ -109,6 +109,12 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
             return;
         }
 
+        // Navigate to Bingo Admin for 'photo-bingo' game
+        if (gameId === 'photo-bingo') {
+            navigate(`/bingo/${id}/admin`);
+            return;
+        }
+
         setGames(prev => prev.map(g => {
             if (g.id === gameId) {
                 return { ...g, status: 'running' as const, runningTime: '0M 0S', participantCount: Math.floor(Math.random() * 100) + 50 };
