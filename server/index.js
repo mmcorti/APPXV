@@ -12,6 +12,7 @@ import { googlePhotosService } from './services/googlePhotos.js';
 import { checkLimit, getPlanLimits, isAdmin, getUsageSummary, DEFAULT_PLAN } from './planLimits.js';
 import googleAuth from './services/googleAuth.js';
 import { uploadImage } from './services/imageUpload.js';
+import { raffleGameService } from './services/raffleGameService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -3120,6 +3121,85 @@ app.post('/api/bingo/:eventId/submit', (req, res) => {
 
     broadcastBingoState(eventId);
     res.json({ success: true, submissionId: submission.id });
+});
+
+// --- RAFFLE GAME ROUTES ---
+
+// Helper for Raffle SSE
+const raffleClients = {}; // eventId -> [res, res, ...]
+
+const broadcastRaffleState = (eventId) => {
+    const clients = raffleClients[eventId] || [];
+    const state = raffleGameService.getGame(eventId);
+    const data = `data: ${JSON.stringify(state)}\n\n`;
+
+    clients.forEach(client => client.write(data));
+};
+
+app.get('/api/raffle/:eventId/stream', (req, res) => {
+    const { eventId } = req.params;
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    if (!raffleClients[eventId]) {
+        raffleClients[eventId] = [];
+    }
+    raffleClients[eventId].push(res);
+
+    // Send initial state
+    const state = raffleGameService.getGame(eventId);
+    res.write(`data: ${JSON.stringify(state)}\n\n`);
+
+    req.on('close', () => {
+        raffleClients[eventId] = raffleClients[eventId].filter(client => client !== res);
+    });
+});
+
+app.get('/api/raffle/:eventId', (req, res) => {
+    const { eventId } = req.params;
+    const state = raffleGameService.getGame(eventId);
+    res.json(state);
+});
+
+app.put('/api/raffle/:eventId/config', (req, res) => {
+    const { eventId } = req.params;
+    const config = req.body;
+    const state = raffleGameService.updateConfig(eventId, config);
+    broadcastRaffleState(eventId);
+    res.json(state);
+});
+
+app.post('/api/raffle/:eventId/start', (req, res) => {
+    const { eventId } = req.params;
+    const state = raffleGameService.start(eventId);
+    broadcastRaffleState(eventId);
+    res.json(state);
+});
+
+app.post('/api/raffle/:eventId/draw', (req, res) => {
+    const { eventId } = req.params;
+    const state = raffleGameService.drawWinner(eventId);
+    broadcastRaffleState(eventId);
+    res.json(state);
+});
+
+app.post('/api/raffle/:eventId/reset', (req, res) => {
+    const { eventId } = req.params;
+    const state = raffleGameService.reset(eventId);
+    broadcastRaffleState(eventId);
+    res.json(state);
+});
+
+app.post('/api/raffle/:eventId/join', (req, res) => {
+    const { eventId } = req.params;
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name required' });
+
+    const participant = raffleGameService.joinParticipant(eventId, name);
+    broadcastRaffleState(eventId);
+    res.json({ success: true, participant });
 });
 
 // Catch-all for frontend

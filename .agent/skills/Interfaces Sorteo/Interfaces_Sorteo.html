@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html class="dark" lang="es">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Sorteo App - Plataforma de Eventos</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect"/>
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans:wght@400;500;700&display=swap" rel="stylesheet"/>
+    <!-- Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    
+    <!-- Theme Configuration -->
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2b6cee",
+                        "primary-dark": "#1a4fb0",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                        "surface-dark": "#192233",
+                        "surface-border": "#324467",
+                        "border-dark": "#324467",
+                        "text-muted": "#92a4c9",
+                        "excel-green": "#217346",
+                    },
+                    fontFamily: {
+                        "display": ["Plus Jakarta Sans", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {
+                        "DEFAULT": "1rem", 
+                        "lg": "2rem", 
+                        "xl": "3rem", 
+                        "full": "9999px"
+                    },
+                    keyframes: {
+                        'pulse-slow': {
+                            '0%, 100%': { opacity: '1' },
+                            '50%': { opacity: '0.6' },
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    boxShadow: {
+                        'glow': '0 0 20px -5px rgba(43, 108, 238, 0.4)',
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            min-height: 100dvh;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #101622;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #324467;
+            border-radius: 10px;
+        }
+        .confetti-piece {
+            position: absolute;
+            width: 10px;
+            height: 20px;
+            border-radius: 4px;
+            opacity: 0.8;
+            z-index: 0;
+        }
+        .confetti-1 { background-color: #ef4444; top: 10%; left: 10%; transform: rotate(45deg); }
+        .confetti-2 { background-color: #3b82f6; top: 15%; right: 20%; transform: rotate(-12deg); width: 12px; height: 12px; border-radius: 50%; }
+        .confetti-3 { background-color: #eab308; top: 25%; left: 25%; transform: rotate(70deg); }
+        .confetti-4 { background-color: #10b981; top: 5%; right: 10%; transform: rotate(-45deg); }
+        .confetti-5 { background-color: #a855f7; top: 30%; right: 5%; transform: rotate(15deg); width: 8px; height: 25px;}
+        
+        .glow-effect {
+            box-shadow: 0 0 60px -10px rgba(43, 108, 238, 0.4);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white antialiased">
+    <div id="root"></div>
+
+    <!-- React Dependencies -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/history@5/umd/history.development.js"></script>
+    <script src="https://unpkg.com/react-router@6.3.0/umd/react-router.development.js"></script>
+    <script src="https://unpkg.com/react-router-dom@6.3.0/umd/react-router-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { createRoot } = ReactDOM;
+        const { MemoryRouter, Routes, Route, Link, useNavigate } = ReactRouterDOM;
+
+        // --- Layout Components ---
+
+        const NavOverlay = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="fixed top-4 left-4 z-[100] flex flex-wrap gap-2">
+                    <button onClick={() => navigate('/')} className="px-3 py-1 bg-black/50 text-white text-[10px] rounded-full backdrop-blur-sm border border-white/20 hover:bg-primary transition-colors">Gigante Espera</button>
+                    <button onClick={() => navigate('/winner')} className="px-3 py-1 bg-black/50 text-white text-[10px] rounded-full backdrop-blur-sm border border-white/20 hover:bg-primary transition-colors">Gigante Ganador</button>
+                    <button onClick={() => navigate('/register')} className="px-3 py-1 bg-black/50 text-white text-[10px] rounded-full backdrop-blur-sm border border-white/20 hover:bg-primary transition-colors">Participante</button>
+                    <button onClick={() => navigate('/admin')} className="px-3 py-1 bg-black/50 text-white text-[10px] rounded-full backdrop-blur-sm border border-white/20 hover:bg-primary transition-colors">Admin</button>
+                </div>
+            );
+        };
+
+        // --- Screens ---
+
+        // Screen 1: Pantalla Gigante - Espera
+        const WaitingScreen = () => {
+            return (
+                <div className="min-h-screen flex flex-col transition-colors duration-300">
+                    <div className="flex items-center justify-between p-4 pb-2 z-10">
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/20 text-primary">
+                                <span className="material-symbols-outlined text-2xl">cast</span>
+                            </div>
+                            <h2 className="text-[#111418] dark:text-white text-lg font-bold leading-tight tracking-tight">Pantalla Principal</h2>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-500 ring-1 ring-inset ring-emerald-500/20">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
+                                En vivo
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 flex flex-col items-center justify-start w-full max-w-4xl mx-auto pb-8 gap-6 px-4 pt-2">
+                        <div className="w-full @container">
+                            <div className="w-full flex flex-col gap-4">
+                                <div className="relative w-full aspect-[16/9] overflow-hidden shadow-2xl rounded-xl ring-1 ring-white/10 group">
+                                    <div className="absolute inset-0 bg-gradient-to-t from-background-dark/80 to-transparent z-10 pointer-events-none"></div>
+                                    <div className="w-full h-full bg-center bg-no-repeat bg-cover transform transition-transform duration-[20s] ease-linear group-hover:scale-105" style={{backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBKIlKP-nCPfHIOccJx3vWZIckF2Y_qwBoW6yJpaYYA_wPpRk336OU6O_xApnrXQKQzv0XM5lD3ans6u5aKYUH0sCX1PK7Ql89nOUTLButqoVUWXHaw_ZH09uuzBOp_c2IImCZTOTDwmB9ll8RKrTfPFWWZuo2IEk2Hd7M2MtMs_Qx9UQCcuwBrWtaguh8o7S4a7BRllojU0kqfzRwxvdgsTJgv8jd0n3deAavAmUz7qAZmDEBCilFiSWJnV2szrDR2VBERBnuXOfM")'}}></div>
+                                    <div className="absolute bottom-6 left-0 right-0 z-20 flex justify-center">
+                                        <div className="flex items-center gap-3 bg-black/60 backdrop-blur-md border border-white/10 px-6 py-3 rounded-full shadow-lg">
+                                            <span className="material-symbols-outlined text-primary text-2xl animate-spin" style={{animationDuration: '3s'}}>hourglass_empty</span>
+                                            <span className="text-white font-display font-bold tracking-widest text-sm md:text-base animate-pulse-slow">ESPERANDO EL COMIENZO...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="w-full @container">
+                            <div className="flex flex-col md:flex-row items-stretch bg-white dark:bg-[#192233] rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.3)] overflow-hidden border border-gray-100 dark:border-white/5">
+                                <div className="flex items-center justify-center p-8 bg-white md:w-1/3 border-b md:border-b-0 md:border-r border-gray-100 dark:border-white/5 relative overflow-hidden">
+                                    <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] opacity-30"></div>
+                                    <div className="relative z-10 bg-white p-2 rounded-lg shadow-sm border border-gray-200">
+                                        <img alt="QR Code" className="w-40 h-40 md:w-48 md:h-48 object-contain mix-blend-multiply" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHACUCQrkyDtZYzK1fPCNfflElcD8iFwHqlC22NOrYYyU5Xq_LLIv-zUlGu5HlOQx4rJN3hcd-8fvcI-hxtkzxYIdK82NiXZoqdWpMST0UGKysS1P6TAgmVOQjsClLbSSPPzRmZcal96LJSFkEv2VcG1P3-V1ajEkULDXVNrEnFNThAdkzpfTL9zEusE-byks_wsnxpmL1e-F4OgBpJlhSuYtQ3-STA9D3836grFfahMIqhlcnsyxnfiwp1tQZipzjUIEguC2V2uw"/>
+                                        <div className="absolute -bottom-3 -right-3 bg-primary text-white rounded-full p-2 shadow-lg ring-4 ring-white dark:ring-[#192233]">
+                                            <span className="material-symbols-outlined text-xl">qr_code_scanner</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col justify-center p-6 md:p-10 md:w-2/3 gap-4">
+                                    <div>
+                                        <h2 className="text-[#111418] dark:text-white text-3xl font-extrabold leading-tight tracking-tight mb-2">Escanea para participar</h2>
+                                        <p className="text-gray-500 dark:text-[#92a4c9] text-lg font-medium leading-relaxed">Apunta la cámara de tu teléfono al código para unirte al sorteo en tiempo real.</p>
+                                    </div>
+                                    <div className="flex flex-col gap-3 mt-2">
+                                        {[
+                                            {n: 1, t: "Abre tu cámara"},
+                                            {n: 2, t: "Escanea el código"},
+                                            {n: 3, t: "¡Ya estás dentro!"}
+                                        ].map(step => (
+                                            <div key={step.n} className="flex items-center gap-3 text-[#111418] dark:text-gray-300">
+                                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm">{step.n}</div>
+                                                <span className="text-base font-medium">{step.t}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="py-6 mt-auto">
+                        <div className="flex items-center justify-center gap-2 opacity-60">
+                            <span className="material-symbols-outlined text-[#92a4c9] text-lg">bolt</span>
+                            <p className="text-[#92a4c9] text-sm font-medium tracking-wide uppercase">Powered by App de Sorteos</p>
+                        </div>
+                        <div className="h-5"></div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Screen 2: Pantalla Gigante - Ganador
+        const WinnerScreen = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="relative flex min-h-screen flex-col overflow-hidden pb-24 selection:bg-primary selection:text-white">
+                    <header className="flex items-center justify-between px-4 py-4 z-20 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md sticky top-0 border-b border-slate-200 dark:border-slate-800">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/20 text-primary">
+                                <span className="material-symbols-outlined text-[24px]">atr</span>
+                            </div>
+                            <div>
+                                <h2 className="text-base font-bold leading-tight tracking-tight">Sorteo en vivo</h2>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
+                                    <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                    </span>
+                                    Transmitiendo
+                                </p>
+                            </div>
+                        </div>
+                        <button className="flex items-center justify-center p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+                            <span className="material-symbols-outlined text-slate-600 dark:text-slate-300">settings</span>
+                        </button>
+                    </header>
+
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                        <div className="confetti-piece confetti-1"></div>
+                        <div className="confetti-piece confetti-2"></div>
+                        <div className="confetti-piece confetti-3"></div>
+                        <div className="confetti-piece confetti-4"></div>
+                        <div className="confetti-piece confetti-5"></div>
+                        <div className="absolute top-[20%] left-[-10%] w-64 h-64 bg-primary/10 rounded-full blur-3xl"></div>
+                        <div className="absolute bottom-[20%] right-[-10%] w-80 h-80 bg-purple-500/10 rounded-full blur-3xl"></div>
+                    </div>
+
+                    <main className="flex-1 flex flex-col gap-8 px-4 pt-6 z-10 max-w-lg mx-auto w-full">
+                        <section className="flex flex-col items-center">
+                            <div className="inline-flex items-center gap-2 rounded-full bg-amber-500/20 px-4 py-1.5 text-amber-500 mb-6 border border-amber-500/30">
+                                <span className="material-symbols-outlined text-[18px]">emoji_events</span>
+                                <span className="text-xs font-bold uppercase tracking-wider">¡Nuevo Ganador!</span>
+                            </div>
+                            <div className="relative w-full">
+                                <div className="absolute inset-0 bg-gradient-to-tr from-primary to-purple-500 rounded-2xl blur-xl opacity-40"></div>
+                                <div className="relative flex flex-col items-stretch overflow-hidden rounded-2xl bg-surface-dark border border-slate-700/50 shadow-2xl">
+                                    <div className="bg-gradient-to-b from-primary/20 to-transparent p-6 pb-2 text-center">
+                                        <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight drop-shadow-sm">¡FELICIDADES!</h1>
+                                        <p className="text-primary-200 text-sm font-medium mt-1">Sorteo Fotográfico</p>
+                                    </div>
+                                    <div className="px-4 py-2">
+                                        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border-2 border-primary/30 glow-effect bg-slate-800">
+                                            <img alt="Winner Photo" className="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB7Oq19j7LOq2fa6krizybrbKNcTf-dUZ052FFxWiwryPhszFPWdZY9JatJyJVgimTNr9f9ECO927UgsOLO5qQ_J40K12c8KOLZ2xgyVxeFQ65ZCm147vN5qOZCOBlnhjhMBfosnQOyzgsydLKPZVSGCi18i_548a4q67WNvpmhkeRAudlof5gOrtfxUdOmpB8UFmdHiFwvAw8Y_AOKy_5AKutY6md_PWBJiOJ466a7lXN8CnYFkYrf-7DcRidBRkegsZmW1uN3OqA"/>
+                                            <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10">
+                                                <p className="text-white text-xs font-bold flex items-center gap-1">
+                                                    <span className="material-symbols-outlined text-[14px] text-amber-400">star</span>
+                                                    Selección Aleatoria
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-6 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-10 w-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border border-slate-600">
+                                                <img alt="User Avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBn4KSTJTMZdNhUw6Zgt4zYfQaLjxepiZ7ENh0qbHeR6Ng2aaPQE7rt5j4_HyVdC0w6-VBtxQA0WZW1p8aUJlsW6pYFg3LT9esSMHOlrzZveM7XCzKfd5HjNqRJLRNE7fojI6vLT8jIGjqq2ZWTTyxpo00-yY1gwmlavN6MuMiDia2t5Oe2uj9mqSda1pjpF3XnEUnr2J7MDlol2BTnt-AxosvEOxs3_0Eua8d4KNJkzxcFReu6uhhUc7sF5k8jBwGL5PMGS3BAXvw" className="object-cover h-full w-full" />
+                                            </div>
+                                            <div>
+                                                <p className="text-white text-lg font-bold leading-none">Carlos Mendoza</p>
+                                                <p className="text-slate-400 text-sm mt-1">@carlos_men • Hace 2 min</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/30">
+                                            <span className="material-symbols-outlined">favorite</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <div className="relative py-4 flex items-center gap-4 opacity-50">
+                            <div className="h-px bg-slate-700 flex-1"></div>
+                            <span className="text-xs font-medium text-slate-500 uppercase tracking-widest">Historial Reciente</span>
+                            <div className="h-px bg-slate-700 flex-1"></div>
+                        </div>
+
+                        <section className="flex flex-col gap-3 opacity-90 hover:opacity-100 transition-opacity">
+                            <div className="group relative overflow-hidden rounded-xl bg-surface-dark border border-slate-800 p-6 flex flex-col items-center justify-center text-center">
+                                <div className="absolute top-0 right-0 p-8 opacity-5">
+                                    <span className="material-symbols-outlined text-[120px]">confirmation_number</span>
+                                </div>
+                                <div className="z-10 flex flex-col items-center gap-2">
+                                    <span className="inline-flex items-center justify-center rounded-full bg-slate-800 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 ring-1 ring-slate-700">Sorteo General</span>
+                                    <h3 className="mt-2 text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 leading-tight">MARÍA GONZÁLEZ</h3>
+                                    <div className="mt-3 flex items-center gap-2 rounded-lg bg-primary/10 px-4 py-2 border border-primary/20">
+                                        <span className="material-symbols-outlined text-primary text-xl">local_activity</span>
+                                        <span className="text-lg font-bold text-primary">Ticket #405</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </main>
+
+                    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 bg-gradient-to-t from-background-dark via-background-dark/95 to-transparent pt-8">
+                        <div className="mx-auto max-w-lg flex items-center gap-3">
+                            <button onClick={() => navigate('/')} className="flex-1 rounded-xl bg-primary hover:bg-blue-600 text-white font-bold h-14 shadow-lg shadow-primary/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98]">
+                                <span className="material-symbols-outlined">refresh</span>
+                                Siguiente Sorteo
+                            </button>
+                            <button className="h-14 w-14 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center border border-slate-700 transition-colors">
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Screen 3: Registro de Participante
+        const RegisterScreen = () => {
+            const [status, setStatus] = useState('input'); // 'input' or 'success'
+            const [name, setName] = useState('');
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if(name.trim()) setStatus('success');
+            };
+
+            if (status === 'success') {
+                return (
+                    <div className="relative flex h-screen w-full flex-col overflow-hidden bg-background-light dark:bg-background-dark max-w-md mx-auto shadow-2xl border-x border-surface-border/30">
+                        <div className="absolute inset-0 z-0 opacity-40 pointer-events-none">
+                            <div className="absolute top-[20%] left-[20%] w-[60%] h-[60%] bg-green-500/20 rounded-full blur-[100px]"></div>
+                        </div>
+                        <div className="relative z-10 flex items-center justify-between p-4 pt-6 pb-2">
+                            <div className="size-10"></div>
+                            <h2 className="text-white text-base font-bold tracking-wide uppercase opacity-80">Confirmado</h2>
+                            <div className="size-10"></div>
+                        </div>
+                        <div className="relative z-10 flex flex-1 flex-col justify-center items-center px-6 pb-20 text-center">
+                            <div className="relative mb-8">
+                                <div className="absolute inset-0 bg-green-500/30 blur-xl rounded-full animate-pulse-slow"></div>
+                                <div className="relative flex items-center justify-center size-32 rounded-full bg-gradient-to-br from-green-400 to-green-600 shadow-2xl shadow-green-500/40">
+                                    <span className="material-symbols-outlined text-white text-[64px]">check</span>
+                                </div>
+                            </div>
+                            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-white mb-4">¡Estás dentro!</h1>
+                            <p className="text-slate-300 text-xl font-medium leading-relaxed max-w-[280px]">Busca tu nombre en la <br/> <span className="text-green-400 font-bold">pantalla grande</span>.</p>
+                            <div className="mt-12 p-6 bg-surface-dark rounded-2xl border border-surface-border w-full">
+                                <div className="flex items-center gap-4 mb-2">
+                                    <div className="size-2 rounded-full bg-red-500 animate-pulse"></div>
+                                    <span className="text-xs font-bold tracking-wider text-slate-400 uppercase">Estado en vivo</span>
+                                </div>
+                                <div className="flex justify-between items-end">
+                                    <span className="text-slate-400 text-sm">Próximo sorteo en:</span>
+                                    <span className="text-2xl font-mono text-white font-bold">04:59</span>
+                                </div>
+                                <div className="w-full bg-surface-border/50 rounded-full h-1.5 mt-3 overflow-hidden">
+                                    <div className="bg-primary h-full rounded-full w-[70%]"></div>
+                                </div>
+                            </div>
+                            <button onClick={() => {setStatus('input'); setName('');}} className="mt-auto text-slate-500 hover:text-white transition-colors text-sm font-semibold py-4 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[18px]">person_add</span>
+                                Registrar a otra persona
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="relative flex h-screen w-full flex-col overflow-hidden bg-background-light dark:bg-background-dark max-w-md mx-auto shadow-2xl border-x border-surface-border/30">
+                    <div className="absolute inset-0 z-0 opacity-40 pointer-events-none">
+                        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/20 rounded-full blur-[100px]"></div>
+                        <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-primary/10 rounded-full blur-[120px]"></div>
+                    </div>
+                    <div className="relative z-10 flex items-center justify-between p-4 pt-6 pb-2">
+                        <button className="flex size-10 items-center justify-center rounded-full bg-surface-dark/50 hover:bg-surface-dark transition-colors text-white/80 hover:text-white">
+                            <span className="material-symbols-outlined text-[24px]">close</span>
+                        </button>
+                        <h2 className="text-white text-base font-bold tracking-wide uppercase opacity-80">Sorteo en Vivo</h2>
+                        <div className="size-10"></div>
+                    </div>
+                    <div className="relative z-10 flex flex-1 flex-col justify-center px-6 pb-12 gap-8">
+                        <div className="flex flex-col gap-2 items-center text-center">
+                            <div className="mb-4 inline-flex items-center justify-center p-3 bg-gradient-to-br from-primary to-primary-dark rounded-2xl shadow-lg shadow-primary/30">
+                                <span className="material-symbols-outlined text-white text-[32px]">celebration</span>
+                            </div>
+                            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-white leading-[1.1]">
+                                ¡Únete al <br/><span className="text-primary">Sorteo!</span>
+                            </h1>
+                            <p className="text-slate-400 text-lg font-medium max-w-[280px] mx-auto">Ingresa tu nombre para participar y mira la pantalla grande.</p>
+                        </div>
+                        <form onSubmit={handleSubmit} className="flex flex-col w-full gap-6 mt-4">
+                            <label className="relative group">
+                                <div className="absolute inset-y-0 left-0 flex items-center pl-6 pointer-events-none text-primary">
+                                    <span className="material-symbols-outlined">person</span>
+                                </div>
+                                <input 
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    className="w-full bg-surface-dark border-2 border-surface-border text-white text-2xl font-bold placeholder:text-slate-600 rounded-full py-6 pl-16 pr-6 outline-none focus:border-primary focus:ring-4 focus:ring-primary/20 transition-all text-center placeholder:font-normal h-20 shadow-inner" 
+                                    placeholder="Tu Nombre..." 
+                                    type="text" 
+                                    required
+                                />
+                            </label>
+                            <button type="submit" className="w-full bg-primary hover:bg-primary-dark text-white text-xl font-bold py-6 rounded-full shadow-lg shadow-primary/40 active:scale-[0.98] transition-all flex items-center justify-center gap-3 group relative overflow-hidden h-20">
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out"></div>
+                                <span>PARTICIPAR</span>
+                                <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                            </button>
+                        </form>
+                        <p className="text-center text-slate-500 text-sm mt-4">Al participar aceptas las reglas del evento.</p>
+                    </div>
+                </div>
+            );
+        };
+
+        // Screen 4: Panel de Control Administrador
+        const AdminScreen = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="bg-background-light dark:bg-background-dark min-h-screen w-full flex flex-col font-display antialiased overflow-x-hidden pb-40">
+                    <header className="sticky top-0 z-30 bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-md border-b border-gray-200 dark:border-border-dark transition-colors">
+                        <div className="flex items-center justify-between p-4 pb-3 max-w-lg mx-auto w-full">
+                            <div className="flex flex-col">
+                                <h2 className="text-slate-900 dark:text-white text-xl font-bold leading-tight tracking-tight">Panel de Control</h2>
+                                <p className="text-slate-500 dark:text-text-muted text-xs font-medium">Evento Anual 2024</p>
+                            </div>
+                            <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                                <p className="text-emerald-700 dark:text-emerald-400 text-xs font-bold leading-none tracking-wide uppercase">Conectado</p>
+                            </div>
+                        </div>
+                    </header>
+                    <main className="flex-1 flex flex-col px-4 pt-6 gap-8 max-w-lg mx-auto w-full">
+                        <section className="flex flex-col gap-4">
+                            <div className="flex items-center gap-2 px-1">
+                                <span className="material-symbols-outlined text-primary">settings</span>
+                                <h3 className="text-slate-900 dark:text-white text-lg font-bold">Configuración</h3>
+                            </div>
+                            <div className="bg-white dark:bg-surface-dark rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-border-dark flex flex-col gap-5">
+                                <label className="flex flex-col gap-2">
+                                    <p className="text-slate-700 dark:text-white text-sm font-semibold pl-1">Enlace de Google Photos</p>
+                                    <div className="flex w-full items-stretch rounded-xl shadow-sm">
+                                        <input className="flex-1 w-full bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-border-dark text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-text-muted text-sm rounded-l-xl focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none p-3.5 transition-all" placeholder="Pegar enlace del álbum..." type="url"/>
+                                        <button className="bg-gray-100 dark:bg-background-dark border border-l-0 border-gray-200 dark:border-border-dark text-slate-500 dark:text-text-muted px-4 rounded-r-xl hover:text-primary transition-colors flex items-center justify-center">
+                                            <span className="material-symbols-outlined">content_paste</span>
+                                        </button>
+                                    </div>
+                                </label>
+                                <div className="flex flex-col gap-2">
+                                    <p className="text-slate-700 dark:text-white text-sm font-semibold pl-1">Branding</p>
+                                    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-200 dark:border-border-dark bg-gray-50/50 dark:bg-background-dark/50 py-8 px-4 hover:bg-gray-50 dark:hover:bg-background-dark hover:border-primary/50 transition-all cursor-pointer group">
+                                        <div className="h-12 w-12 rounded-full bg-gray-200 dark:bg-surface-dark flex items-center justify-center text-slate-400 dark:text-text-muted group-hover:text-primary group-hover:scale-110 transition-all">
+                                            <span className="material-symbols-outlined">add_a_photo</span>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-slate-900 dark:text-white text-sm font-bold">Logo del Evento</p>
+                                            <p className="text-slate-500 dark:text-text-muted text-xs">Toca para subir imagen (PNG/JPG)</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                        <section className="flex flex-col gap-4">
+                            <div className="flex items-center gap-2 px-1">
+                                <span className="material-symbols-outlined text-primary">database</span>
+                                <h3 className="text-slate-900 dark:text-white text-lg font-bold">Importación de Base de Datos</h3>
+                            </div>
+                            <div className="bg-white dark:bg-surface-dark rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-border-dark flex flex-col gap-4">
+                                <div className="flex flex-col gap-3">
+                                    <p className="text-slate-700 dark:text-white text-sm font-semibold pl-1">Participantes Externos</p>
+                                    <button className="flex items-center justify-center gap-3 bg-excel-green/10 hover:bg-excel-green/20 text-excel-green border border-excel-green/30 px-6 h-14 rounded-xl font-bold transition-all active:scale-[0.98]">
+                                        <span className="material-symbols-outlined">description</span>
+                                        <span>Importar Excel/CSV</span>
+                                    </button>
+                                    <div className="flex items-center gap-2 px-2 py-2 bg-blue-50 dark:bg-primary/10 rounded-lg border border-blue-100 dark:border-primary/20">
+                                        <span className="material-symbols-outlined text-primary text-[18px]">verified</span>
+                                        <p className="text-primary dark:text-primary text-xs font-bold">250 participantes cargados</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                        <section className="flex flex-col gap-4">
+                            <div className="flex items-center gap-2 px-1">
+                                <span className="material-symbols-outlined text-primary">tune</span>
+                                <h3 className="text-slate-900 dark:text-white text-lg font-bold">Modo de Sorteo</h3>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button className="relative flex flex-col items-start gap-3 p-4 rounded-2xl border-2 border-primary bg-primary/10 dark:bg-primary/5 transition-all cursor-pointer group">
+                                    <div className="absolute top-3 right-3 text-primary">
+                                        <span className="material-symbols-outlined filled">check_circle</span>
+                                    </div>
+                                    <div className="h-10 w-10 rounded-full bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/30">
+                                        <span className="material-symbols-outlined">perm_media</span>
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-primary text-base font-bold">Fotos</p>
+                                        <p className="text-primary/70 text-xs font-medium">Aleatorio del álbum</p>
+                                    </div>
+                                </button>
+                                <button className="relative flex flex-col items-start gap-3 p-4 rounded-2xl border-2 border-transparent bg-white dark:bg-surface-dark hover:bg-gray-50 dark:hover:bg-gray-800 transition-all cursor-pointer group">
+                                    <div className="h-10 w-10 rounded-full bg-gray-100 dark:bg-background-dark text-slate-400 dark:text-text-muted group-hover:text-primary group-hover:bg-primary/10 flex items-center justify-center transition-colors">
+                                        <span className="material-symbols-outlined">groups</span>
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-slate-700 dark:text-text-muted group-hover:text-slate-900 dark:group-hover:text-white text-base font-bold transition-colors">Participantes</p>
+                                        <p className="text-slate-400 dark:text-gray-600 text-xs font-medium">Lista de registrados</p>
+                                    </div>
+                                </button>
+                            </div>
+                        </section>
+                    </main>
+                    <div className="fixed bottom-0 left-0 right-0 z-40">
+                        <div className="h-12 bg-gradient-to-t from-background-light dark:from-background-dark to-transparent w-full pointer-events-none"></div>
+                        <div className="bg-background-light dark:bg-background-dark/95 backdrop-blur-xl border-t border-gray-200 dark:border-border-dark px-4 pb-8 pt-4 rounded-t-3xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.3)]">
+                            <div className="max-w-lg mx-auto w-full flex flex-col gap-3">
+                                <div className="grid grid-cols-[1fr_auto] gap-3">
+                                    <button onClick={() => navigate('/winner')} className="flex items-center justify-center gap-3 bg-primary hover:bg-blue-600 text-white h-14 rounded-full font-bold text-base shadow-glow hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 group">
+                                        <span className="material-symbols-outlined group-hover:animate-pulse">play_circle</span>
+                                        <span>INICIAR SORTEO</span>
+                                    </button>
+                                    <button className="flex items-center justify-center w-14 h-14 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 hover:border-red-500/50 transition-all active:scale-90">
+                                        <span className="material-symbols-outlined">restart_alt</span>
+                                    </button>
+                                </div>
+                                <button className="flex items-center justify-center gap-2 bg-slate-200 dark:bg-surface-dark text-slate-400 dark:text-gray-500 h-12 rounded-full font-bold text-sm border-2 border-transparent cursor-not-allowed opacity-80" disabled>
+                                    <span className="material-symbols-outlined text-[20px]">emoji_events</span>
+                                    <span>SELECCIONAR GANADOR</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Main App Component ---
+
+        const App = () => {
+            return (
+                <MemoryRouter>
+                    <NavOverlay />
+                    <Routes>
+                        <Route path="/" element={<WaitingScreen />} />
+                        <Route path="/winner" element={<WinnerScreen />} />
+                        <Route path="/register" element={<RegisterScreen />} />
+                        <Route path="/admin" element={<AdminScreen />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
