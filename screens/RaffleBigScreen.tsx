@@ -104,9 +104,10 @@ const RaffleBigScreen: React.FC = () => {
                             <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
                             <div className="relative aspect-video bg-slate-900 rounded-xl overflow-hidden shadow-2xl border border-white/10 ring-1 ring-white/5">
                                 <img
-                                    src={state.customImageUrl || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30'}
-                                    alt="Event"
+                                    src={(state.customImageUrl && state.customImageUrl.trim().length > 5) ? state.customImageUrl : 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80'}
+                                    alt="Event Branding"
                                     className="w-full h-full object-cover opacity-80"
+                                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80'; }}
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
                                 <div className="absolute bottom-8 left-0 right-0 text-center">
@@ -120,8 +121,8 @@ const RaffleBigScreen: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Right/QR (Only for Participant Mode when Active) */}
-                        {state.mode === 'PARTICIPANT' && state.status !== 'IDLE' && (
+                        {/* Right/QR (Only for Participant Mode) */}
+                        {state.mode !== 'PHOTO' && (
                             <div className="w-full md:w-auto flex flex-col items-center animate-fade-in-up delay-200">
                                 <div className="bg-white p-4 rounded-2xl shadow-[0_0_40px_-10px_rgba(255,255,255,0.1)] transform rotate-2 hover:rotate-0 transition-transform duration-500">
                                     <img
@@ -153,9 +154,10 @@ const RaffleBigScreen: React.FC = () => {
                         {isPhoto ? (
                             <div className="relative w-full max-w-3xl aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl border-4 border-yellow-500/50 glow-effect bg-slate-800 animate-slide-up">
                                 <img
-                                    src={state.winner?.photoUrl || state.customImageUrl} // Fallback if no specific photo URL yet
+                                    src={(state.winner?.photoUrl && state.winner.photoUrl.trim() !== '') ? state.winner.photoUrl : (state.customImageUrl || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30')}
                                     alt="Winning Photo"
                                     className="w-full h-full object-contain"
+                                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30'; }}
                                 />
                             </div>
                         ) : (

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { raffleService } from '../services/raffleService';
+import { notionService } from '../services/notion';
 import { RaffleState, RaffleMode } from '../types/raffleTypes';
 
 const RaffleAdmin: React.FC = () => {
@@ -10,6 +11,7 @@ const RaffleAdmin: React.FC = () => {
     const [state, setState] = useState<RaffleState | null>(null);
     const [googlePhotos, setGooglePhotos] = useState('');
     const [customImage, setCustomImage] = useState('');
+    const [uploading, setUploading] = useState(false);
 
     // For local UI state before saving
     const [activeMode, setActiveMode] = useState<RaffleMode>('PHOTO');
@@ -20,19 +22,41 @@ const RaffleAdmin: React.FC = () => {
             setState(newState);
             // Sync local state if not editing (optional, simple approach here)
             if (activeMode !== newState.mode) setActiveMode(newState.mode);
-            if (!googlePhotos && newState.googlePhotosUrl) setGooglePhotos(newState.googlePhotosUrl);
-            if (!customImage && newState.customImageUrl) setCustomImage(newState.customImageUrl);
+            setGooglePhotos(newState.googlePhotosUrl || '');
+            setCustomImage(newState.customImageUrl || '');
         });
         return unsubscribe;
     }, [eventId]);
 
-    const handleSaveConfig = async () => {
+    const handleSaveConfig = async (imageOverride?: string) => {
         if (!eventId) return;
         await raffleService.updateConfig(eventId, {
             googlePhotosUrl: googlePhotos,
-            customImageUrl: customImage,
+            customImageUrl: imageOverride !== undefined ? imageOverride : customImage,
             mode: activeMode
         });
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !eventId) return;
+
+        setUploading(true);
+        try {
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                const base64 = reader.result as string;
+                const url = await notionService.uploadImage(base64);
+                setCustomImage(url);
+                await handleSaveConfig(url);
+            };
+            reader.readAsDataURL(file);
+        } catch (err) {
+            console.error("Upload failed:", err);
+            alert("Error al subir la imagen");
+        } finally {
+            setUploading(false);
+        }
     };
 
     const handleStart = async () => {
@@ -97,14 +121,35 @@ const RaffleAdmin: React.FC = () => {
                         {/* Branding */}
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-2">Imagen del Evento (Personalizada)</label>
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    placeholder="URL de la imagen..."
-                                    value={customImage}
-                                    onChange={e => setCustomImage(e.target.value)}
-                                />
+                            <div className="flex flex-col gap-2">
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        className="flex-1 bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        placeholder="URL de la imagen..."
+                                        value={customImage}
+                                        onChange={e => setCustomImage(e.target.value)}
+                                    />
+                                    <label className="bg-white border-2 border-indigo-600 text-indigo-600 px-4 py-3 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-center min-w-[50px]">
+                                        <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
+                                        {uploading ? (
+                                            <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                                        ) : (
+                                            <span className="material-symbols-outlined">upload</span>
+                                        )}
+                                    </label>
+                                </div>
+                                {customImage && (
+                                    <div className="mt-2 relative group">
+                                        <img src={customImage} className="h-32 w-full object-cover rounded-xl border border-gray-200" alt="Preview" />
+                                        <button
+                                            onClick={() => { setCustomImage(''); handleSaveConfig(''); }}
+                                            className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <span className="material-symbols-outlined text-sm">close</span>
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
