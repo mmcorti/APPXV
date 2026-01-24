@@ -1,6 +1,6 @@
 
-// In-memory state for Raffle Games (Sorteos)
 // Similar to Bingo, but simpler logic.
+import { googlePhotosService } from './googlePhotos.js';
 
 const games = {};
 
@@ -53,50 +53,59 @@ export const raffleGameService = {
         return game;
     },
 
-    drawWinner: (eventId) => {
+    drawWinner: async (eventId, broadcastCallback) => {
         const game = raffleGameService.getGame(eventId);
 
+        // 1. Set to COUNTDOWN for suspense
+        game.status = 'COUNTDOWN';
+        game.countdownEnd = Date.now() + 4000; // 4 seconds of suspense
+        game.winner = null;
+        if (broadcastCallback) broadcastCallback(eventId);
+
+        // 2. Prepare the winner in background
         if (game.mode === 'PARTICIPANT') {
             const ids = Object.keys(game.participants);
-            if (ids.length === 0) return { error: 'No participatns' };
+            if (ids.length === 0) {
+                game.status = 'IDLE';
+                if (broadcastCallback) broadcastCallback(eventId);
+                return { error: 'No participants' };
+            }
             const randomId = ids[Math.floor(Math.random() * ids.length)];
-            const winner = game.participants[randomId];
+            const winnerParticipant = game.participants[randomId];
             game.winner = {
                 type: 'PARTICIPANT',
-                participant: winner,
+                participant: winnerParticipant,
                 timestamp: new Date().toISOString()
             };
         } else {
-            // PHOTO MODE
-            // Since we don't have real Google Photos API access to get a list of photos,
-            // we will simulate "picking" one. 
-            // In a real scenario, we'd need to scrape or use API.
-            // For now, we rely on the client or just show the "Winner" state 
-            // and let the client logic handles the display (e.g. random slideshow stop).
-            // BUT the prompt asks for "El sistema selecciona una foto aleatoria".
-            // We will just set state to WINNER and provide a flag, 
-            // assuming the client might need to handle the visual "Selection".
-            // Or we can mock a photo URL if we had a library.
-            // Let's just mock a generic "Winner Selected" state and maybe a placeholder if no URL.
+            // PHOTO MODE - Fetch real photos if possible
+            let photoUrl = 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30'; // fallback
 
-            // If the user provided a Google Photos Link, real extraction is hard.
-            // We'll mark as winner and let the frontend show a generic "Photo Selected" 
-            // or we pick a random image from a hardcoded set just for demo.
-            const demoPhotos = [
-                'https://images.unsplash.com/photo-1533227297464-af803d275e58?auto=format&fit=crop&q=80',
-                'https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&q=80',
-                'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=80'
-            ];
-            const randomPhoto = demoPhotos[Math.floor(Math.random() * demoPhotos.length)];
+            if (game.googlePhotosUrl) {
+                try {
+                    const photos = await googlePhotosService.getAlbumPhotos(game.googlePhotosUrl);
+                    if (photos && photos.length > 0) {
+                        const randomPhoto = photos[Math.floor(Math.random() * photos.length)];
+                        photoUrl = randomPhoto.src;
+                    }
+                } catch (err) {
+                    console.error('[Raffle] Failed to fetch Google Photos:', err.message);
+                }
+            }
 
             game.winner = {
                 type: 'PHOTO',
-                photoUrl: randomPhoto,
+                photoUrl: photoUrl,
                 timestamp: new Date().toISOString()
             };
         }
 
-        game.status = 'WINNER';
+        // 3. Wait for suspense to finish, then reveal
+        setTimeout(() => {
+            game.status = 'WINNER';
+            if (broadcastCallback) broadcastCallback(eventId);
+        }, 4000);
+
         return game;
     },
 
