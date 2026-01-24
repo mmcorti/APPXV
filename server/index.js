@@ -3178,10 +3178,9 @@ app.post('/api/raffle/:eventId/start', (req, res) => {
     res.json(state);
 });
 
-app.post('/api/raffle/:eventId/draw', (req, res) => {
+app.post('/api/raffle/:eventId/draw', async (req, res) => {
     const { eventId } = req.params;
-    const state = raffleGameService.drawWinner(eventId);
-    broadcastRaffleState(eventId);
+    const state = await raffleGameService.drawWinner(eventId, broadcastRaffleState);
     res.json(state);
 });
 

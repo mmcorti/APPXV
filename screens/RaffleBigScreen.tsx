@@ -7,12 +7,28 @@ import { RaffleState } from '../types/raffleTypes';
 const RaffleBigScreen: React.FC = () => {
     const { id: eventId } = useParams<{ id: string }>();
     const [state, setState] = useState<RaffleState | null>(null);
+    const [shuffleName, setShuffleName] = useState('');
 
     useEffect(() => {
         if (!eventId) return;
         const unsubscribe = raffleService.subscribe(eventId, setState);
         return unsubscribe;
     }, [eventId]);
+
+    // Shuffle effect for suspense
+    useEffect(() => {
+        if (state?.status === 'COUNTDOWN' && state.mode === 'PARTICIPANT') {
+            const participants = Object.values(state.participants) as any[];
+            const names = participants.map(p => p.name);
+            if (names.length === 0) return;
+
+            const interval = setInterval(() => {
+                const randomName = names[Math.floor(Math.random() * names.length)];
+                setShuffleName(randomName);
+            }, 100);
+            return () => clearInterval(interval);
+        }
+    }, [state?.status, state?.participants, state?.mode]);
 
     if (!state) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">Cargando...</div>;
 
@@ -45,7 +61,41 @@ const RaffleBigScreen: React.FC = () => {
             {/* MAIN CONTENT */}
             <div className="relative z-10 flex-1 flex flex-col items-center justify-center min-h-[80vh] w-full max-w-7xl mx-auto px-6">
 
-                {state.status !== 'WINNER' ? (
+                {state.status === 'COUNTDOWN' ? (
+                    // SUSPENSE / COUNTDOWN VIEW
+                    <div className="flex flex-col items-center justify-center animate-fade-in text-center">
+                        <div className="mb-12">
+                            <div className="w-24 h-24 border-4 border-indigo-500 border-t-white rounded-full animate-spin mx-auto mb-6 shadow-[0_0_30px_rgba(79,70,229,0.5)]"></div>
+                            <h2 className="text-4xl font-black tracking-widest uppercase bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 animate-pulse">
+                                SORTEANDO...
+                            </h2>
+                        </div>
+
+                        {state.mode === 'PARTICIPANT' ? (
+                            <div className="h-40 flex items-center justify-center">
+                                <span className="text-6xl md:text-8xl font-black text-white/20 blur-sm absolute transform -translate-y-10 scale-90 translate-x-10">
+                                    {shuffleName}
+                                </span>
+                                <span className="text-6xl md:text-8xl font-black text-white/20 blur-sm absolute transform translate-y-12 scale-90 -translate-x-12">
+                                    {shuffleName}
+                                </span>
+                                <span className="relative text-7xl md:text-9xl font-black text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.3)] animate-bounce-small">
+                                    {shuffleName}
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="relative w-full max-w-xl aspect-video bg-slate-800 rounded-2xl overflow-hidden border-2 border-white/10 shadow-2xl">
+                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/40 to-slate-950/40"></div>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <span className="material-symbols-outlined text-8xl text-indigo-500/30 animate-ping">search</span>
+                                </div>
+                                <div className="absolute top-0 left-0 w-full h-[2px] bg-indigo-400 shadow-[0_0_15px_rgba(129,140,248,0.8)] animate-scan"></div>
+                            </div>
+                        )}
+
+                        <p className="mt-12 text-slate-500 font-mono tracking-widest uppercase text-sm">El azar está decidiendo</p>
+                    </div>
+                ) : state.status !== 'WINNER' ? (
                     // WAITING VIEW
                     <div className="flex flex-col md:flex-row items-center gap-12 w-full animate-fade-in">
 
@@ -60,11 +110,11 @@ const RaffleBigScreen: React.FC = () => {
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
                                 <div className="absolute bottom-8 left-0 right-0 text-center">
-                                    <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white drop-shadow-lg mb-2">
-                                        {state.status === 'IDLE' ? 'PREPARANDO SORTEO...' : '¡PARTICIPA AHORA!'}
+                                    <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white drop-shadow-lg mb-2 text-balance">
+                                        {state.status === 'IDLE' ? 'PREPARANDO SORTEO' : '¡PARTICIPA AHORA!'}
                                     </h1>
                                     <p className="text-indigo-200 font-medium text-lg">
-                                        {isPhoto ? 'Sorteo por Fotos' : 'Escanea el código para unirte'}
+                                        {isPhoto ? 'Sorteo por Fotos de Google' : 'Escanea el código para unirte'}
                                     </p>
                                 </div>
                             </div>
@@ -82,7 +132,7 @@ const RaffleBigScreen: React.FC = () => {
                                 </div>
                                 <div className="mt-6 text-center">
                                     <p className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">Escanea el QR</p>
-                                    <p className="text-slate-500">Ingresa tu nombre para ganar</p>
+                                    <p className="text-slate-500">Ingresa tu nombre para participar</p>
                                 </div>
                             </div>
                         )}
