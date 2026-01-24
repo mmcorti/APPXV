@@ -65,6 +65,16 @@ const DEFAULT_GAMES: Game[] = [
         category: 'interactive',
         estimatedTime: '~8 MINS',
         status: 'idle'
+    },
+    {
+        id: 'raffle',
+        name: 'Sorteos',
+        description: 'Sortea premios entre los invitados (QR o Fotos).',
+        icon: 'emoji_events',
+        image: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=400&q=80',
+        category: 'interactive',
+        estimatedTime: '~5 MINS',
+        status: 'idle'
     }
 ];
 
@@ -112,6 +122,12 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
         // Navigate to Bingo Admin for 'photo-bingo' game
         if (gameId === 'photo-bingo') {
             navigate(`/bingo/${id}/admin`);
+            return;
+        }
+
+        // Navigate to Raffle Admin for 'raffle' game
+        if (gameId === 'raffle') {
+            navigate(`/raffle/${id}/admin`);
             return;
         }
 
