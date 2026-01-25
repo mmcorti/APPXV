@@ -3246,6 +3246,65 @@ app.get('/api/confessions/:eventId', (req, res) => {
     res.json(state);
 });
 
+// --- IMPOSTOR GAME ---
+const broadcastImpostorState = (eventId) => {
+    const state = impostorGameService.getOrCreateSession(eventId);
+    broadcastToEvent(eventId, { type: 'IMPOSTOR_UPDATE', state });
+};
+
+app.get('/api/impostor/:eventId', (req, res) => {
+    const state = impostorGameService.getOrCreateSession(req.params.eventId);
+    res.json(state);
+});
+
+app.put('/api/impostor/:eventId/config', (req, res) => {
+    const state = impostorGameService.updateConfig(req.params.eventId, req.body);
+    broadcastImpostorState(req.params.eventId);
+    res.json(state);
+});
+
+app.post('/api/impostor/:eventId/select-players', (req, res) => {
+    // In a real scenario, we'd get connected guests. 
+    // For now, we simulation with a list or get them from existing logic if available.
+    // For this MVP, let's assume the admin sends a list of candidate players or we fetch from active guests.
+    const { candidates } = req.body;
+    const state = impostorGameService.selectPlayers(req.params.eventId, candidates || []);
+    broadcastImpostorState(req.params.eventId);
+    res.json(state);
+});
+
+app.post('/api/impostor/:eventId/start', (req, res) => {
+    const state = impostorGameService.startRound(req.params.eventId);
+    broadcastImpostorState(req.params.eventId);
+    res.json(state);
+});
+
+app.post('/api/impostor/:eventId/answer', (req, res) => {
+    const { playerId, answer } = req.body;
+    const state = impostorGameService.submitAnswer(req.params.eventId, playerId, answer);
+    broadcastImpostorState(req.params.eventId);
+    res.json(state);
+});
+
+app.post('/api/impostor/:eventId/vote', (req, res) => {
+    const { voterId, targetId } = req.body;
+    const state = impostorGameService.castVote(req.params.eventId, voterId, targetId);
+    broadcastImpostorState(req.params.eventId);
+    res.json(state);
+});
+
+app.post('/api/impostor/:eventId/reveal', (req, res) => {
+    const state = impostorGameService.revealImpostor(req.params.eventId);
+    broadcastImpostorState(req.params.eventId);
+    res.json(state);
+});
+
+app.post('/api/impostor/:eventId/reset', (req, res) => {
+    const state = impostorGameService.resetGame(req.params.eventId);
+    broadcastImpostorState(req.params.eventId);
+    res.json(state);
+});
+
 app.put('/api/confessions/:eventId/config', async (req, res) => {
     const { eventId } = req.params;
     let config = req.body;
