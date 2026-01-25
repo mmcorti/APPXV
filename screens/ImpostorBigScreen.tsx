@@ -40,35 +40,61 @@ const ImpostorBigScreen: React.FC = () => {
 
                 {/* WAITING PHASE */}
                 {state.status === 'WAITING' && (
-                    <div className="text-center space-y-8">
+                    <div className="text-center space-y-12">
                         <motion.h1
                             initial={{ opacity: 0, y: -20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="text-7xl font-black italic tracking-tighter uppercase"
+                            className="text-8xl font-black italic tracking-tighter uppercase"
                         >
                             ¿Quién es el <span className="text-primary drop-shadow-[0_0_20px_rgba(164,19,236,0.6)]">Impostor</span>?
                         </motion.h1>
 
-                        <div className="flex flex-wrap justify-center gap-8 mt-12">
-                            {state.activePlayers.length > 0 ? (
-                                state.activePlayers.map((player, i) => (
-                                    <motion.div
-                                        key={player.id}
-                                        initial={{ opacity: 0, scale: 0.8 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        transition={{ delay: i * 0.1 }}
-                                        className="flex flex-col items-center gap-4"
-                                    >
-                                        <div className="relative">
-                                            <div className="absolute inset-0 bg-primary/40 blur-xl rounded-full scale-110" />
-                                            <img src={player.avatar} className="w-40 h-40 rounded-full bg-slate-800 relative z-10 border-4 border-white/10 shadow-2xl" />
+                        <div className="flex flex-col md:flex-row items-center justify-center gap-16 mt-12 bg-white/5 p-12 rounded-[50px] border border-white/10 backdrop-blur-xl shadow-2xl">
+                            {/* QR Section */}
+                            <div className="flex flex-col items-center gap-6">
+                                <div className="bg-white p-6 rounded-3xl shadow-[0_0_50px_rgba(255,255,255,0.2)]">
+                                    <img
+                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${window.location.origin}/#/impostor/${eventId}/guest`)}`}
+                                        alt="Scan to Join"
+                                        className="w-64 h-64"
+                                    />
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-2xl font-bold uppercase tracking-widest text-primary mb-1">¡Escaneá para jugar!</p>
+                                    <p className="text-slate-400 font-medium">Sumate a la votación desde tu celular</p>
+                                </div>
+                            </div>
+
+                            {/* Divider for desktop */}
+                            <div className="hidden md:block w-px h-64 bg-white/10" />
+
+                            {/* Players List */}
+                            <div className="flex flex-col items-center gap-8">
+                                <h3 className="text-3xl font-bold uppercase tracking-tight text-white/80">Jugadores en Escena</h3>
+                                <div className="flex flex-wrap justify-center gap-6 max-w-2xl">
+                                    {state.activePlayers.length > 0 ? (
+                                        state.activePlayers.map((player, i) => (
+                                            <motion.div
+                                                key={player.id}
+                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                transition={{ delay: i * 0.1 }}
+                                                className="flex flex-col items-center gap-3"
+                                            >
+                                                <div className="relative">
+                                                    <div className="absolute inset-0 bg-primary/30 blur-lg rounded-full" />
+                                                    <img src={player.avatar} className="w-24 h-24 rounded-full bg-slate-800 relative z-10 border-2 border-white/20" />
+                                                </div>
+                                                <span className="text-lg font-bold uppercase tracking-tight">{player.name}</span>
+                                            </motion.div>
+                                        ))
+                                    ) : (
+                                        <div className="text-slate-500 text-2xl font-medium animate-pulse py-8">
+                                            Aún no se han seleccionado jugadores...
                                         </div>
-                                        <h3 className="text-3xl font-bold uppercase tracking-tight">{player.name}</h3>
-                                    </motion.div>
-                                ))
-                            ) : (
-                                <div className="text-slate-500 text-3xl font-medium animate-pulse">Esperando jugadores...</div>
-                            )}
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -189,6 +215,27 @@ const ImpostorBigScreen: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* Persistent Floating QR for other phases */}
+            {state.status !== 'WAITING' && (
+                <motion.div
+                    initial={{ opacity: 0, x: 50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="absolute bottom-10 right-10 z-50 flex items-center gap-4 bg-white/5 backdrop-blur-md p-4 rounded-3xl border border-white/10 shadow-2xl"
+                >
+                    <div className="text-right hidden sm:block">
+                        <p className="text-xs font-bold uppercase tracking-widest text-primary mb-0.5">¡Sumate!</p>
+                        <p className="text-[10px] font-medium text-slate-400">Escaneá para votar</p>
+                    </div>
+                    <div className="bg-white p-2 rounded-xl">
+                        <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/#/impostor/${eventId}/guest`)}`}
+                            alt="Scan to Join"
+                            className="w-16 h-16"
+                        />
+                    </div>
+                </motion.div>
+            )}
         </div>
     );
 };
