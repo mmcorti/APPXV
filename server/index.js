@@ -14,6 +14,7 @@ import googleAuth from './services/googleAuth.js';
 import { uploadImage } from './services/imageUpload.js';
 import { raffleGameService } from './services/raffleGameService.js';
 import { confessionsGameService } from './services/confessionsGameService.js';
+import { impostorGameService } from './services/impostorGameService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
