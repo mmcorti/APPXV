@@ -75,6 +75,16 @@ const DEFAULT_GAMES: Game[] = [
         category: 'interactive',
         estimatedTime: '~5 MINS',
         status: 'idle'
+    },
+    {
+        id: 'impostor',
+        name: 'El Impostor',
+        description: 'Encuentra al infiltrado entre tus invitados.',
+        icon: 'incognito',
+        image: 'https://images.unsplash.com/photo-1509248961158-e54f6934749c?auto=format&fit=crop&w=400&q=80',
+        category: 'interactive',
+        estimatedTime: '~15 MINS',
+        status: 'idle'
     }
 ];
 
@@ -134,6 +144,12 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
         // Navigate to Confessions Admin for 'confessions' game
         if (gameId === 'confessions') {
             navigate(`/confessions/${id}/admin`);
+            return;
+        }
+
+        // Navigate to Impostor Admin for 'impostor' game
+        if (gameId === 'impostor') {
+            navigate(`/impostor/${id}/admin`);
             return;
         }
 

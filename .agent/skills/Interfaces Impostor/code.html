@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Impostor Game Prototype</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect"/>
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;family=Noto+Sans:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Tailwind Configuration -->
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#a413ec",
+                        "background-light": "#f7f6f8",
+                        "background-dark": "#1c1022",
+                        "surface-dark": "#2a1d31",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "sans-serif"],
+                        "body": ["Noto Sans", "sans-serif"],
+                    },
+                    borderRadius: {"DEFAULT": "1rem", "lg": "1.5rem", "xl": "2rem", "2xl": "3rem", "full": "9999px"},
+                    backgroundImage: {
+                        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+        }
+        
+        /* Hide number input spinners */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+
+        /* Custom suspense gradient */
+        .bg-suspense-gradient {
+            background: linear-gradient(180deg, #1c1022 0%, #0F0518 100%);
+        }
+
+        body {
+            min-height: max(884px, 100dvh);
+            margin: 0;
+            overflow: hidden; /* Prevent double scrollbars with iframe */
+        }
+    </style>
+
+    <!-- React and Router Scripts -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/history@5/umd/history.development.js"></script>
+    <script src="https://unpkg.com/react-router@6.3.0/umd/react-router.development.js"></script>
+    <script src="https://unpkg.com/react-router-dom@6.3.0/umd/react-router-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display">
+
+    <div id="root" class="h-full"></div>
+
+    <script type="text/babel">
+        // Global destructuring as required
+        const { useState, useEffect } = React;
+        const { createRoot } = ReactDOM;
+        const { MemoryRouter, Routes, Route, Link, useNavigate } = ReactRouterDOM;
+
+        // --- Screen 1: Admin Game Control ---
+        const AdminGameControl = () => {
+            const navigate = useNavigate();
+            const [players, setPlayers] = useState(8);
+            const [impostors, setImpostors] = useState(1);
+            const [revealRole, setRevealRole] = useState(true);
+
+            return (
+                <div className="h-screen flex flex-col overflow-hidden selection:bg-primary selection:text-white">
+                    {/* Top App Bar */}
+                    <header className="flex-none flex items-center bg-background-light dark:bg-background-dark p-4 pt-6 pb-2 justify-between border-b border-black/5 dark:border-white/5 z-10">
+                        <div className="w-16 flex items-center justify-start">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-bold uppercase tracking-wider">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                </span>
+                                Live
+                            </span>
+                        </div>
+                        <h2 className="text-lg font-bold leading-tight tracking-[-0.015em] text-center">Game Control</h2>
+                        <button className="w-16 flex items-center justify-end text-slate-500 dark:text-[#b09db9] hover:text-primary transition-colors text-sm font-bold leading-normal tracking-[0.015em]">
+                            Reset
+                        </button>
+                    </header>
+                    {/* Scrollable Content */}
+                    <main className="flex-1 overflow-y-auto pb-32">
+                        <div className="flex flex-col gap-6 p-4 max-w-md mx-auto w-full">
+                            {/* Section: Player Setup */}
+                            <div className="space-y-3">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">Player Setup</h3>
+                                {/* Card Container */}
+                                <div className="bg-white dark:bg-surface-dark rounded-xl overflow-hidden shadow-sm dark:shadow-none border border-black/5 dark:border-white/5">
+                                    {/* Total Players */}
+                                    <div className="flex items-center p-4 justify-between border-b border-black/5 dark:border-white/5">
+                                        <div className="flex flex-col">
+                                            <p className="text-base font-semibold leading-normal">Total Players</p>
+                                            <span className="text-xs text-slate-500 dark:text-slate-400">Include admin if playing</span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <button 
+                                                onClick={() => setPlayers(Math.max(1, players - 1))}
+                                                className="h-10 w-10 flex items-center justify-center rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 active:scale-95 transition-all text-xl font-medium">
+                                                <span className="material-symbols-outlined text-lg">remove</span>
+                                            </button>
+                                            <input className="w-8 p-0 text-center bg-transparent text-xl font-bold focus:outline-0 focus:ring-0 border-none" readOnly type="number" value={players}/>
+                                            <button 
+                                                onClick={() => setPlayers(players + 1)}
+                                                className="h-10 w-10 flex items-center justify-center rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 active:scale-95 transition-all text-xl font-medium">
+                                                <span className="material-symbols-outlined text-lg">add</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {/* Impostor Count */}
+                                    <div className="flex items-center p-4 justify-between">
+                                        <div className="flex flex-col">
+                                            <p className="text-base font-semibold leading-normal text-primary">Impostors</p>
+                                            <span className="text-xs text-slate-500 dark:text-slate-400">Hidden roles</span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <button 
+                                                onClick={() => setImpostors(Math.max(1, impostors - 1))}
+                                                className="h-10 w-10 flex items-center justify-center rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 active:scale-95 transition-all text-xl font-medium">
+                                                <span className="material-symbols-outlined text-lg">remove</span>
+                                            </button>
+                                            <input className="w-8 p-0 text-center bg-transparent text-xl font-bold focus:outline-0 focus:ring-0 border-none text-primary" readOnly type="number" value={impostors}/>
+                                            <button 
+                                                onClick={() => setImpostors(impostors + 1)}
+                                                className="h-10 w-10 flex items-center justify-center rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 active:scale-95 transition-all text-xl font-medium">
+                                                <span className="material-symbols-outlined text-lg">add</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {/* Section: Scenario Configuration */}
+                            <div className="space-y-3">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1 pt-2">Scenario Config</h3>
+                                {/* Main Prompt */}
+                                <div className="relative group">
+                                    <div className="absolute -inset-0.5 bg-gradient-to-r from-pink-600 to-purple-600 rounded-2xl opacity-20 group-focus-within:opacity-100 transition duration-500 blur-sm"></div>
+                                    <div className="relative bg-white dark:bg-surface-dark rounded-xl p-4 flex flex-col gap-2">
+                                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Civilian Prompt (Main)</label>
+                                        <textarea className="w-full bg-transparent border-none p-0 text-base focus:ring-0 placeholder:text-slate-400 dark:placeholder:text-slate-600 resize-none" placeholder="e.g. You are at a sunny beach party..." rows="2"></textarea>
+                                    </div>
+                                </div>
+                                {/* Impostor Prompt */}
+                                <div className="relative group">
+                                    <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-blue-600 rounded-2xl opacity-20 group-focus-within:opacity-100 transition duration-500 blur-sm"></div>
+                                    <div className="relative bg-white dark:bg-surface-dark rounded-xl p-4 flex flex-col gap-2">
+                                        <label className="text-xs font-bold uppercase tracking-wider text-primary">Impostor Prompt (Twist)</label>
+                                        <textarea className="w-full bg-transparent border-none p-0 text-base focus:ring-0 placeholder:text-slate-400 dark:placeholder:text-slate-600 resize-none" placeholder="e.g. You are at a freezing ski resort..." rows="2"></textarea>
+                                    </div>
+                                </div>
+                                {/* Knowledge Toggle */}
+                                <div className="bg-white dark:bg-surface-dark rounded-xl p-4 flex items-center justify-between border border-black/5 dark:border-white/5 mt-2">
+                                    <div className="flex flex-col gap-0.5">
+                                        <span className="text-base font-medium">Reveal Role</span>
+                                        <span className="text-xs text-slate-500 dark:text-slate-400 max-w-[200px]">Impostor knows they are the impostor immediately</span>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            className="sr-only peer" 
+                                            checked={revealRole} 
+                                            onChange={() => setRevealRole(!revealRole)}
+                                        />
+                                        <div className="w-12 h-7 bg-slate-200 peer-focus:outline-none dark:bg-black/40 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary"></div>
+                                    </label>
+                                </div>
+                            </div>
+                            {/* Spacer for bottom overlap */}
+                            <div className="h-4"></div>
+                        </div>
+                    </main>
+                    {/* Bottom Actions Area */}
+                    <footer className="absolute bottom-0 left-0 right-0 bg-background-light/90 dark:bg-[#160c1b]/90 backdrop-blur-xl border-t border-black/5 dark:border-white/10 p-4 pb-8 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
+                        <div className="max-w-md mx-auto grid grid-cols-2 gap-3">
+                            <button className="col-span-1 h-14 rounded-full bg-white dark:bg-white/5 border border-black/5 dark:border-white/10 text-slate-900 dark:text-white font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center gap-2">
+                                <span className="material-symbols-outlined text-[20px]">group_add</span>
+                                Select Players
+                            </button>
+                            <button 
+                                onClick={() => navigate('/player-view')}
+                                className="col-span-1 h-14 rounded-full bg-primary text-white font-bold text-sm shadow-[0_0_20px_rgba(164,19,236,0.4)] hover:shadow-[0_0_30px_rgba(164,19,236,0.6)] active:scale-95 transition-all flex items-center justify-center gap-2">
+                                <span className="material-symbols-outlined text-[20px]">play_arrow</span>
+                                Start Round
+                            </button>
+                            <button 
+                                onClick={() => navigate('/voting')}
+                                className="col-span-1 h-14 rounded-full bg-white dark:bg-white/5 border border-black/5 dark:border-white/10 text-slate-900 dark:text-white font-bold text-sm hover:bg-slate-50 dark:hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center gap-2">
+                                <span className="material-symbols-outlined text-[20px]">how_to_vote</span>
+                                Show Voting
+                            </button>
+                            <button className="col-span-1 h-14 rounded-full bg-red-500/10 border border-red-500/20 text-red-500 dark:text-red-400 font-bold text-sm hover:bg-red-500/20 active:scale-95 transition-all flex items-center justify-center gap-2">
+                                <span className="material-symbols-outlined text-[20px]">visibility</span>
+                                Reveal Impostor
+                            </button>
+                        </div>
+                    </footer>
+                </div>
+            );
+        };
+
+        // --- Screen 2: Player Prompt Submission ---
+        const PlayerPromptSubmission = () => {
+            const navigate = useNavigate();
+            const [answer, setAnswer] = useState("");
+            
+            return (
+                <div className="relative flex h-full min-h-screen w-full flex-col overflow-hidden bg-suspense-gradient">
+                    {/* Header */}
+                    <header className="flex items-center justify-between p-4 pt-6 pb-2">
+                        <button 
+                            onClick={() => navigate('/')}
+                            className="text-white/80 hover:text-white flex size-12 shrink-0 items-center justify-center rounded-full active:bg-white/10 transition-colors">
+                            <span className="material-symbols-outlined text-2xl">arrow_back</span>
+                        </button>
+                        <div className="flex flex-col items-center">
+                            <span className="text-primary text-xs font-medium uppercase tracking-wider mb-0.5">Current Role</span>
+                            <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em]">You are a Player</h2>
+                        </div>
+                        <button className="text-white/80 hover:text-white flex size-12 shrink-0 items-center justify-center rounded-full active:bg-white/10 transition-colors">
+                            <span className="material-symbols-outlined text-2xl">settings</span>
+                        </button>
+                    </header>
+                    {/* Timer Section */}
+                    <div className="flex flex-col items-center justify-center py-6">
+                        <div className="relative flex items-center justify-center size-24">
+                            {/* Outer ring simulating progress */}
+                            <svg className="size-full -rotate-90 transform" viewBox="0 0 100 100">
+                                <circle className="text-white/10" cx="50" cy="50" fill="transparent" r="42" stroke="currentColor" strokeWidth="8"></circle>
+                                <circle className="text-primary animate-pulse" cx="50" cy="50" fill="transparent" r="42" stroke="currentColor" strokeDasharray="264" strokeDashoffset="66" strokeLinecap="round" strokeWidth="8"></circle>
+                            </svg>
+                            {/* Timer Text */}
+                            <div className="absolute flex flex-col items-center">
+                                <span className="text-3xl font-bold text-white tracking-tighter">15</span>
+                                <span className="text-[10px] uppercase font-bold text-white/50 tracking-wide">Secs</span>
+                            </div>
+                        </div>
+                        <p className="text-white/60 text-sm mt-3 animate-pulse">Hurry! Time is ticking...</p>
+                    </div>
+                    {/* Scrollable Content Area */}
+                    <div className="flex-1 overflow-y-auto px-4 pb-24">
+                        {/* Prompt Card */}
+                        <div className="w-full mb-6">
+                            <div className="relative overflow-hidden rounded-xl bg-[#2D1B36] shadow-lg border border-white/5">
+                                {/* Decorative image overlay */}
+                                <div className="absolute inset-0 opacity-20 bg-cover bg-center mix-blend-overlay" data-alt="Dark mysterious purple smoke texture" style={{backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuAoCmBsn9gVXq5cp5WCFADWr4OSwHBhh50dRg0SRxnandsjUu25VbawP7qPdyT72HLV7qeqTBoHqDvaBjh2-k3mLXoznByM7AkX3hw_7CFy-LlFhNq65RgAiFjXZ2_Dt2hrvK_kHAFSeIwItZD9KbBKrwF2qKmhMLRZBAbpfbrFqR5Jk2la0MIcVNOXQDlHsmD9sUJv4l6vYBHWuK1pYhlO8rYeYXN6MBmH2vz7HiidXxhw-UdESyeHUWbeoVPZIMAkqo4p03odn0F3")'}}></div>
+                                <div className="relative z-10 p-6 flex flex-col items-center text-center gap-3">
+                                    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/10">
+                                        <span className="material-symbols-outlined text-sm text-primary">lock</span>
+                                        <span className="text-xs font-medium text-white/90 uppercase tracking-wider">Secret Prompt</span>
+                                    </div>
+                                    <h3 className="text-white text-2xl md:text-3xl font-bold leading-tight mt-2">
+                                        Describe the bride in one word
+                                    </h3>
+                                    <p className="text-white/50 text-sm">Only you can see this question.</p>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Input Area */}
+                        <div className="w-full flex flex-col gap-2">
+                            <label className="text-sm font-medium text-white/80 ml-1" htmlFor="answer-input">Your Answer</label>
+                            <div className="relative">
+                                <textarea 
+                                    className="w-full min-h-[160px] resize-none rounded-xl bg-[#2D1B36]/50 border-2 border-transparent focus:border-primary/50 text-white placeholder:text-white/30 p-5 text-lg font-normal leading-relaxed focus:outline-none focus:ring-0 transition-all shadow-inner" 
+                                    id="answer-input" 
+                                    placeholder="Type your answer here..."
+                                    value={answer}
+                                    onChange={(e) => setAnswer(e.target.value)}
+                                ></textarea>
+                                {/* Character count or subtle indicator */}
+                                <div className="absolute bottom-4 right-4 text-xs text-white/30 font-medium">
+                                    {answer.length}/50
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Sticky Bottom Action Bar */}
+                    <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-[#0F0518] via-[#0F0518] to-transparent pt-12">
+                        <button 
+                            onClick={() => navigate('/voting')}
+                            className="w-full flex items-center justify-center gap-2 rounded-full h-14 bg-primary hover:bg-primary/90 active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(164,19,236,0.3)] group">
+                            <span className="text-white text-lg font-bold tracking-wide">Send Answer</span>
+                            <span className="material-symbols-outlined text-white transition-transform group-hover:translate-x-1">send</span>
+                        </button>
+                        <div className="h-1 w-1/3 bg-white/20 mx-auto mt-6 rounded-full"></div> 
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Screen 3: Audience Voting Screen ---
+        const AudienceVotingScreen = () => {
+            const navigate = useNavigate();
+            const [selectedVote, setSelectedVote] = useState("Carlos"); // Default simulation state
+
+            const handleVote = (name) => {
+                setSelectedVote(name);
+            };
+
+            const VoteCard = ({ name, description, avatarUrl, id }) => {
+                const isSelected = selectedVote === name;
+                return (
+                    <label 
+                        onClick={() => handleVote(name)}
+                        className={`group relative flex items-center justify-between p-3 rounded-[1.25rem] bg-white dark:bg-[#2a1d33] border cursor-pointer transition-all duration-200 hover:scale-[1.02] shadow-sm ${isSelected ? 'border-primary/50' : 'border-gray-200 dark:border-white/5 hover:border-primary/50 dark:hover:border-primary/50'}`}>
+                        <div className="flex items-center gap-4">
+                            <div className="relative h-14 w-14 rounded-full overflow-hidden ring-2 ring-white/10 group-hover:ring-primary/50 transition-colors">
+                                <div className="absolute inset-0 bg-cover bg-center" style={{backgroundImage: `url('${avatarUrl}')`}}></div>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{name}</span>
+                                <span className="text-primary font-medium text-sm">"{description}"</span>
+                            </div>
+                        </div>
+                        <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all mr-2 ${isSelected ? 'bg-primary border-primary' : 'border-gray-300 dark:border-white/20'}`}>
+                            <span className={`material-symbols-outlined text-[16px] text-white font-bold transform transition-all ${isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>check</span>
+                        </div>
+                        <div className={`absolute inset-0 rounded-[1.25rem] ring-2 ring-primary pointer-events-none transition-opacity duration-300 shadow-[0_0_15px_rgba(164,19,236,0.3)] ${isSelected ? 'opacity-100' : 'opacity-0'}`}></div>
+                    </label>
+                );
+            };
+
+            return (
+                <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white min-h-screen flex flex-col antialiased selection:bg-primary selection:text-white">
+                    {/* Top App Bar */}
+                    <header className="fixed top-0 z-20 w-full bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-md border-b border-gray-200 dark:border-white/5 transition-colors duration-300">
+                        <div className="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
+                            <button 
+                                onClick={() => navigate('/player-view')}
+                                className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+                                <span className="material-symbols-outlined text-[24px]">arrow_back</span>
+                            </button>
+                            <h1 className="text-lg font-bold tracking-tight">Game Room #802</h1>
+                            <button 
+                                onClick={() => navigate('/')}
+                                className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+                                <span className="material-symbols-outlined text-[24px] text-primary">home</span>
+                            </button>
+                        </div>
+                    </header>
+                    {/* Main Content */}
+                    <main className="flex-1 w-full max-w-lg mx-auto pt-20 pb-32 px-4 flex flex-col items-center">
+                        {/* Hero/Headline Section */}
+                        <div className="w-full text-center mb-8 animate-fade-in">
+                            <div className="inline-flex items-center justify-center p-3 mb-4 rounded-full bg-primary/20 text-primary ring-1 ring-primary/30">
+                                <span className="material-symbols-outlined text-[28px] animate-pulse">how_to_vote</span>
+                            </div>
+                            <h2 className="text-3xl font-bold leading-tight mb-2 bg-gradient-to-br from-white via-white to-primary bg-clip-text text-transparent drop-shadow-sm">
+                                Who is the Impostor?
+                            </h2>
+                            <p className="text-slate-500 dark:text-slate-400 text-base font-medium max-w-[280px] mx-auto">
+                                Tap a player card below to cast your vote based on their answer.
+                            </p>
+                        </div>
+                        {/* Voting List */}
+                        <div className="w-full space-y-3">
+                            <VoteCard 
+                                name="Maria" 
+                                description="Radiant" 
+                                avatarUrl="https://lh3.googleusercontent.com/aida-public/AB6AXuBaEfwdex2FZHFfTPkItAKTt5Rf1d35agP4wEpPrJpXKMKgr4s7-cAcLuCZml96itlrcQEp7cIVGwskKdIalJBUyHZfQ1SqDLB6K1gt45DAAupKCSfAzHMxy2zyTp0DfgG1L_nNHvbeqg9fbSjV4nzj_2bZAE6FNA_irEjDPIh9b41xR6lIfCTVARl-Ua7GxJhWsvC21OhqqDk8Vx2A5UcY29kE2ylOEo_SnbYl9BW34u6isce3QTpo-fjNQJjToWma7uRxFi2GR9BV"
+                            />
+                            <VoteCard 
+                                name="Carlos" 
+                                description="Party-lover" 
+                                avatarUrl="https://lh3.googleusercontent.com/aida-public/AB6AXuDuApaOmgQHvyH8Dz683GpXoeWCIFp3ObuHLwfN9FJaDXpHQ3pfsfjXRx0zd6vezUXpBFVOw6YI9lR9DN0ah9isbh-iakgoQ5MVC5iby7W1MSEEA0vunnNm1C545Et-rrLroRywKNgkZ4-SPNOi6ArptyIw70k0QEmZun68IAS5TD5xH_RLTDf9lYY3ehUR71o-kHka-T-L_ktsBdC3aMdFUbqK723AS3RuIsjKyLUGVJR7qd1sCQsl9hsVGJq8IPaE2lTzoYpIiw4t"
+                            />
+                            <VoteCard 
+                                name="Sofia" 
+                                description="Beautiful" 
+                                avatarUrl="https://lh3.googleusercontent.com/aida-public/AB6AXuApn_9A_Ld49l2H9zB04Be1_KdJlpDV1bYKhJnCEs-GPyEhtr4QMmk3KAnZ66dPn-mTbeQjI7UiyIUUT94sdPqm-GQWeuxxJnD6cJIIYZpXsW-tKl0yjGLK63k_nk_Y4LRs9dS1IthmPChI-Sj43FF0Kgl6JY4SqAzmYPjcc-D6sqCKIk5tLGP1HV_CdB7JoZm2IDCtG5TFrJ2XpoKoDdTv3_chGoI3ty57X89x6dijupa9vcOtxJBxVj01FweJBchuTHsbwUOg9jQu"
+                            />
+                            <VoteCard 
+                                name="Liam" 
+                                description="Energetic" 
+                                avatarUrl="https://lh3.googleusercontent.com/aida-public/AB6AXuC9reKSDJzF55nzX3_jWjsIVjX-4t5-4pipEwV-owN8E8kgBRUJ5jLB4PUe9LfBYW3B6LinpTmTxYFJJEo--1rwIFwPotgnpMexOI2zJXU6rc6j8EMq89tGUjOf2eVehx7IWras_moma7FyKDK3OkXOm5bdUjQPVgNrc4e8-GlFJwDpCM3-xz3TJk21B4KZAZe_c4drRe3OH0KSInmXUrFMnnQ0tgddl_ruK-_K518f3Xabax2yU5XZ4SXVDRDIQc42VUlICglwDfsh"
+                            />
+                            <VoteCard 
+                                name="Priya" 
+                                description="Loud" 
+                                avatarUrl="https://lh3.googleusercontent.com/aida-public/AB6AXuC8a1c7skTrGiB9bS6SCfUtg36si6v_jIC1RFXq0ekvglMMepKZjEyo5LF7v1Ht0ZzbMPZJVD0eSTZ6w5aq8lZMDnYKXhB4OhgZ5EaddQG32BPoRxbr-_WxiKhmgOAZ7LVQ5zssEbksMMlY_pjPspABHfZ4-KU6PJ1fjMlJBO_-bYJXuTw1X8ctsa6wM5ji3je5dReZRjJ4mPn2_NWKj7B_QGox49Y4CUNvWSTH7lKA9zQMPSou209SIW6e7zOppE6LSYTUYL1Qbzjn"
+                            />
+                        </div>
+                    </main>
+                    {/* Floating Bottom Bar (Stats + Confirmation) */}
+                    <div className="fixed bottom-0 w-full p-4 pointer-events-none z-30">
+                        <div className="max-w-lg mx-auto flex flex-col items-center gap-3">
+                            {/* Floating Toast (Simulated "Vote Cast" feedback) */}
+                            {selectedVote && (
+                                <div className="bg-primary text-white text-sm font-bold px-4 py-2 rounded-full shadow-lg flex items-center gap-2 animate-bounce">
+                                    <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                                    Vote cast for {selectedVote}
+                                </div>
+                            )}
+                            {/* Stats Bar */}
+                            <div className="w-full bg-[#332839]/90 dark:bg-[#161118]/90 backdrop-blur-xl border border-white/10 shadow-2xl rounded-2xl p-4 pointer-events-auto">
+                                <div className="flex justify-between items-end mb-2">
+                                    <div>
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Live Results</p>
+                                        <p className="text-white text-lg font-bold">142 <span className="text-sm font-normal text-slate-400">/ 200 votes</span></p>
+                                    </div>
+                                    <div className="flex -space-x-2">
+                                        <div className="w-8 h-8 rounded-full border-2 border-[#161118] bg-cover bg-center" data-alt="User avatar 1" style={{backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuAc7-qnccl867436CyvRW_Op7YgjlqBTfwltOAv45DD2BxVqtot7pZe68jlJDmIwgVtrIG5cRmFmWiCNvB4okQeAS6jLAnjiE4TWGD3WCulw5YYckEjndXf57Lz955shleFdAkN8mr94UtJHyiPcOt2Cb5fZL9HcEOrbFbk179_PsQwxLsIAUE9v_tWtGnGItIEsxMaQwXeukUCsEW3eeRx48O8WBhxazatGo2-Wn17glTLJXPuclRejrjbxyzOMCaLZqdMCVeyriIK')"}}></div>
+                                        <div className="w-8 h-8 rounded-full border-2 border-[#161118] bg-cover bg-center" data-alt="User avatar 2" style={{backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuD4-xlpa1Je0AwFjriuQFQUgUEUD-4etXhfr3Ba-Htloou2MbgOc8pZlffEfDCG_X0b5ncQ1iH0UhY4P8u3fO1oY9P8uZlv57J1br4CCi1-KrglXPQ54W0qfDgJykO04RhFb6lz-K3Yyo10pweDJuGD4eVkGTuAdZa7jfhY46vGPJ-_tNe_XE3fVjpruPFyCqnq0UmgqeTtwHLcvTByWd1piCVQDXSVyEooF9ceuYDyqTSb8OKHoiN4TKyERdbcF6pAi9WXIbDVvEbO')"}}></div>
+                                        <div className="w-8 h-8 rounded-full border-2 border-[#161118] bg-cover bg-center" data-alt="User avatar 3" style={{backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuCLSY02lQU_xXnRn76czK8NVzw63O6FJ6TdW3AlKYZAZ4xx_axMcPYdtWrNhtSSzpSIBE8eaawpfKRCzPhrwZYQU5K7jn4hshwr1DHuu1F3LwgFGwBdggN8S2BfN3k3YdzDEsS8jqM22ArgOZEBwnFy59pVw_seyYdDo-t6oybX4uEBp1amZdy7gvz2yT5_fyPQ2usB3ZIEpO2ZKmhZ7rksslbRLr4Cv0I9kqa72akrFWFIEFaG88bd8LNK0uB1r6MWNylFFm8V2HId')"}}></div>
+                                        <div className="w-8 h-8 rounded-full border-2 border-[#161118] bg-[#332839] flex items-center justify-center text-[10px] text-white font-bold">+139</div>
+                                    </div>
+                                </div>
+                                {/* Progress Bar */}
+                                <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+                                    <div className="bg-gradient-to-r from-primary to-purple-400 h-full rounded-full w-[71%] shadow-[0_0_10px_rgba(164,19,236,0.5)]"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Main App Component ---
+        const App = () => {
+            return (
+                <MemoryRouter>
+                    <Routes>
+                        <Route path="/" element={<AdminGameControl />} />
+                        <Route path="/player-view" element={<PlayerPromptSubmission />} />
+                        <Route path="/voting" element={<AudienceVotingScreen />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
