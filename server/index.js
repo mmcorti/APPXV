@@ -191,7 +191,8 @@ app.post('/api/login', async (req, res) => {
                                 access_invitados: true,
                                 access_mesas: true,
                                 access_link: true,
-                                access_fotowall: true
+                                access_fotowall: true,
+                                access_games: true
                             }
                         }
                     });
@@ -1821,7 +1822,8 @@ app.get('/api/staff-assignments', async (req, res) => {
                 access_invitados: page.properties.access_invitados?.checkbox || false,
                 access_mesas: page.properties.access_mesas?.checkbox || false,
                 access_link: page.properties.access_link?.checkbox || false,
-                access_fotowall: page.properties.access_fotowall?.checkbox || false
+                access_fotowall: page.properties.access_fotowall?.checkbox || false,
+                access_games: page.properties.access_games?.checkbox || false
             }
         }));
 
@@ -1844,7 +1846,8 @@ app.post('/api/staff-assignments', async (req, res) => {
             "access_invitados": { checkbox: permissions?.access_invitados || false },
             "access_mesas": { checkbox: permissions?.access_mesas || false },
             "access_link": { checkbox: permissions?.access_link || false },
-            "access_fotowall": { checkbox: permissions?.access_fotowall || false }
+            "access_fotowall": { checkbox: permissions?.access_fotowall || false },
+            "access_games": { checkbox: permissions?.access_games || false }
         };
 
         const response = await notionClient.pages.create({
