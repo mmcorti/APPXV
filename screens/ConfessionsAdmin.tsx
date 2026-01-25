@@ -148,13 +148,64 @@ const ConfessionsAdmin: React.FC<ConfessionsAdminProps> = ({ user }) => {
                             value={bgUrl}
                             onChange={(e) => setBgUrl(e.target.value)}
                             className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-pink-500 outline-none"
-                            placeholder="https://..."
+                            placeholder="https://... or Paste Google Photos Link"
                         />
                         <button
                             onClick={saveBackground}
                             className="px-6 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold text-sm transition-colors">
                             Save
                         </button>
+                    </div>
+
+                    {/* File Upload / Image Picker */}
+                    <div className="mt-4 pt-4 border-t border-slate-800">
+                        <label className="flex items-center gap-3 cursor-pointer group">
+                            <div className="bg-slate-800 p-2 rounded-lg group-hover:bg-slate-700 transition-colors">
+                                <span className="material-symbols-outlined text-pink-400">upload_file</span>
+                            </div>
+                            <div>
+                                <span className="text-sm font-medium block">Upload from computer</span>
+                                <span className="text-xs text-slate-500">Supports JPG, PNG</span>
+                            </div>
+                            <input
+                                type="file"
+                                className="hidden"
+                                accept="image/*"
+                                onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+
+                                    // Simple loading state could be added here
+                                    const savedText = "Uploading...";
+                                    const prevUrl = bgUrl;
+                                    setBgUrl(savedText);
+
+                                    try {
+                                        const reader = new FileReader();
+                                        reader.readAsDataURL(file);
+                                        reader.onload = async () => {
+                                            const base64 = reader.result;
+                                            const res = await fetch('/api/upload-image', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ image: base64 })
+                                            });
+                                            const data = await res.json();
+                                            if (data.success) {
+                                                setBgUrl(data.url);
+                                            } else {
+                                                alert('Upload failed: ' + data.error);
+                                                setBgUrl(prevUrl);
+                                            }
+                                        };
+                                    } catch (err) {
+                                        console.error(err);
+                                        alert('Error uploading file');
+                                        setBgUrl(prevUrl);
+                                    }
+                                }}
+                            />
+                        </label>
                     </div>
                 </div>
 

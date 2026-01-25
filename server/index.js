@@ -3243,9 +3243,24 @@ app.get('/api/confessions/:eventId', (req, res) => {
     res.json(state);
 });
 
-app.put('/api/confessions/:eventId/config', (req, res) => {
+app.put('/api/confessions/:eventId/config', async (req, res) => {
     const { eventId } = req.params;
-    const config = req.body;
+    let config = req.body;
+
+    // Handle Google Photos links automatically
+    if (config.backgroundUrl && (config.backgroundUrl.includes('photos.app.goo.gl') || config.backgroundUrl.includes('google.com/photos'))) {
+        try {
+            console.log("📸 [Confessions] Resolving Google Photos link:", config.backgroundUrl);
+            const photos = await googlePhotosService.getAlbumPhotos(config.backgroundUrl);
+            if (photos && photos.length > 0) {
+                config.backgroundUrl = photos[0].src; // Use the first photo found
+                console.log("✅ [Confessions] Resolved to direct URL:", config.backgroundUrl);
+            }
+        } catch (e) {
+            console.warn("⚠️ [Confessions] Failed to resolve Google Photos link (using original):", e.message);
+        }
+    }
+
     const state = confessionsGameService.updateConfig(eventId, config);
     broadcastConfessionsState(eventId);
     res.json(state);
