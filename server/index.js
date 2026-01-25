@@ -13,6 +13,7 @@ import { checkLimit, getPlanLimits, isAdmin, getUsageSummary, DEFAULT_PLAN } fro
 import googleAuth from './services/googleAuth.js';
 import { uploadImage } from './services/imageUpload.js';
 import { raffleGameService } from './services/raffleGameService.js';
+import { confessionsGameService } from './services/confessionsGameService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -3188,6 +3189,85 @@ app.post('/api/raffle/:eventId/reset', (req, res) => {
     const { eventId } = req.params;
     const state = raffleGameService.reset(eventId);
     broadcastRaffleState(eventId);
+    res.json(state);
+});
+
+// --- CONFESSIONS GAME ROUTES ---
+
+const confessionsClients = {}; // eventId -> [res, res, ...]
+
+const broadcastConfessionsState = (eventId) => {
+    const clients = confessionsClients[eventId] || [];
+    const state = confessionsGameService.getGame(eventId);
+    const data = `data: ${JSON.stringify(state)}\n\n`;
+
+    clients.forEach(client => {
+        try {
+            client.write(data);
+        } catch (e) {
+            console.error('Confessions SSE write error:', e);
+        }
+    });
+};
+
+app.get('/api/confessions/:eventId/stream', (req, res) => {
+    const { eventId } = req.params;
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    if (!confessionsClients[eventId]) {
+        confessionsClients[eventId] = [];
+    }
+    confessionsClients[eventId].push(res);
+
+    // Send initial state
+    const state = confessionsGameService.getGame(eventId);
+    res.write(`data: ${JSON.stringify(state)}\n\n`);
+
+    // Keep active
+    const keepAlive = setInterval(() => {
+        res.write(': ping\n\n');
+    }, 30000);
+
+    req.on('close', () => {
+        clearInterval(keepAlive);
+        confessionsClients[eventId] = confessionsClients[eventId].filter(client => client !== res);
+    });
+});
+
+app.get('/api/confessions/:eventId', (req, res) => {
+    const { eventId } = req.params;
+    const state = confessionsGameService.getGame(eventId);
+    res.json(state);
+});
+
+app.put('/api/confessions/:eventId/config', (req, res) => {
+    const { eventId } = req.params;
+    const config = req.body;
+    const state = confessionsGameService.updateConfig(eventId, config);
+    broadcastConfessionsState(eventId);
+    res.json(state);
+});
+
+app.post('/api/confessions/:eventId/message', (req, res) => {
+    const { eventId } = req.params;
+    const { text, author } = req.body;
+
+    try {
+        const message = confessionsGameService.addMessage(eventId, { text, author });
+        broadcastConfessionsState(eventId);
+        res.json({ success: true, message });
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
+});
+
+app.post('/api/confessions/:eventId/reset', (req, res) => {
+    const { eventId } = req.params;
+    const state = confessionsGameService.reset(eventId);
+    broadcastConfessionsState(eventId);
     res.json(state);
 });
 

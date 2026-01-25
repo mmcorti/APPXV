@@ -33,6 +33,9 @@ import BingoGuest from './screens/BingoGuest';
 import RaffleAdmin from './screens/RaffleAdmin';
 import RaffleBigScreen from './screens/RaffleBigScreen';
 import RaffleGuest from './screens/RaffleGuest';
+import ConfessionsAdmin from './screens/ConfessionsAdmin';
+import ConfessionsBigScreen from './screens/ConfessionsBigScreen';
+import ConfessionsGuest from './screens/ConfessionsGuest';
 import GoogleCallbackScreen from './screens/GoogleCallback';
 import { InvitationData, User, Guest, Table, SeatedGuest, StaffPermissions } from './types';
 import { notionService } from './services/notion';
@@ -615,6 +618,18 @@ const App: React.FC = () => {
         <Route
           path="/raffle/:id/guest"
           element={<RaffleGuest />}
+        />
+        <Route
+          path="/confessions/:id/admin"
+          element={user ? <ConfessionsAdmin user={user} /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/confessions/:id/screen"
+          element={<ConfessionsBigScreen />}
+        />
+        <Route
+          path="/confessions/:id/guest"
+          element={<ConfessionsGuest />}
         />
         <Route
           path="/location/:id"
