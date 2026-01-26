@@ -49,7 +49,20 @@ const ImpostorBigScreen: React.FC = () => {
                             ¿Quién es el <span className="text-primary drop-shadow-[0_0_20px_rgba(164,19,236,0.6)]">Impostor</span>?
                         </motion.h1>
 
-                        <div className="flex flex-col md:flex-row items-center justify-center gap-16 mt-12 bg-white/5 p-12 rounded-[50px] border border-white/10 backdrop-blur-xl shadow-2xl">
+                        {/* Branding Image */}
+                        {(state.config.customImageUrl && state.config.customImageUrl.length > 5) && (
+                            <div className="max-w-xl mx-auto rounded-3xl overflow-hidden shadow-2xl border-4 border-white/10 mb-8 animate-fade-in-up">
+                                <img
+                                    src={state.config.customImageUrl}
+                                    className="w-full h-64 object-cover"
+                                    alt="Event Branding"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                />
+                            </div>
+                        )}
+
+                        <div className="flex flex-col md:flex-row items-center justify-center gap-16 mt-6 bg-white/5 p-12 rounded-[50px] border border-white/10 backdrop-blur-xl shadow-2xl">
+
                             {/* QR Section */}
                             <div className="flex flex-col items-center gap-6">
                                 <div className="bg-white p-6 rounded-3xl shadow-[0_0_50px_rgba(255,255,255,0.2)]">

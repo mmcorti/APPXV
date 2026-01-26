@@ -104,10 +104,10 @@ const RaffleBigScreen: React.FC = () => {
                             <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
                             <div className="relative aspect-video bg-slate-900 rounded-xl overflow-hidden shadow-2xl border border-white/10 ring-1 ring-white/5">
                                 <img
-                                    src={(state.customImageUrl && state.customImageUrl.trim().length > 5) ? state.customImageUrl : 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80'}
+                                    src={(state.customImageUrl && state.customImageUrl.trim().length > 5) ? state.customImageUrl : 'https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png'}
                                     alt="Event Branding"
                                     className="w-full h-full object-cover opacity-80"
-                                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80'; }}
+                                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png'; }}
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
                                 <div className="absolute bottom-8 left-0 right-0 text-center">

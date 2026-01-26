@@ -128,6 +128,18 @@ const BingoBigScreen: React.FC = () => {
                         PHOTO BINGO
                     </h1>
 
+                    {/* Branding Image */}
+                    {(state.customImageUrl && state.customImageUrl.length > 5) && (
+                        <div className="max-w-xl mx-auto rounded-xl overflow-hidden shadow-2xl border-2 border-white/10 -mt-4 mb-4">
+                            <img
+                                src={state.customImageUrl}
+                                className="w-full h-48 object-cover"
+                                alt="Event Branding"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
+                        </div>
+                    )}
+
                     <div className="flex flex-col md:flex-row items-center justify-center gap-12 mt-8">
                         <div className="bg-white p-4 rounded-xl shadow-lg transform -rotate-2 hover:rotate-0 transition-transform duration-500">
                             <img src={qrUrl} alt="Join QR" className="w-64 h-64" />
