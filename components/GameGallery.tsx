@@ -35,7 +35,7 @@ const games: GameItem[] = [
         id: 'trivia',
         title: 'Trivia Live',
         tagline: 'Adrenalina pura',
-        description: 'Pon a prueba a tus invitados con preguntas personalizadas sobre el anfitrión. Podio automático y efectos visuales de alta gama.',
+        description: 'Pon a prueba a tus invitados con preguntas personalizadas. Podio automático y efectos visuales de alta gama.',
         icon: 'quiz',
         color: 'from-amber-400 to-orange-600',
         image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&q=80&w=1000'

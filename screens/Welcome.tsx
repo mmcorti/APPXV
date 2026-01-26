@@ -51,7 +51,7 @@ const WelcomeScreen: React.FC = () => {
         'Soporte prioritario'
       ],
       buttonText: 'Contactar para VIP',
-      buttonAction: () => window.location.href = 'mailto:tech@madib.com.ar',
+      buttonAction: () => window.location.href = 'mailto:tech@madiba.com.ar',
       color: 'bg-gradient-to-r from-[#b89b5e] to-[#d4af37]',
       isPopular: false
     }
@@ -78,9 +78,8 @@ const WelcomeScreen: React.FC = () => {
               className="w-[320px] h-auto drop-shadow-[0_0_30px_rgba(59,130,246,0.3)]"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
-            {!document.querySelector('img[src="/logo.png"]') && (
-              <h1 className="text-6xl font-black italic tracking-tighter text-white">APP<span className="text-primary">XV</span></h1>
-            )}
+            {!document.querySelector('img[src="/logo.png"]')
+            }
           </div>
 
           <p className="text-white/60 text-center mb-8 font-medium">La plataforma inteligente para eventos extraordinarios.</p>
@@ -89,11 +88,11 @@ const WelcomeScreen: React.FC = () => {
             onClick={() => navigate('/login')}
             className="w-full py-4 px-8 rounded-full bg-primary text-white font-black text-lg shadow-[0_15px_30px_rgba(19,91,236,0.3)] hover:scale-105 transition-all transform active:scale-95 border-2 border-white/20"
           >
-            Comenzar Ahora
+            Viví la Experiencia Ahora
           </button>
 
           <div className="mt-6 flex items-center gap-2 text-white/40 text-xs font-bold uppercase tracking-widest">
-            <span className="material-symbols-outlined text-sm">scroll_reveal</span>
+
             Desliza para ver más
           </div>
         </div>
@@ -131,7 +130,7 @@ const WelcomeScreen: React.FC = () => {
           <div className="flex-1 relative">
             <div className="absolute inset-0 bg-emerald-500/20 blur-[100px] rounded-full scale-75 animate-pulse"></div>
             <img
-              src="https://images.unsplash.com/photo-1454165833741-976038c0f7d9?auto=format&fit=crop&q=80&w=1000"
+              src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=1000"
               className="relative z-10 rounded-[40px] shadow-2xl border border-white/10"
               alt="Logistics"
             />
@@ -151,7 +150,7 @@ const WelcomeScreen: React.FC = () => {
             {plans.map((plan, idx) => (
               <div
                 key={idx}
-                className={`relative bg-white rounded-[40px] overflow-hidden flex flex-col shadow-2xl transition-all duration-300 hover:scale-[1.02] ${plan.isPopular ? 'ring-[4px] ring-primary border-transparent' : 'border border-slate-100'}`}
+                className={`relative bg-white rounded-[40px] flex flex-col shadow-2xl transition-all duration-300 hover:scale-[1.02] ${plan.isPopular ? 'ring-[4px] ring-primary border-transparent' : 'border border-slate-100'}`}
               >
                 {plan.isPopular && (
                   <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-5 py-2 rounded-full shadow-xl flex items-center gap-2 z-20 border border-slate-100">
@@ -195,7 +194,7 @@ const WelcomeScreen: React.FC = () => {
       {/* FOOTER */}
       <footer className="py-12 px-6 bg-slate-900 border-t border-white/5 text-center">
         <div className="max-w-7xl mx-auto flex flex-col items-center gap-6">
-          <img src="/logo.png" className="h-12 w-auto opacity-50 grayscale" alt="Logo Footer" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <img src="/Logo Madiba Tech.jpg" className="h-12 w-auto opacity-50 grayscale" alt="Logo Footer" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           <div className="space-y-2">
             <p className="text-white text-sm font-black tracking-[0.3em] uppercase opacity-40">by Madiba Tech</p>
             <p className="text-white/30 text-xs font-bold">© 2026 APPXV. Todos los derechos reservados.</p>
