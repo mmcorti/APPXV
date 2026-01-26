@@ -13,11 +13,19 @@ const ImpostorGuest: React.FC<ImpostorGuestProps> = ({ user }) => {
     const { id: eventId } = useParams<{ id: string }>();
     const [state, setState] = useState<ImpostorState | null>(null);
     const [myPlayer, setMyPlayer] = useState<ImpostorPlayer | null>(null);
+    const [playerName, setPlayerName] = useState(localStorage.getItem('imp_name') || '');
+    const [isJoined, setIsJoined] = useState(false);
     const [answer, setAnswer] = useState('');
     const [selectedVote, setSelectedVote] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const guestId = user?.id || 'anonymous-' + Math.random().toString(36).substr(2, 9);
+    const guestId = user?.id || localStorage.getItem('imp_id') || 'guest-' + Math.random().toString(36).substr(2, 9);
+
+    useEffect(() => {
+        if (!localStorage.getItem('imp_id')) {
+            localStorage.setItem('imp_id', String(guestId));
+        }
+    }, [guestId]);
 
     useEffect(() => {
         if (!eventId) return;
@@ -27,6 +35,10 @@ const ImpostorGuest: React.FC<ImpostorGuestProps> = ({ user }) => {
         const unsubscribe = impostorService.subscribe(eventId, (newState) => {
             setState(newState);
             updateRole(newState);
+            // Auto-detect if joined
+            if (newState.lobby.some(p => p.id === String(guestId))) {
+                setIsJoined(true);
+            }
         });
 
         return () => unsubscribe();
@@ -38,11 +50,24 @@ const ImpostorGuest: React.FC<ImpostorGuestProps> = ({ user }) => {
             const currentState = await impostorService.getState(eventId);
             setState(currentState);
             updateRole(currentState);
+            if (currentState.lobby.some(p => p.id === String(guestId))) {
+                setIsJoined(true);
+            }
         } catch (e) {
             console.error(e);
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleJoin = async () => {
+        if (!eventId || !playerName.trim()) return;
+        localStorage.setItem('imp_name', playerName);
+        await impostorService.joinSession(eventId, {
+            id: String(guestId),
+            name: playerName
+        });
+        setIsJoined(true);
     };
 
     const updateRole = (s: ImpostorState) => {
@@ -83,8 +108,40 @@ const ImpostorGuest: React.FC<ImpostorGuestProps> = ({ user }) => {
             <main className="max-w-md mx-auto">
                 <AnimatePresence mode="wait">
 
+                    {/* CASE: JOIN LOBBY */}
+                    {!isJoined && !isPlayer && (
+                        <motion.div
+                            key="join-lobby"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-slate-900 border border-slate-800 rounded-3xl p-8 space-y-6 shadow-2xl"
+                        >
+                            <div className="text-center space-y-2">
+                                <h3 className="text-2xl font-black italic uppercase tracking-tighter">¡Sumate al juego!</h3>
+                                <p className="text-slate-400 text-sm">Ingresá tu nombre para participar</p>
+                            </div>
+
+                            <div className="space-y-4">
+                                <input
+                                    type="text"
+                                    value={playerName}
+                                    onChange={(e) => setPlayerName(e.target.value)}
+                                    placeholder="Tu Apodo..."
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 text-center text-xl font-bold outline-none focus:ring-2 focus:ring-primary"
+                                />
+                                <button
+                                    onClick={handleJoin}
+                                    disabled={!playerName.trim()}
+                                    className="w-full bg-primary py-4 rounded-2xl font-black text-xl italic uppercase tracking-tighter shadow-xl shadow-primary/20 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
+                                >
+                                    INGRESAR
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+
                     {/* CASE: PLAYER - NEEDS TO SUBMIT ANSWER */}
-                    {isPlayer && state.status === 'SUBMITTING' && (
+                    {isJoined && isPlayer && state.status === 'SUBMITTING' && (
                         <motion.div
                             key="player-submission"
                             initial={{ opacity: 0, y: 20 }}
@@ -153,8 +210,8 @@ const ImpostorGuest: React.FC<ImpostorGuestProps> = ({ user }) => {
                                         onClick={() => handleVote(p.id)}
                                         disabled={!!selectedVote || p.id === String(guestId)}
                                         className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${selectedVote === p.id
-                                                ? 'bg-primary border-primary shadow-lg shadow-primary/20 scale-105'
-                                                : 'bg-slate-900 border-slate-800 hover:border-slate-600'
+                                            ? 'bg-primary border-primary shadow-lg shadow-primary/20 scale-105'
+                                            : 'bg-slate-900 border-slate-800 hover:border-slate-600'
                                             } disabled:grayscale disabled:opacity-80`}
                                     >
                                         <div className="flex items-center gap-4 text-left">
@@ -198,7 +255,7 @@ const ImpostorGuest: React.FC<ImpostorGuestProps> = ({ user }) => {
                     )}
 
                     {/* CASE: WAITING PHASE (Spectator) */}
-                    {state.status === 'WAITING' && !isPlayer && (
+                    {isJoined && state.status === 'WAITING' && !isPlayer && (
                         <div className="text-center p-12 space-y-4">
                             <span className="material-symbols-outlined text-6xl text-slate-800 animate-spin">search_check</span>
                             <p className="text-xl font-bold italic text-slate-500">Preparando ronda...</p>

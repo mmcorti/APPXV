@@ -69,13 +69,8 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
 
     const handleSelectPlayers = async () => {
         if (!eventId) return;
-        // Map guests to the simplified candidate format
-        const candidates = guests.map(g => ({
-            id: String(g.id),
-            name: g.name,
-            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${g.id}`
-        }));
-        await impostorService.selectPlayers(eventId, candidates);
+        // The service now handles picking from the lobby if candidates is empty
+        await impostorService.selectPlayers(eventId, []);
     };
 
     const handleStart = async () => {
@@ -109,6 +104,7 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
                             <h1 className="text-xl font-bold uppercase tracking-tight">El Impostor</h1>
                             <div className="flex items-center gap-2">
                                 <span className="bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">{state.status}</span>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{state.lobby.length} Conectados</span>
                             </div>
                         </div>
                     </div>
@@ -116,6 +112,24 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
             </div>
 
             <main className="max-w-4xl mx-auto p-4 space-y-6">
+
+                {/* Lobby Review Card */}
+                <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl overflow-hidden relative">
+                    <div className="absolute top-0 right-0 p-4 opacity-5">
+                        <span className="material-symbols-outlined text-6xl">groups</span>
+                    </div>
+                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Lobby de Espera</h3>
+                    <div className="flex flex-wrap gap-4">
+                        {state.lobby.length > 0 ? state.lobby.map(p => (
+                            <div key={p.id} className="flex flex-col items-center gap-2">
+                                <img src={p.avatar} className="w-12 h-12 rounded-full bg-slate-800 border-2 border-slate-700" />
+                                <span className="text-[10px] font-bold uppercase truncate w-16 text-center">{p.name}</span>
+                            </div>
+                        )) : (
+                            <p className="text-slate-500 text-sm italic">Esperando que los invitados escaneen el QR...</p>
+                        )}
+                    </div>
+                </div>
 
                 {/* Configuration Card */}
                 <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
@@ -201,10 +215,11 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <button
                             onClick={handleSelectPlayers}
-                            className="h-14 bg-slate-800 hover:bg-slate-700 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
+                            disabled={state.lobby.length < state.config.playerCount}
+                            className="h-14 bg-slate-800 hover:bg-slate-700 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
                         >
                             <span className="material-symbols-outlined">person_search</span>
-                            SELECCIONAR JUGADORES
+                            SELECCIONAR JUGADORES ({state.lobby.length}/{state.config.playerCount})
                         </button>
 
                         <button

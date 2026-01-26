@@ -19,6 +19,7 @@ export const impostorGameService = {
                     knowsRole: true
                 },
                 players: [], // { id, name, role: 'CIVILIAN'|'IMPOSTOR', answer, avatar }
+                lobby: [], // { id, name, avatar } - People who joined but aren't playing this round
                 votes: {}, // { voterId: targetPlayerId }
                 activePlayers: [], // The selected group for the current round
                 winner: null // 'PUBLIC' or 'IMPOSTOR'
@@ -27,17 +28,35 @@ export const impostorGameService = {
         return gameSessions.get(eventId);
     },
 
+    joinSession: (eventId, player) => {
+        const session = impostorGameService.getOrCreateSession(eventId);
+        const exists = session.lobby.find(p => p.id === player.id);
+        if (!exists) {
+            session.lobby.push({
+                id: player.id,
+                name: player.name,
+                avatar: player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.id}`
+            });
+        }
+        return session;
+    },
+
     updateConfig: (eventId, config) => {
         const session = impostorGameService.getOrCreateSession(eventId);
         session.config = { ...session.config, ...config };
         return session;
     },
 
-    selectPlayers: (eventId, allConnectedGuests) => {
+    selectPlayers: (eventId, candidates) => {
         const session = impostorGameService.getOrCreateSession(eventId);
 
+        // Use provided candidates or fallback to lobby
+        const pool = (candidates && candidates.length > 0) ? candidates : session.lobby;
+
+        if (pool.length === 0) return session;
+
         // Shuffle and pick N players
-        const shuffled = [...allConnectedGuests].sort(() => 0.5 - Math.random());
+        const shuffled = [...pool].sort(() => 0.5 - Math.random());
         const selected = shuffled.slice(0, session.config.playerCount);
 
         // Assign roles
@@ -47,7 +66,7 @@ export const impostorGameService = {
         }
 
         session.activePlayers = selected.map((guest, index) => ({
-            id: guest.id,
+            id: String(guest.id),
             name: guest.name,
             role: impostorIndices.has(index) ? 'IMPOSTOR' : 'CIVILIAN',
             answer: '',
