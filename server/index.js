@@ -3258,6 +3258,12 @@ app.get('/api/impostor/:eventId', (req, res) => {
     res.json(state);
 });
 
+app.post('/api/impostor/:eventId/join', (req, res) => {
+    const state = impostorGameService.joinSession(req.params.eventId, req.body);
+    broadcastImpostorState(req.params.eventId);
+    res.json(state);
+});
+
 app.put('/api/impostor/:eventId/config', (req, res) => {
     const state = impostorGameService.updateConfig(req.params.eventId, req.body);
     broadcastImpostorState(req.params.eventId);

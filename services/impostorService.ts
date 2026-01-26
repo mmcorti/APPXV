@@ -17,6 +17,7 @@ export interface ImpostorState {
         knowsRole: boolean;
     };
     activePlayers: ImpostorPlayer[];
+    lobby: { id: string, name: string, avatar: string }[];
     votes: Record<string, string>;
     winner: 'PUBLIC' | 'IMPOSTOR' | null;
 }
@@ -26,6 +27,15 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
 export const impostorService = {
     async getState(eventId: string): Promise<ImpostorState> {
         const res = await fetch(`${API_URL}/impostor/${eventId}`);
+        return res.json();
+    },
+
+    async joinSession(eventId: string, player: { id: string, name: string, avatar?: string }): Promise<ImpostorState> {
+        const res = await fetch(`${API_URL}/impostor/${eventId}/join`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(player)
+        });
         return res.json();
     },
 

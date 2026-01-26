@@ -68,12 +68,14 @@ const ImpostorBigScreen: React.FC = () => {
                             {/* Divider for desktop */}
                             <div className="hidden md:block w-px h-64 bg-white/10" />
 
-                            {/* Players List */}
+                            {/* Lobby / Players List */}
                             <div className="flex flex-col items-center gap-8">
-                                <h3 className="text-3xl font-bold uppercase tracking-tight text-white/80">Jugadores en Escena</h3>
+                                <h3 className="text-3xl font-bold uppercase tracking-tight text-white/80">
+                                    {state.activePlayers.length > 0 ? "Jugadores en Escena" : "Lobby de Invitados"}
+                                </h3>
                                 <div className="flex flex-wrap justify-center gap-6 max-w-2xl">
-                                    {state.activePlayers.length > 0 ? (
-                                        state.activePlayers.map((player, i) => (
+                                    {(state.activePlayers.length > 0 ? state.activePlayers : state.lobby).length > 0 ? (
+                                        (state.activePlayers.length > 0 ? state.activePlayers : state.lobby).map((player, i) => (
                                             <motion.div
                                                 key={player.id}
                                                 initial={{ opacity: 0, scale: 0.8 }}
@@ -83,14 +85,14 @@ const ImpostorBigScreen: React.FC = () => {
                                             >
                                                 <div className="relative">
                                                     <div className="absolute inset-0 bg-primary/30 blur-lg rounded-full" />
-                                                    <img src={player.avatar} className="w-24 h-24 rounded-full bg-slate-800 relative z-10 border-2 border-white/20" />
+                                                    <img src={player.avatar} className="w-20 h-20 rounded-full bg-slate-800 relative z-10 border-2 border-white/20" />
                                                 </div>
-                                                <span className="text-lg font-bold uppercase tracking-tight">{player.name}</span>
+                                                <span className="text-sm font-bold uppercase tracking-tight w-24 truncate text-center">{player.name}</span>
                                             </motion.div>
                                         ))
                                     ) : (
                                         <div className="text-slate-500 text-2xl font-medium animate-pulse py-8">
-                                            Aún no se han seleccionado jugadores...
+                                            ¡Escaneá el código para unirte!
                                         </div>
                                     )}
                                 </div>
@@ -102,27 +104,31 @@ const ImpostorBigScreen: React.FC = () => {
                 {/* SUBMITTING PHASE */}
                 {state.status === 'SUBMITTING' && (
                     <div className="text-center space-y-12">
-                        <h2 className="text-6xl font-black uppercase tracking-tighter italic">Escribiendo respuestas...</h2>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
+                        <div className="space-y-4">
+                            <h2 className="text-6xl font-black uppercase tracking-tighter italic">Escribiendo respuestas...</h2>
+                            <p className="text-2xl text-slate-500 drop-shadow-lg">Los jugadores están recibiendo sus consignas secretas</p>
+                        </div>
+                        <div className="flex flex-wrap justify-center gap-12">
                             {state.activePlayers.map((player) => (
-                                <div key={player.id} className="flex flex-col items-center gap-4 opacity-80">
+                                <div key={player.id} className="flex flex-col items-center gap-4">
                                     <div className="relative">
-                                        <img src={player.avatar} className="w-32 h-32 rounded-full grayscale" />
+                                        <div className={`absolute inset-0 blur-2xl rounded-full transition-all duration-500 ${player.answer ? 'bg-green-500/40' : 'bg-primary/20'}`} />
+                                        <img src={player.avatar} className={`w-32 h-32 rounded-full relative z-10 transition-all duration-500 ${player.answer ? 'grayscale-0 scale-110' : 'grayscale opacity-50'}`} />
                                         <AnimatePresence>
                                             {player.answer ? (
                                                 <motion.div
                                                     initial={{ scale: 0 }}
                                                     animate={{ scale: 1 }}
-                                                    className="absolute bottom-0 right-0 bg-green-500 w-10 h-10 rounded-full flex items-center justify-center border-4 border-[#0a050f]"
+                                                    className="absolute -bottom-2 -right-2 bg-green-500 w-12 h-12 rounded-full flex items-center justify-center border-4 border-[#0a050f] z-20"
                                                 >
                                                     <span className="material-symbols-outlined text-white font-bold">check</span>
                                                 </motion.div>
                                             ) : (
-                                                <div className="absolute inset-0 border-4 border-slate-700 rounded-full animate-spin border-t-primary" />
+                                                <div className="absolute inset-0 border-4 border-slate-700/50 rounded-full animate-spin border-t-primary z-20" />
                                             )}
                                         </AnimatePresence>
                                     </div>
-                                    <p className="text-xl font-bold uppercase text-slate-400">{player.name}</p>
+                                    <p className={`text-xl font-black uppercase tracking-tight transition-colors ${player.answer ? 'text-white' : 'text-slate-500'}`}>{player.name}</p>
                                 </div>
                             ))}
                         </div>
