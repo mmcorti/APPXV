@@ -3247,6 +3247,46 @@ app.get('/api/confessions/:eventId', (req, res) => {
     res.json(state);
 });
 
+// --- REUSEABLE SSE INFRASTRUCTURE ---
+const eventClients = {}; // eventId -> [res, res, ...]
+
+const broadcastToEvent = (eventId, payload) => {
+    const clients = eventClients[eventId] || [];
+    const eventType = payload.type || 'message';
+    const data = `event: ${eventType}\ndata: ${JSON.stringify(payload)}\n\n`;
+
+    clients.forEach(client => {
+        try {
+            client.write(data);
+        } catch (e) {
+            console.error('SSE write error:', e);
+        }
+    });
+};
+
+app.get('/api/events/:eventId/stream', (req, res) => {
+    const { eventId } = req.params;
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    if (!eventClients[eventId]) {
+        eventClients[eventId] = [];
+    }
+    eventClients[eventId].push(res);
+
+    // Keep active
+    const keepAlive = setInterval(() => {
+        res.write(': ping\n\n');
+    }, 30000);
+
+    req.on('close', () => {
+        clearInterval(keepAlive);
+        eventClients[eventId] = eventClients[eventId].filter(client => client !== res);
+    });
+});
+
 // --- IMPOSTOR GAME ---
 const broadcastImpostorState = (eventId) => {
     const state = impostorGameService.getOrCreateSession(eventId);

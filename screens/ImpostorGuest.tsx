@@ -62,12 +62,17 @@ const ImpostorGuest: React.FC<ImpostorGuestProps> = ({ user }) => {
 
     const handleJoin = async () => {
         if (!eventId || !playerName.trim()) return;
-        localStorage.setItem('imp_name', playerName);
-        await impostorService.joinSession(eventId, {
-            id: String(guestId),
-            name: playerName
-        });
-        setIsJoined(true);
+        try {
+            localStorage.setItem('imp_name', playerName);
+            await impostorService.joinSession(eventId, {
+                id: String(guestId),
+                name: playerName
+            });
+            setIsJoined(true);
+        } catch (error) {
+            console.error('Failed to join:', error);
+            alert('Error al unirse al juego. Por favor reintenta.');
+        }
     };
 
     const updateRole = (s: ImpostorState) => {
