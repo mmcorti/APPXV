@@ -20,7 +20,8 @@ export const impostorGameService = {
                     impostorCount: 1,
                     mainPrompt: "Describe a la homenajeada en una palabra",
                     impostorPrompt: "Describe la fiesta en una palabra",
-                    knowsRole: true
+                    knowsRole: true,
+                    customImageUrl: 'https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png'
                 },
                 players: [], // { id, name, role: 'CIVILIAN'|'IMPOSTOR', answer, avatar }
                 lobby: [], // { id, name, avatar } - People who joined but aren't playing this round

@@ -97,7 +97,7 @@ export const raffleGameService = {
             };
         } else {
             // PHOTO MODE - Fetch real photos if possible
-            let photoUrl = 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30'; // fallback
+            let photoUrl = game.customImageUrl && game.customImageUrl.trim().length > 5 ? game.customImageUrl : 'https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png';
 
             if (game.googlePhotosUrl) {
                 try {

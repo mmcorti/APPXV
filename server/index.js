@@ -2758,6 +2758,7 @@ const getBingoState = (eventId) => {
             hostPlan: 'freemium', // Default
             prompts: [...DEFAULT_BINGO_PROMPTS],
             googlePhotosLink: '',
+            customImageUrl: 'https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png',
             winner: null,
             players: {},
             cards: {},
@@ -2920,14 +2921,15 @@ app.put('/api/bingo/:eventId/prompts', (req, res) => {
     }
 });
 
-// --- ADMIN: UPDATE SETTINGS (Google Photos link) ---
+// --- ADMIN: UPDATE SETTINGS (Google Photos link & Branding) ---
 app.put('/api/bingo/:eventId/settings', (req, res) => {
     const { eventId } = req.params;
-    const { googlePhotosLink, hostPlan } = req.body;
+    const { googlePhotosLink, hostPlan, customImageUrl } = req.body;
 
     const state = getBingoState(eventId);
     if (googlePhotosLink !== undefined) state.googlePhotosLink = googlePhotosLink;
     if (hostPlan !== undefined) state.hostPlan = hostPlan;
+    if (customImageUrl !== undefined) state.customImageUrl = customImageUrl;
 
     broadcastBingoState(eventId);
     res.json({ success: true });

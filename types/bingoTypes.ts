@@ -48,6 +48,7 @@ export interface BingoGameState {
     status: BingoGameStatus;
     prompts: BingoPrompt[];
     googlePhotosLink: string;
+    customImageUrl?: string;
     winner?: BingoWinner;
     players: Record<string, BingoPlayer>;
     cards: Record<string, BingoCard>;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { bingoService, BingoGameState, BingoPrompt, BingoSubmission } from '../services/bingoService';
+import { notionService } from '../services/notion';
 import { User } from '../types';
 
 interface BingoAdminProps {
@@ -14,6 +15,8 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
     const [activeTab, setActiveTab] = useState<'CONFIG' | 'LIVE'>('CONFIG');
     const [editingPrompts, setEditingPrompts] = useState<BingoPrompt[]>([]);
     const [googlePhotosLink, setGooglePhotosLink] = useState('');
+    const [customImage, setCustomImage] = useState('');
+    const [uploading, setUploading] = useState(false);
 
     useEffect(() => {
         if (eventId && user.plan) {
@@ -33,6 +36,12 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
             if (!googlePhotosLink) {
                 setGooglePhotosLink(newState.googlePhotosLink);
             }
+            // Only set custom image if we don't have a local edit (to avoid overwriting while typing, 
+            // though simplistic check here just sets it if empty or matches)
+            // Ideally we'd separate "localConfig" from "liveConfig", but for now:
+            if (!customImage && newState.customImageUrl) {
+                setCustomImage(newState.customImageUrl);
+            }
         });
 
         return unsubscribe;
@@ -47,9 +56,35 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
         await bingoService.updatePrompts(eventId, editingPrompts);
     };
 
-    const handleSaveSettings = async () => {
+    const handleSaveSettings = async (imageOverride?: string) => {
         if (!eventId) return;
-        await bingoService.updateSettings(eventId, { googlePhotosLink, hostPlan: user.plan });
+        await bingoService.updateSettings(eventId, {
+            googlePhotosLink,
+            hostPlan: user.plan,
+            customImageUrl: imageOverride !== undefined ? imageOverride : customImage
+        });
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !eventId) return;
+
+        setUploading(true);
+        try {
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                const base64 = reader.result as string;
+                const url = await notionService.uploadImage(base64);
+                setCustomImage(url);
+                await handleSaveSettings(url);
+            };
+            reader.readAsDataURL(file);
+        } catch (err) {
+            console.error("Upload failed:", err);
+            alert("Error al subir la imagen");
+        } finally {
+            setUploading(false);
+        }
     };
 
     const handleStart = async () => {
@@ -183,13 +218,48 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
                                             onChange={(e) => setGooglePhotosLink(e.target.value)}
                                         />
                                         <button
-                                            onClick={handleSaveSettings}
+                                            onClick={() => handleSaveSettings()}
                                             className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                                         >
                                             Guardar
                                         </button>
                                     </div>
                                     <p className="text-xs text-gray-500 mt-1">Las fotos se mostrarán aquí (backup simulado).</p>
+                                </div>
+
+                                {/* Branding Image Input */}
+                                <div className="mb-6">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Imagen del Evento (Personalizada)</label>
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                className="flex-1 bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                placeholder="URL de imagen..."
+                                                value={customImage}
+                                                onChange={e => setCustomImage(e.target.value)}
+                                            />
+                                            <label className="bg-white border-2 border-indigo-600 text-indigo-600 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-center min-w-[50px]">
+                                                <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
+                                                {uploading ? (
+                                                    <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                                                ) : (
+                                                    <span className="material-symbols-outlined">upload</span>
+                                                )}
+                                            </label>
+                                        </div>
+                                        {customImage && (
+                                            <div className="mt-2 relative group w-full h-32">
+                                                <img src={customImage} className="h-full w-full object-cover rounded-xl border border-gray-200" alt="Preview" />
+                                                <button
+                                                    onClick={() => { setCustomImage(''); handleSaveSettings(''); }}
+                                                    className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">close</span>
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex gap-4">
                                     <button

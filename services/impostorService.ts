@@ -15,6 +15,7 @@ export interface ImpostorState {
         mainPrompt: string;
         impostorPrompt: string;
         knowsRole: boolean;
+        customImageUrl?: string;
     };
     activePlayers: ImpostorPlayer[];
     lobby: { id: string, name: string, avatar: string }[];

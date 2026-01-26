@@ -17,6 +17,7 @@ const createInitialState = (eventId: string): BingoGameState => ({
     status: 'WAITING',
     prompts: [...DEFAULT_BINGO_PROMPTS],
     googlePhotosLink: '',
+    customImageUrl: 'https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png',
     winner: undefined,
     players: {},
     cards: {},
@@ -72,7 +73,7 @@ export const bingoService = {
         return response.json();
     },
 
-    updateSettings: async (eventId: string, settings: { googlePhotosLink?: string, hostPlan?: string }) => {
+    updateSettings: async (eventId: string, settings: { googlePhotosLink?: string, hostPlan?: string, customImageUrl?: string }) => {
         const response = await fetch(`${API_BASE}/${eventId}/settings`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
