@@ -2450,6 +2450,7 @@ const getTriviaState = (eventId) => {
         triviaGames[eventId] = {
             eventId,
             status: 'WAITING',
+            hostPlan: 'freemium', // Default
             questions: [],
             currentQuestionIndex: -1,
             questionStartTime: null,
@@ -2525,6 +2526,7 @@ app.post('/api/trivia/:eventId/questions', (req, res) => {
     const { text, options, correctOption, durationSeconds, userPlan, userRole } = req.body;
 
     const state = getTriviaState(eventId);
+    if (userPlan) state.hostPlan = userPlan; // Update plan from admin action
 
     // Plan limit check (admins bypass)
     if (!isAdmin(userRole)) {
@@ -2662,7 +2664,23 @@ app.post('/api/trivia/:eventId/join', (req, res) => {
     const { playerId, name } = req.body;
 
     const state = getTriviaState(eventId);
+
     if (!state.players[playerId]) {
+        // Check limits
+        const currentCount = Object.keys(state.players).length;
+        const limitCheck = checkLimit({
+            plan: state.hostPlan || 'freemium',
+            resource: 'gameParticipants',
+            currentCount
+        });
+
+        if (!limitCheck.allowed) {
+            return res.status(403).json({
+                error: limitCheck.reason || 'Límite de participantes alcanzado (Plan Limit)',
+                limitReached: true
+            });
+        }
+
         state.players[playerId] = {
             id: playerId,
             name,
@@ -2734,6 +2752,7 @@ const getBingoState = (eventId) => {
         bingoGames[eventId] = {
             eventId,
             status: 'WAITING',
+            hostPlan: 'freemium', // Default
             prompts: [...DEFAULT_BINGO_PROMPTS],
             googlePhotosLink: '',
             winner: null,
@@ -2901,10 +2920,12 @@ app.put('/api/bingo/:eventId/prompts', (req, res) => {
 // --- ADMIN: UPDATE SETTINGS (Google Photos link) ---
 app.put('/api/bingo/:eventId/settings', (req, res) => {
     const { eventId } = req.params;
-    const { googlePhotosLink } = req.body;
+    const { googlePhotosLink, hostPlan } = req.body;
 
     const state = getBingoState(eventId);
-    state.googlePhotosLink = googlePhotosLink || '';
+    if (googlePhotosLink !== undefined) state.googlePhotosLink = googlePhotosLink;
+    if (hostPlan !== undefined) state.hostPlan = hostPlan;
+
     broadcastBingoState(eventId);
     res.json({ success: true });
 });
@@ -3010,10 +3031,11 @@ app.post('/api/bingo/:eventId/join', (req, res) => {
     const playerCount = Object.keys(state.players).length;
 
     // Plan limit check (admins bypass)
+    // Use hostPlan from state, fallback to freemium
     if (!isAdmin(userRole)) {
         const limitCheck = checkLimit({
-            plan: userPlan || 'freemium',
-            resource: 'bingoParticipants',
+            plan: state.hostPlan || 'freemium',
+            resource: 'gameParticipants',
             currentCount: playerCount
         });
 

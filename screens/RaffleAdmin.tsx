@@ -4,8 +4,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { raffleService } from '../services/raffleService';
 import { notionService } from '../services/notion';
 import { RaffleState, RaffleMode } from '../types/raffleTypes';
+import { User } from '../types';
 
-const RaffleAdmin: React.FC = () => {
+interface RaffleAdminProps {
+    user: User;
+}
+
+const RaffleAdmin: React.FC<RaffleAdminProps> = ({ user }) => {
     const { id: eventId } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [state, setState] = useState<RaffleState | null>(null);
@@ -18,6 +23,12 @@ const RaffleAdmin: React.FC = () => {
 
     useEffect(() => {
         if (!eventId) return;
+
+        // Sync plan first
+        if (user.plan) {
+            raffleService.updateConfig(eventId, { hostPlan: user.plan });
+        }
+
         const unsubscribe = raffleService.subscribe(eventId, (newState) => {
             setState(newState);
             // Sync local state if not editing (optional, simple approach here)
@@ -26,14 +37,15 @@ const RaffleAdmin: React.FC = () => {
             setCustomImage(newState.customImageUrl || '');
         });
         return unsubscribe;
-    }, [eventId]);
+    }, [eventId, user.plan]);
 
     const handleSaveConfig = async (imageOverride?: string) => {
         if (!eventId) return;
         await raffleService.updateConfig(eventId, {
             googlePhotosUrl: googlePhotos,
             customImageUrl: imageOverride !== undefined ? imageOverride : customImage,
-            mode: activeMode
+            mode: activeMode,
+            hostPlan: user.plan
         });
     };
 

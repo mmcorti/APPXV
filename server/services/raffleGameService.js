@@ -1,6 +1,7 @@
 
 // Similar to Bingo, but simpler logic.
 import { googlePhotosService } from './googlePhotos.js';
+import { checkLimit } from '../planLimits.js';
 
 const games = {};
 
@@ -17,21 +18,38 @@ const createInitialState = (eventId) => ({
 export const raffleGameService = {
     getGame: (eventId) => {
         if (!games[eventId]) {
-            games[eventId] = createInitialState(eventId);
+            games[eventId] = {
+                ...createInitialState(eventId),
+                hostPlan: 'freemium' // Default
+            };
         }
         return games[eventId];
     },
 
-    updateConfig: (eventId, { googlePhotosUrl, customImageUrl, mode }) => {
+    updateConfig: (eventId, { googlePhotosUrl, customImageUrl, mode, hostPlan }) => {
         const game = raffleGameService.getGame(eventId);
         if (googlePhotosUrl !== undefined) game.googlePhotosUrl = googlePhotosUrl;
         if (customImageUrl !== undefined) game.customImageUrl = customImageUrl;
         if (mode !== undefined) game.mode = mode;
+        if (hostPlan !== undefined) game.hostPlan = hostPlan;
         return game;
     },
 
     joinParticipant: (eventId, name) => {
         const game = raffleGameService.getGame(eventId);
+
+        // Check limits
+        const currentCount = Object.keys(game.participants).length;
+        const limitCheck = checkLimit({
+            plan: game.hostPlan || 'freemium',
+            resource: 'gameParticipants',
+            currentCount
+        });
+
+        if (!limitCheck.allowed) {
+            throw new Error(limitCheck.reason || 'Límite de participantes alcanzado');
+        }
+
         // Simple dedupe by name for this session demo
         const existing = Object.values(game.participants).find(p => p.name.toLowerCase() === name.toLowerCase());
         if (existing) return existing;
