@@ -11,6 +11,7 @@ interface Expense {
     total: number;
     paid: number;
     status: string;
+    staff?: string;
 }
 
 interface CostControlProps {
@@ -183,10 +184,16 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
                                     <div className="flex-1">
                                         <h5 className="font-bold text-sm">{expense.supplier || expense.name}</h5>
                                         <p className="text-slate-500 dark:text-[#92c9a9] text-xs">{expense.category || expense.name}</p>
-                                        <div className="mt-1">
+                                        <div className="mt-1 flex items-center gap-2">
                                             <span className={`px-2 py-0.5 ${getStatusColor(expense.status)} text-[10px] font-bold rounded uppercase`}>
                                                 {expense.status || 'Pendiente'}
                                             </span>
+                                            {expense.staff && (
+                                                <span className="flex items-center gap-0.5 text-[10px] text-slate-400 dark:text-[#92c9a9] font-medium border border-slate-200 dark:border-white/10 px-1.5 py-0.5 rounded italic">
+                                                    <span className="material-symbols-outlined text-[10px]">person</span>
+                                                    {expense.staff}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="text-right flex flex-col items-end gap-1 mr-2">

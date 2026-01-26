@@ -14,13 +14,13 @@ const PLAN_CONFIG = {
         color: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300',
         buttonColor: 'bg-purple-500 hover:bg-purple-600 text-white',
         limits: { events: 1, guests: 50, photos: 20, staff: 3 },
-        nextLimits: { events: 5, guests: 200, photos: 200, staff: 20 }
+        nextLimits: { events: 10, guests: 200, photos: 200, staff: 20 }
     },
     premium: {
         nextPlan: 'VIP',
         color: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300',
         buttonColor: 'bg-amber-500 hover:bg-amber-600 text-white',
-        limits: { events: 5, guests: 200, photos: 200, staff: 20 },
+        limits: { events: 10, guests: 200, photos: 200, staff: 20 },
         nextLimits: { events: Infinity, guests: Infinity, photos: 1000, staff: Infinity }
     },
     vip: {
