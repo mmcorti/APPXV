@@ -30,7 +30,7 @@ export const raffleService = {
     // --- Admin Actions ---
 
     // Update configuration (Photos link, image, mode)
-    updateConfig: async (eventId: string, config: { googlePhotosUrl?: string; customImageUrl?: string; mode?: RaffleMode }) => {
+    updateConfig: async (eventId: string, config: { googlePhotosUrl?: string; customImageUrl?: string; mode?: RaffleMode; hostPlan?: string }) => {
         const response = await fetch(`${API_BASE}/${eventId}/config`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },

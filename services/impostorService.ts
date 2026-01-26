@@ -39,7 +39,7 @@ export const impostorService = {
         return res.json();
     },
 
-    async updateConfig(eventId: string, config: Partial<ImpostorState['config']>): Promise<ImpostorState> {
+    async updateConfig(eventId: string, config: Partial<ImpostorState['config']> & { hostPlan?: string }): Promise<ImpostorState> {
         const res = await fetch(`${API_URL}/impostor/${eventId}/config`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },

@@ -26,6 +26,11 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
         if (!eventId) return;
         loadData();
 
+        // Sync plan if user exists
+        if (user?.plan) {
+            impostorService.updateConfig(eventId, { hostPlan: user.plan });
+        }
+
         const unsubscribe = impostorService.subscribe(eventId, (newState) => {
             setState(newState);
             // Sync local refs if needed, but usually we just want to update display
@@ -63,7 +68,8 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
             mainPrompt,
             impostorPrompt,
             playerCount,
-            impostorCount
+            impostorCount,
+            hostPlan: user?.plan
         });
     };
 

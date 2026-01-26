@@ -4,6 +4,9 @@
  * Handles the state and logic for the "El Impostor" game.
  */
 
+// Add import
+import { checkLimit } from '../planLimits.js';
+
 const gameSessions = new Map();
 
 export const impostorGameService = {
@@ -11,6 +14,7 @@ export const impostorGameService = {
         if (!gameSessions.has(eventId)) {
             gameSessions.set(eventId, {
                 status: 'WAITING', // WAITING, SUBMITTING, VOTING, REVEAL
+                hostPlan: 'freemium', // Default
                 config: {
                     playerCount: 5,
                     impostorCount: 1,
@@ -31,7 +35,19 @@ export const impostorGameService = {
     joinSession: (eventId, player) => {
         const session = impostorGameService.getOrCreateSession(eventId);
         const exists = session.lobby.find(p => p.id === player.id);
+
         if (!exists) {
+            // Check limits
+            const limitCheck = checkLimit({
+                plan: session.hostPlan || 'freemium',
+                resource: 'gameParticipants',
+                currentCount: session.lobby.length
+            });
+
+            if (!limitCheck.allowed) {
+                throw new Error(limitCheck.reason || 'Lobby lleno (Plan Limit)');
+            }
+
             session.lobby.push({
                 id: player.id,
                 name: player.name,
@@ -43,6 +59,11 @@ export const impostorGameService = {
 
     updateConfig: (eventId, config) => {
         const session = impostorGameService.getOrCreateSession(eventId);
+        // Extract hostPlan if present, otherwise spread into config
+        if (config.hostPlan) {
+            session.hostPlan = config.hostPlan;
+            delete config.hostPlan; // Don't add to config object if it stays there
+        }
         session.config = { ...session.config, ...config };
         return session;
     },

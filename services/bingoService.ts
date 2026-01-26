@@ -72,11 +72,11 @@ export const bingoService = {
         return response.json();
     },
 
-    setGooglePhotosLink: async (eventId: string, googlePhotosLink: string) => {
+    updateSettings: async (eventId: string, settings: { googlePhotosLink?: string, hostPlan?: string }) => {
         const response = await fetch(`${API_BASE}/${eventId}/settings`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ googlePhotosLink }),
+            body: JSON.stringify(settings),
         });
         return response.json();
     },

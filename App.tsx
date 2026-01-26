@@ -612,7 +612,7 @@ const App: React.FC = () => {
         />
         <Route
           path="/raffle/:id/admin"
-          element={user ? <RaffleAdmin /> : <Navigate to="/login" />}
+          element={user ? <RaffleAdmin user={user} /> : <Navigate to="/login" />}
         />
         <Route
           path="/raffle/:id/screen"

@@ -16,6 +16,12 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
     const [googlePhotosLink, setGooglePhotosLink] = useState('');
 
     useEffect(() => {
+        if (eventId && user.plan) {
+            bingoService.updateSettings(eventId, { hostPlan: user.plan });
+        }
+    }, [eventId, user.plan]);
+
+    useEffect(() => {
         if (!eventId) return;
 
         // Subscribe to real-time updates
@@ -43,7 +49,7 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
 
     const handleSaveSettings = async () => {
         if (!eventId) return;
-        await bingoService.setGooglePhotosLink(eventId, googlePhotosLink);
+        await bingoService.updateSettings(eventId, { googlePhotosLink, hostPlan: user.plan });
     };
 
     const handleStart = async () => {
