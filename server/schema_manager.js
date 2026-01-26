@@ -81,6 +81,7 @@ const KNOWN_PROPERTIES = {
         Total: ["Total", "Monto Total"],
         Paid: ["Paid", "Pagado", "Monto Pagado"],
         Status: ["Status", "Estado"],
+        Staff: ["Responsible", "Responsable", "Staff", "Encargado"],
         Event: ["Event", "Evento"]
     },
     SUPPLIERS: {

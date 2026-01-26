@@ -32,6 +32,12 @@ interface Participant {
     weight: number;
 }
 
+interface StaffAssignment {
+    id: string;
+    name: string;
+    staffId: string;
+}
+
 const AddExpense: React.FC = () => {
     const { id: eventId, expenseId } = useParams<{ id: string; expenseId?: string }>();
     const navigate = useNavigate();
@@ -39,11 +45,13 @@ const AddExpense: React.FC = () => {
 
     const [category, setCategory] = useState('');
     const [supplier, setSupplier] = useState('');
+    const [staff, setStaff] = useState('');
     const [totalAmount, setTotalAmount] = useState(0);
     const [payments, setPayments] = useState<Payment[]>([{ id: Date.now(), amount: 0, participantId: '', description: '', date: new Date().toISOString().split('T')[0], receiptUrl: '' }]);
     const [categories, setCategories] = useState<ExpenseCategory[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [participants, setParticipants] = useState<Participant[]>([]);
+    const [staffAssignments, setStaffAssignments] = useState<StaffAssignment[]>([]);
     const [hasContract, setHasContract] = useState(false);
     const [hasAdvance, setHasAdvance] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -54,11 +62,21 @@ const AddExpense: React.FC = () => {
             loadCategories();
             loadSuppliers();
             loadParticipants();
+            loadStaff();
             if (isEditMode && expenseId) {
                 loadExpense();
             }
         }
     }, [eventId, expenseId]);
+
+    const loadStaff = async () => {
+        try {
+            const data = await notionService.getStaffAssignments(eventId!);
+            setStaffAssignments(data);
+        } catch (error) {
+            console.error('Error loading staff:', error);
+        }
+    };
 
     const loadExpense = async () => {
         try {
@@ -68,6 +86,7 @@ const AddExpense: React.FC = () => {
             if (expense) {
                 setCategory(expense.category || '');
                 setSupplier(expense.supplier || expense.name || '');
+                setStaff(expense.staff || '');
                 setTotalAmount(expense.total || 0);
                 // Load existing payments from the Payments database
                 const existingPayments = await notionService.getPayments(expenseId!);
@@ -191,7 +210,8 @@ const AddExpense: React.FC = () => {
                 supplier,
                 total: totalAmount,
                 paid: totalPaid,
-                status: getStatus()
+                status: getStatus(),
+                staff: staff
             };
 
             let expenseIdToUse = expenseId;
@@ -300,6 +320,21 @@ const AddExpense: React.FC = () => {
                                 autoFocus
                             />
                         )}
+                    </div>
+
+                    {/* Staff Selector */}
+                    <div className="space-y-2">
+                        <label className="block text-sm font-semibold text-slate-600 dark:text-slate-400 px-1">Staff Responsable</label>
+                        <select
+                            value={staff}
+                            onChange={(e) => setStaff(e.target.value)}
+                            className="w-full h-14 bg-white dark:bg-[#193324] border border-slate-200 dark:border-[#326748] rounded-xl px-4 text-base focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
+                        >
+                            <option value="">Ninguno (Opcional)</option>
+                            {staffAssignments.map(s => (
+                                <option key={s.id} value={s.name}>{s.name}</option>
+                            ))}
+                        </select>
                     </div>
 
                     {/* Total Amount */}

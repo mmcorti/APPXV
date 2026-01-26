@@ -88,6 +88,27 @@ const Participants: React.FC = () => {
                     >
                         <span className="material-symbols-outlined text-2xl">add</span>
                     </button>
+                    <button
+                        onClick={async () => {
+                            if (!confirm('¿Importar miembros del Staff asignados a este evento? Se agregarán con peso 0 (solo registro de pagos).')) return;
+                            try {
+                                const staff = await notionService.getStaffAssignments(eventId!);
+                                for (const member of staff) {
+                                    if (!participants.find(p => p.name === member.name)) {
+                                        await notionService.createParticipant(eventId!, { name: member.name, weight: 0 });
+                                    }
+                                }
+                                loadParticipants();
+                            } catch (e) {
+                                console.error(e);
+                                alert('Error al importar staff');
+                            }
+                        }}
+                        className="flex cursor-pointer items-center justify-center rounded-full h-10 w-10 bg-amber-500 text-white shadow-lg active:scale-95 transition-transform ml-2"
+                        title="Importar Staff"
+                    >
+                        <span className="material-symbols-outlined">person_add</span>
+                    </button>
                 </div>
             </div>
 

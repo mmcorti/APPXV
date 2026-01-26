@@ -16,7 +16,7 @@ export const PLAN_LIMITS = {
         aiFeatures: false
     },
     premium: {
-        maxEvents: 5,
+        maxEvents: 10,
         maxGuestsPerEvent: 200,
         maxSubscribers: 0, // Only ADMIN can create subscribers
         maxStaffRoster: 20,

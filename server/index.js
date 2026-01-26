@@ -1953,7 +1953,8 @@ app.get('/api/events/:eventId/expenses', async (req, res) => {
                 supplier: getText(findProp(p, schema.getAliases('EXPENSES', 'Supplier'))),
                 total: parseFloat(getText(findProp(p, schema.getAliases('EXPENSES', 'Total')))) || 0,
                 paid: parseFloat(getText(findProp(p, schema.getAliases('EXPENSES', 'Paid')))) || 0,
-                status: getText(findProp(p, schema.getAliases('EXPENSES', 'Status')))
+                status: getText(findProp(p, schema.getAliases('EXPENSES', 'Status'))),
+                staff: getText(findProp(p, schema.getAliases('EXPENSES', 'Staff')))
             };
         });
         res.json(expenses);
@@ -1967,7 +1968,7 @@ app.post('/api/events/:eventId/expenses', async (req, res) => {
     try {
         await schema.init();
         const { eventId } = req.params;
-        const { name, category, supplier, total, paid, status } = req.body;
+        const { name, category, supplier, total, paid, status, staff } = req.body;
         const properties = {};
         properties[schema.get('EXPENSES', 'Name')] = { title: [{ text: { content: name || '' } }] };
         properties[schema.get('EXPENSES', 'Category')] = { rich_text: [{ text: { content: category || '' } }] };
@@ -1975,6 +1976,7 @@ app.post('/api/events/:eventId/expenses', async (req, res) => {
         properties[schema.get('EXPENSES', 'Total')] = { number: total || 0 };
         properties[schema.get('EXPENSES', 'Paid')] = { number: paid || 0 };
         if (status) properties[schema.get('EXPENSES', 'Status')] = { select: { name: status } };
+        if (staff) properties[schema.get('EXPENSES', 'Staff')] = { rich_text: [{ text: { content: staff } }] };
         properties[schema.get('EXPENSES', 'Event')] = { relation: [{ id: eventId }] };
 
         const newPage = await notionClient.pages.create({
@@ -1992,7 +1994,7 @@ app.put('/api/expenses/:id', async (req, res) => {
     try {
         await schema.init();
         const { id } = req.params;
-        const { name, category, supplier, total, paid, status } = req.body;
+        const { name, category, supplier, total, paid, status, staff } = req.body;
         const properties = {};
         if (name !== undefined) properties[schema.get('EXPENSES', 'Name')] = { title: [{ text: { content: name } }] };
         if (category !== undefined) properties[schema.get('EXPENSES', 'Category')] = { rich_text: [{ text: { content: category } }] };
@@ -2000,6 +2002,7 @@ app.put('/api/expenses/:id', async (req, res) => {
         if (total !== undefined) properties[schema.get('EXPENSES', 'Total')] = { number: total };
         if (paid !== undefined) properties[schema.get('EXPENSES', 'Paid')] = { number: paid };
         if (status !== undefined) properties[schema.get('EXPENSES', 'Status')] = { select: { name: status } };
+        if (staff !== undefined) properties[schema.get('EXPENSES', 'Staff')] = { rich_text: [{ text: { content: staff } }] };
 
         await notionClient.pages.update({ page_id: id, properties });
         res.json({ success: true });

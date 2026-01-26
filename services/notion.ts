@@ -209,7 +209,7 @@ export const notionService = {
         if (!res.ok) throw new Error('Failed to fetch expenses');
         return await res.json();
     },
-    async createExpense(eventId: string, expense: { name: string; category: string; supplier: string; total: number; paid: number; status: string }) {
+    async createExpense(eventId: string, expense: { name: string; category: string; supplier: string; total: number; paid: number; status: string; staff?: string }) {
         const res = await fetch(`${API_URL}/events/${eventId}/expenses`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -218,7 +218,7 @@ export const notionService = {
         if (!res.ok) throw new Error('Failed to create expense');
         return await res.json();
     },
-    async updateExpense(id: string, expense: Partial<{ name: string; category: string; supplier: string; total: number; paid: number; status: string }>) {
+    async updateExpense(id: string, expense: Partial<{ name: string; category: string; supplier: string; total: number; paid: number; status: string; staff: string }>) {
         const res = await fetch(`${API_URL}/expenses/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -348,6 +348,13 @@ export const notionService = {
     async getBalances(eventId: string) {
         const res = await fetch(`${API_URL}/events/${eventId}/balances`);
         if (!res.ok) throw new Error('Failed to fetch balances');
+        return await res.json();
+    },
+
+    // === STAFF ASSIGNMENTS ===
+    async getStaffAssignments(eventId: string) {
+        const res = await fetch(`${API_URL}/staff-assignments?eventId=${eventId}`);
+        if (!res.ok) throw new Error('Failed to fetch staff assignments');
         return await res.json();
     }
 };

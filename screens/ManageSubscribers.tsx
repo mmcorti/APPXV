@@ -254,7 +254,7 @@ const ManageSubscribersScreen: React.FC = () => {
                             </div>
                             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                                 {invitePlan === 'freemium' && '1 evento, 50 invitados, 20 fotos'}
-                                {invitePlan === 'premium' && '5 eventos, 200 invitados, 200 fotos'}
+                                {invitePlan === 'premium' && '10 eventos, 200 invitados, 200 fotos'}
                                 {invitePlan === 'vip' && 'Eventos ilimitados, invitados y fotos ilimitados'}
                             </p>
                         </div>
