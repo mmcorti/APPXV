@@ -49,6 +49,16 @@ const RaffleAdmin: React.FC<RaffleAdminProps> = ({ user }) => {
         });
     };
 
+    // Auto-save when mode changes to immediately update Big Screen
+    const handleModeChange = async (newMode: RaffleMode) => {
+        setActiveMode(newMode);
+        if (!eventId) return;
+        await raffleService.updateConfig(eventId, {
+            mode: newMode,
+            hostPlan: user.plan
+        });
+    };
+
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !eventId) return;
@@ -170,14 +180,14 @@ const RaffleAdmin: React.FC<RaffleAdminProps> = ({ user }) => {
                             <label className="block text-sm font-semibold text-gray-700 mb-3">Modo de Sorteo</label>
                             <div className="grid grid-cols-2 gap-3">
                                 <button
-                                    onClick={() => setActiveMode('PHOTO')}
+                                    onClick={() => handleModeChange('PHOTO')}
                                     className={`p-4 rounded-xl border-2 transition-all flex flex-col gap-2 ${activeMode === 'PHOTO' ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-gray-200 hover:bg-gray-50 text-gray-600'}`}
                                 >
                                     <span className="material-symbols-outlined">perm_media</span>
                                     <span className="font-bold">Por Foto</span>
                                 </button>
                                 <button
-                                    onClick={() => setActiveMode('PARTICIPANT')}
+                                    onClick={() => handleModeChange('PARTICIPANT')}
                                     className={`p-4 rounded-xl border-2 transition-all flex flex-col gap-2 ${activeMode === 'PARTICIPANT' ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-gray-200 hover:bg-gray-50 text-gray-600'}`}
                                 >
                                     <span className="material-symbols-outlined">groups</span>
@@ -200,15 +210,39 @@ const RaffleAdmin: React.FC<RaffleAdminProps> = ({ user }) => {
                             </div>
                         )}
 
-                        {/* Participant Info (Conditional) */}
+                        {/* Participant Info + QR (Conditional) */}
                         {activeMode === 'PARTICIPANT' && (
-                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex justify-between items-center animate-fade-in">
-                                <div>
-                                    <p className="text-blue-800 font-bold text-lg">{participantCount}</p>
-                                    <p className="text-blue-600 text-xs uppercase font-bold">Participantes Registrados</p>
+                            <div className="space-y-4 animate-fade-in">
+                                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex justify-between items-center">
+                                    <div>
+                                        <p className="text-blue-800 font-bold text-lg">{participantCount}</p>
+                                        <p className="text-blue-600 text-xs uppercase font-bold">Participantes Registrados</p>
+                                    </div>
+                                    <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                                        <span className="material-symbols-outlined">person</span>
+                                    </div>
                                 </div>
-                                <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-                                    <span className="material-symbols-outlined">person</span>
+
+                                {/* QR Code for Participants */}
+                                <div className="bg-white border border-gray-200 rounded-xl p-4 text-center">
+                                    <p className="text-sm font-semibold text-gray-700 mb-3">QR para Participar</p>
+                                    <div className="inline-block bg-white p-2 rounded-lg shadow-sm">
+                                        <img
+                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/#/raffle/${eventId}/guest`)}`}
+                                            alt="QR para participar"
+                                            className="w-32 h-32"
+                                        />
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-2 break-all px-2">
+                                        {`${window.location.origin}/#/raffle/${eventId}/guest`}
+                                    </p>
+                                    <button
+                                        onClick={() => navigator.clipboard.writeText(`${window.location.origin}/#/raffle/${eventId}/guest`)}
+                                        className="mt-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1 mx-auto"
+                                    >
+                                        <span className="material-symbols-outlined text-sm">content_copy</span>
+                                        Copiar enlace
+                                    </button>
                                 </div>
                             </div>
                         )}

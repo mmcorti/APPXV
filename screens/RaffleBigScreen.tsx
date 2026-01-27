@@ -121,8 +121,8 @@ const RaffleBigScreen: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Right/QR (Only for Participant Mode) */}
-                        {state.mode !== 'PHOTO' && (
+                        {/* Right/QR (Only for Participant Mode, visible in IDLE and WAITING) */}
+                        {state.mode === 'PARTICIPANT' && (
                             <div className="w-full md:w-auto flex flex-col items-center animate-fade-in-up delay-200">
                                 <div className="bg-white p-4 rounded-2xl shadow-[0_0_40px_-10px_rgba(255,255,255,0.1)] transform rotate-2 hover:rotate-0 transition-transform duration-500">
                                     <img
@@ -134,6 +134,9 @@ const RaffleBigScreen: React.FC = () => {
                                 <div className="mt-6 text-center">
                                     <p className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">Escanea el QR</p>
                                     <p className="text-slate-500">Ingresa tu nombre para participar</p>
+                                    {state.status === 'WAITING' && (
+                                        <p className="text-green-400 text-sm mt-2 animate-pulse">¡El sorteo está en curso!</p>
+                                    )}
                                 </div>
                             </div>
                         )}
