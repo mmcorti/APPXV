@@ -77,7 +77,10 @@ const INITIAL_INVITATION: InvitationData = {
 };
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('appxv_user');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [invitations, setInvitations] = useState<InvitationData[]>([]);
   const [loading, setLoading] = useState(window.location.hash.includes('#/rsvp/'));
 
@@ -124,14 +127,17 @@ const App: React.FC = () => {
         const parsed = JSON.parse(decodeURIComponent(userData));
         console.log('[GOOGLE AUTH] Login successful:', parsed.email);
 
-        setUser({
+        const userObj: User = {
           id: parsed.id,
           name: parsed.name,
           email: parsed.email,
           role: parsed.role || 'subscriber',
           plan: parsed.plan || 'freemium',
           avatar: parsed.avatar
-        });
+        };
+
+        setUser(userObj);
+        localStorage.setItem('appxv_user', JSON.stringify(userObj));
 
         // Clean URL and redirect to dashboard
         window.history.replaceState({}, document.title, window.location.pathname + '#/dashboard');
@@ -461,7 +467,7 @@ const App: React.FC = () => {
     // Admins always have VIP plan regardless of Notion data
     const userPlan = userRole === 'admin' ? 'vip' : ((plan || 'freemium') as string).toLowerCase() as 'freemium' | 'premium' | 'vip';
 
-    setUser({
+    const userObj: User = {
       id,
       name,
       email,
@@ -470,12 +476,16 @@ const App: React.FC = () => {
       permissions,
       eventId,
       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=135bec&color=fff`
-    });
+    };
+
+    setUser(userObj);
+    localStorage.setItem('appxv_user', JSON.stringify(userObj));
   };
 
   const handleLogout = () => {
     setUser(null);
     setInvitations([]);
+    localStorage.removeItem('appxv_user');
   };
 
   useEffect(() => {
