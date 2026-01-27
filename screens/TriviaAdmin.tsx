@@ -223,44 +223,6 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
         }
     };
 
-    const handleGenerateAI = async () => {
-        if (!aiTheme.trim()) {
-            alert('Por favor ingresa una temática');
-            return;
-        }
-
-        setIsGeneratingAI(true);
-        try {
-            const result = await triviaService.generateQuestions(aiTheme, aiCount);
-            if (result.success && Array.isArray(result.questions)) {
-                let addedCount = 0;
-                let limitReached = false;
-
-                for (const q of result.questions) {
-                    const saveResult = await triviaService.addQuestion(eventId!, q, user.plan, user.role);
-                    if (saveResult.limitReached) {
-                        limitReached = true;
-                        break;
-                    }
-                    addedCount++;
-                }
-
-                if (limitReached) {
-                    alert(`Se agregaron ${addedCount} preguntas, pero se alcanzó el límite de tu plan.`);
-                } else {
-                    alert(`¡Éxito! Se generaron y agregaron ${addedCount} preguntas.`);
-                }
-                setAiTheme('');
-            } else {
-                alert('Error al generar preguntas. Intenta con otra temática.');
-            }
-        } catch (error) {
-            console.error('AI Generation failed:', error);
-            alert('Error de conexión con el servicio de IA.');
-        } finally {
-            setIsGeneratingAI(false);
-        }
-    };
 
     // Auto Mode Logic
     useEffect(() => {
@@ -445,8 +407,8 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
                                                     <button
                                                         onClick={() => setIsAutoEnabled(!isAutoEnabled)}
                                                         className={`w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 border ${isAutoEnabled
-                                                                ? 'bg-pink-600/20 border-pink-500 text-pink-500 shadow-lg shadow-pink-500/20'
-                                                                : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                                                            ? 'bg-pink-600/20 border-pink-500 text-pink-500 shadow-lg shadow-pink-500/20'
+                                                            : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
                                                             }`}
                                                     >
                                                         <span className="material-symbols-outlined">{isAutoEnabled ? 'pause_circle' : 'autoplay'}</span>
