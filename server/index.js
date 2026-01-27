@@ -2513,10 +2513,12 @@ app.get('/api/trivia/:eventId/stream', (req, res) => {
     // SSE headers
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-cache, no-transform',
         'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
         'Access-Control-Allow-Origin': '*'
     });
+    res.write(': ok\n\n');
 
     // Add client to list
     if (!triviaClients[eventId]) {
@@ -2915,10 +2917,12 @@ app.get('/api/bingo/:eventId/stream', (req, res) => {
 
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-cache, no-transform',
         'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
         'Access-Control-Allow-Origin': '*'
     });
+    res.write(': ok\n\n');
 
     // Add client to list
     if (!bingoClients[eventId]) {
@@ -3224,9 +3228,14 @@ app.get('/api/raffle/:eventId/stream', (req, res) => {
     const { eventId } = req.params;
     const { clientId } = req.query;
 
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+        'Access-Control-Allow-Origin': '*'
+    });
+    res.write(': ok\n\n');
 
     if (!raffleClients[eventId]) {
         raffleClients[eventId] = [];
@@ -3307,9 +3316,14 @@ app.get('/api/confessions/:eventId/stream', (req, res) => {
     const { eventId } = req.params;
     const { clientId } = req.query;
 
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+        'Access-Control-Allow-Origin': '*'
+    });
+    res.write(': ok\n\n');
 
     if (!confessionsClients[eventId]) {
         confessionsClients[eventId] = [];
@@ -3358,9 +3372,14 @@ app.get('/api/events/:eventId/stream', (req, res) => {
     const { eventId } = req.params;
     const { clientId } = req.query;
 
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+        'Access-Control-Allow-Origin': '*'
+    });
+    res.write(': ok\n\n');
 
     if (!eventClients[eventId]) {
         eventClients[eventId] = [];
