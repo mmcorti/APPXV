@@ -9,6 +9,21 @@ const RaffleGuest: React.FC = () => {
     const [status, setStatus] = useState<'INPUT' | 'SUBMITTING' | 'SUCCESS'>('INPUT');
     const [error, setError] = useState('');
 
+    const [playerId] = useState(() => {
+        const saved = sessionStorage.getItem(`raffle_player_id_${eventId}`);
+        if (saved) return saved;
+        const newId = crypto.randomUUID();
+        sessionStorage.setItem(`raffle_player_id_${eventId}`, newId);
+        return newId;
+    });
+
+    React.useEffect(() => {
+        if (!eventId) return;
+        // Subscribe just to maintain connection for presence
+        const unsubscribe = raffleService.subscribe(eventId, () => { }, playerId);
+        return unsubscribe;
+    }, [eventId, playerId]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name.trim() || !eventId) return;
@@ -17,7 +32,7 @@ const RaffleGuest: React.FC = () => {
         setError('');
 
         try {
-            await raffleService.joinRaffle(eventId, name);
+            await raffleService.joinRaffle(eventId, name, playerId);
             setStatus('SUCCESS');
         } catch (err: any) {
             setError(err.message || 'Error al unirse.');

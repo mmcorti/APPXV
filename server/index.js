@@ -2485,7 +2485,8 @@ const broadcastTriviaState = (eventId) => {
 // SSE endpoint for real-time updates
 app.get('/api/trivia/:eventId/stream', (req, res) => {
     const { eventId } = req.params;
-    console.log(`📡 [TRIVIA SSE] New client connected for event ${eventId.substring(0, 8)}...`);
+    const { clientId } = req.query; // Track who is connecting
+    console.log(`📡 [TRIVIA SSE] Client ${clientId || 'unknown'} connected for event ${eventId.substring(0, 8)}...`);
 
     // SSE headers
     res.writeHead(200, {
@@ -2512,9 +2513,16 @@ app.get('/api/trivia/:eventId/stream', (req, res) => {
 
     // Remove client on disconnect
     req.on('close', () => {
-        console.log(`📡 [TRIVIA SSE] Client disconnected from event ${eventId.substring(0, 8)}...`);
+        console.log(`📡 [TRIVIA SSE] Client ${clientId || 'unknown'} disconnected from event ${eventId.substring(0, 8)}...`);
         clearInterval(keepAlive);
         triviaClients[eventId] = triviaClients[eventId].filter(c => c !== res);
+
+        // Remove player if they were a participant
+        if (clientId && state.players[clientId]) {
+            console.log(`👋 [TRIVIA] Removing player ${state.players[clientId].name} due to disconnect`);
+            delete state.players[clientId];
+            broadcastTriviaState(eventId);
+        }
     });
 });
 
@@ -2880,7 +2888,8 @@ const calculateBingoStatus = (card, prompts) => {
 // --- BINGO SSE STREAM ---
 app.get('/api/bingo/:eventId/stream', (req, res) => {
     const { eventId } = req.params;
-    console.log(`📸 [BINGO SSE] Client connected for event ${eventId.substring(0, 8)}...`);
+    const { clientId } = req.query;
+    console.log(`📸 [BINGO SSE] Client ${clientId || 'unknown'} connected for event ${eventId.substring(0, 8)}...`);
 
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -2906,9 +2915,17 @@ app.get('/api/bingo/:eventId/stream', (req, res) => {
 
     // Remove client on disconnect
     req.on('close', () => {
-        console.log(`📸 [BINGO SSE] Client disconnected from event ${eventId.substring(0, 8)}...`);
+        console.log(`📸 [BINGO SSE] Client ${clientId || 'unknown'} disconnected from event ${eventId.substring(0, 8)}...`);
         clearInterval(keepAlive);
         bingoClients[eventId] = bingoClients[eventId].filter(c => c !== res);
+
+        // Remove player if they were a participant
+        if (clientId && state.players[clientId]) {
+            console.log(`👋 [BINGO] Removing player ${state.players[clientId].name} due to disconnect`);
+            delete state.players[clientId];
+            delete state.cards[clientId];
+            broadcastBingoState(eventId);
+        }
     });
 });
 
@@ -3183,6 +3200,7 @@ const broadcastRaffleState = (eventId) => {
 
 app.get('/api/raffle/:eventId/stream', (req, res) => {
     const { eventId } = req.params;
+    const { clientId } = req.query;
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -3199,6 +3217,15 @@ app.get('/api/raffle/:eventId/stream', (req, res) => {
 
     req.on('close', () => {
         raffleClients[eventId] = raffleClients[eventId].filter(client => client !== res);
+
+        // Remove participant if disconnected
+        if (clientId) {
+            const removed = raffleGameService.removeParticipant(eventId, clientId);
+            if (removed) {
+                console.log(`👋 [RAFFLE] Removing participant ${clientId} due to disconnect`);
+                broadcastRaffleState(eventId);
+            }
+        }
     });
 });
 
@@ -3256,6 +3283,7 @@ const broadcastConfessionsState = (eventId) => {
 
 app.get('/api/confessions/:eventId/stream', (req, res) => {
     const { eventId } = req.params;
+    const { clientId } = req.query;
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -3306,6 +3334,7 @@ const broadcastToEvent = (eventId, payload) => {
 
 app.get('/api/events/:eventId/stream', (req, res) => {
     const { eventId } = req.params;
+    const { clientId } = req.query;
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -3324,6 +3353,15 @@ app.get('/api/events/:eventId/stream', (req, res) => {
     req.on('close', () => {
         clearInterval(keepAlive);
         eventClients[eventId] = eventClients[eventId].filter(client => client !== res);
+
+        // Handle Impostor player removal
+        if (clientId) {
+            const removed = impostorGameService.leaveSession(eventId, clientId);
+            if (removed) {
+                console.log(`👋 [IMPOSTOR] Removing player ${clientId} from lobby due to disconnect`);
+                broadcastImpostorState(eventId);
+            }
+        }
     });
 });
 
@@ -3437,10 +3475,10 @@ app.post('/api/confessions/:eventId/reset', (req, res) => {
 
 app.post('/api/raffle/:eventId/join', (req, res) => {
     const { eventId } = req.params;
-    const { name } = req.body;
+    const { name, playerId } = req.body;
     if (!name) return res.status(400).json({ error: 'Name required' });
 
-    const participant = raffleGameService.joinParticipant(eventId, name);
+    const participant = raffleGameService.joinParticipant(eventId, name, playerId);
     broadcastRaffleState(eventId);
     res.json({ success: true, participant });
 });

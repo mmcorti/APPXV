@@ -19,8 +19,11 @@ export interface ConfessionsState {
 const API_BASE = '/api/confessions';
 
 export const confessionsService = {
-    subscribe: (eventId: string, callback: (state: ConfessionsState) => void) => {
-        const eventSource = new EventSource(`${API_BASE}/${eventId}/stream`);
+    subscribe: (eventId: string, callback: (state: ConfessionsState) => void, playerId?: string) => {
+        const url = playerId
+            ? `${API_BASE}/${eventId}/stream?clientId=${playerId}`
+            : `${API_BASE}/${eventId}/stream`;
+        const eventSource = new EventSource(url);
 
         eventSource.onmessage = (event) => {
             try {

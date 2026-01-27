@@ -39,7 +39,7 @@ const ImpostorGuest: React.FC<ImpostorGuestProps> = ({ user }) => {
             if (newState.lobby.some(p => p.id === String(guestId))) {
                 setIsJoined(true);
             }
-        });
+        }, String(guestId));
 
         return () => unsubscribe();
     }, [eventId, guestId]);

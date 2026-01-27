@@ -26,9 +26,13 @@ const createInitialState = (eventId: string): BingoGameState => ({
 
 export const bingoService = {
     // Subscribe to real-time state updates via SSE
-    subscribe: (eventId: string, callback: (state: BingoGameState) => void) => {
+    subscribe: (eventId: string, callback: (state: BingoGameState) => void, playerId?: string) => {
+        const url = playerId
+            ? `${API_BASE}/${eventId}/stream?clientId=${playerId}`
+            : `${API_BASE}/${eventId}/stream`;
+
         // Create SSE connection
-        const eventSource = new EventSource(`${API_BASE}/${eventId}/stream`);
+        const eventSource = new EventSource(url);
 
         eventSource.onmessage = (event) => {
             try {

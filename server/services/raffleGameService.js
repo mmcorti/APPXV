@@ -35,7 +35,7 @@ export const raffleGameService = {
         return game;
     },
 
-    joinParticipant: (eventId, name) => {
+    joinParticipant: (eventId, name, playerId) => {
         const game = raffleGameService.getGame(eventId);
 
         // Check limits
@@ -50,11 +50,12 @@ export const raffleGameService = {
             throw new Error(limitCheck.reason || 'Límite de participantes alcanzado');
         }
 
-        // Simple dedupe by name for this session demo
+        // Simple dedupe by ID or name
+        if (playerId && game.participants[playerId]) return game.participants[playerId];
         const existing = Object.values(game.participants).find(p => p.name.toLowerCase() === name.toLowerCase());
         if (existing) return existing;
 
-        const id = Math.random().toString(36).substr(2, 9);
+        const id = playerId || Math.random().toString(36).substr(2, 9);
         const participant = {
             id,
             name,
@@ -136,5 +137,14 @@ export const raffleGameService = {
         // "Volver / Reiniciar Sorteo" might mean full reset.
         // Let's keep participants for now to allow multiple draws.
         return game;
+    },
+
+    removeParticipant: (eventId, participantId) => {
+        const game = games[eventId];
+        if (game && game.participants[participantId]) {
+            delete game.participants[participantId];
+            return true;
+        }
+        return false;
     }
 };
