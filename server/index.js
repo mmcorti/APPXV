@@ -100,7 +100,29 @@ app.post('/api/upload-image', async (req, res) => {
 });
 
 // --- AI IMAGE GENERATION ---
-import { generateImage as geminiGenerateImage, editImage as geminiEditImage } from './services/geminiService.js';
+import {
+    generateImage as geminiGenerateImage,
+    editImage as geminiEditImage,
+    generateTriviaQuestions
+} from './services/geminiService.js';
+
+app.post('/api/trivia/generate-questions', async (req, res) => {
+    try {
+        const { theme, count } = req.body;
+        if (!theme) {
+            return res.status(400).json({ error: 'Theme is required' });
+        }
+
+        console.log(`🤖 AI generating ${count || 5} trivia questions for theme: ${theme}`);
+        const questions = await generateTriviaQuestions(theme, count || 5);
+        console.log(`✅ AI generated ${questions.length} questions`);
+
+        res.json({ success: true, questions });
+    } catch (error) {
+        console.error('❌ AI trivia generation failed:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 app.post('/api/ai/generate-image', async (req, res) => {
     try {

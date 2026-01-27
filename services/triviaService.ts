@@ -162,6 +162,15 @@ export const triviaService = {
         return response.json();
     },
 
+    generateQuestions: async (theme: string, count: number) => {
+        const response = await fetch(`${API_BASE}/generate-questions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ theme, count }),
+        });
+        return response.json();
+    },
+
     // --- Guest Actions ---
 
     joinPlayer: async (eventId: string, playerId: string, name: string) => {
