@@ -25,6 +25,10 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
     const [customImage, setCustomImage] = useState('');
     const [uploading, setUploading] = useState(false);
 
+    // AI State
+    const [aiTheme, setAiTheme] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
     useEffect(() => {
         if (!eventId) return;
         loadData();
@@ -129,6 +133,21 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
     const handleReset = async () => {
         if (!eventId || !confirm('¿Reiniciar la sesión del juego?')) return;
         await impostorService.resetGame(eventId);
+    };
+
+    const handleGenerateTasks = async () => {
+        if (!aiTheme) return alert('Ingresa una temática');
+        setIsGenerating(true);
+        try {
+            const result = await impostorService.generateTasks(aiTheme);
+            setMainPrompt(result.mainPrompt);
+            setImpostorPrompt(result.impostorPrompt);
+        } catch (error) {
+            console.error(error);
+            alert('Error al generar consignas');
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     if (loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
@@ -311,6 +330,45 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
                         {/* Left Column: Game Settings */}
                         <div className="lg:col-span-2 space-y-6">
+
+                            {/* AI Generator */}
+                            <section className="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-xl shadow-sm border border-indigo-100">
+                                <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-900">
+                                    <span className="material-symbols-outlined">auto_awesome</span>
+                                    Generar con IA (Experimental)
+                                </h2>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        className="flex-1 border border-indigo-200 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                                        placeholder="Ej: Boda Elegante, Superhéroes, Oficina Loca..."
+                                        value={aiTheme}
+                                        onChange={(e) => setAiTheme(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleGenerateTasks()}
+                                    />
+                                    <button
+                                        onClick={handleGenerateTasks}
+                                        disabled={isGenerating}
+                                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2 font-medium shadow-md shadow-indigo-200"
+                                    >
+                                        {isGenerating ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                Generando...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="material-symbols-outlined text-sm">magic_button</span>
+                                                Generar
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                                <p className="text-xs text-indigo-400 mt-2">
+                                    <span className="font-bold">Nota:</span> Esto llenará las consignas de abajo. Podrás editarlas antes de guardar.
+                                </p>
+                            </section>
+
                             {/* Game Configuration */}
                             <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                                 <h2 className="text-lg font-bold mb-4 flex items-center gap-2">

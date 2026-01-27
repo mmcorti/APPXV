@@ -2991,6 +2991,35 @@ app.put('/api/bingo/:eventId/settings', (req, res) => {
     res.json({ success: true });
 });
 
+
+// --- AI GENERATION ENDPOINTS ---
+
+app.post('/api/bingo/generate-prompts', async (req, res) => {
+    try {
+        const { theme, count } = req.body;
+        if (!theme) return res.status(400).json({ error: 'Theme is required' });
+
+        const prompts = await geminiService.generateBingoPrompts(theme, count);
+        res.json({ prompts });
+    } catch (error) {
+        console.error('Error generating bingo prompts:', error);
+        res.status(500).json({ error: 'Failed to generate prompts' });
+    }
+});
+
+app.post('/api/impostor/generate-tasks', async (req, res) => {
+    try {
+        const { theme } = req.body;
+        if (!theme) return res.status(400).json({ error: 'Theme is required' });
+
+        const tasks = await geminiService.generateImpostorTasks(theme);
+        res.json(tasks);
+    } catch (error) {
+        console.error('Error generating impostor tasks:', error);
+        res.status(500).json({ error: 'Failed to generate tasks' });
+    }
+});
+
 // --- ADMIN: START GAME ---
 app.post('/api/bingo/:eventId/start', (req, res) => {
     const { eventId } = req.params;

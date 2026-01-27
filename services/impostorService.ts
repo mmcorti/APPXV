@@ -49,6 +49,16 @@ export const impostorService = {
         return res.json();
     },
 
+    async generateTasks(theme: string): Promise<{ mainPrompt: string, impostorPrompt: string }> {
+        const res = await fetch(`${API_URL}/impostor/generate-tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ theme })
+        });
+        return res.json();
+    },
+
+
     async selectPlayers(eventId: string, candidates: { id: string, name: string, avatar?: string }[]): Promise<ImpostorState> {
         const res = await fetch(`${API_URL}/impostor/${eventId}/select-players`, {
             method: 'POST',

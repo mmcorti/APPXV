@@ -155,3 +155,92 @@ export async function generateTriviaQuestions(theme, count = 5) {
         throw error;
     }
 }
+
+/**
+ * Generate Bingo prompts using Gemini AI
+ * @param {string} theme - The theme of the bingo
+ * @param {number} count - Number of prompts to generate
+ * @returns {Promise<Array>} - List of bingo prompts with text and icon
+ */
+export async function generateBingoPrompts(theme, count = 9) {
+    console.log(`[GeminiService] generateBingoPrompts called for theme: ${theme}, count: ${count}`);
+
+    if (!process.env.GEMINI_API_KEY) {
+        throw new Error('GEMINI_API_KEY not configured in environment');
+    }
+
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+    try {
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-1.5-flash-latest',
+            generationConfig: {
+                responseMimeType: "application/json",
+            }
+        });
+
+        const prompt = `Generate ${count} Photo Bingo challenges about the theme: "${theme}". 
+        Return ONLY a JSON array of objects.
+        Each object MUST have the following structure:
+        {
+            "text": "Short challenge description (max 40 chars)",
+            "icon": "Material Symbol name (e.g. photo_camera, star, cake, etc)"
+        }
+        The challenges should be visual things people can take photos of at an event.
+        Keep text short and fun.`;
+
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+        console.log('[GeminiService] AI Bingo Response received');
+
+        return JSON.parse(responseText);
+    } catch (error) {
+        console.error('[GeminiService] Bingo generation error:', error.message);
+        throw error;
+    }
+}
+
+/**
+ * Generate Impostor tasks using Gemini AI
+ * @param {string} theme - The theme of the event
+ * @returns {Promise<Object>} - Object with mainPrompt and impostorPrompt
+ */
+export async function generateImpostorTasks(theme) {
+    console.log(`[GeminiService] generateImpostorTasks called for theme: ${theme}`);
+
+    if (!process.env.GEMINI_API_KEY) {
+        throw new Error('GEMINI_API_KEY not configured in environment');
+    }
+
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+    try {
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-1.5-flash-latest',
+            generationConfig: {
+                responseMimeType: "application/json",
+            }
+        });
+
+        const prompt = `Generate a pair of tasks for the game "The Impostor" based on the theme: "${theme}".
+        Return ONLY a JSON object with this structure:
+        {
+            "mainPrompt": "Instructions for regular players (Civilians). They must take a photo of something specific related to the theme.",
+            "impostorPrompt": "Instructions for the Impostor. It must be slightly different/vague but plausible so they fit in, OR explicitly telling them to fake it."
+        }
+        Example for "Wedding":
+        Civilians: "Take a photo of the bride smiling."
+        Impostor: "Take a photo of someone in a white dress."
+        
+        Use the theme provided. Language: Spanish.`;
+
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+        console.log('[GeminiService] AI Impostor Response received');
+
+        return JSON.parse(responseText);
+    } catch (error) {
+        console.error('[GeminiService] Impostor generation error:', error.message);
+        throw error;
+    }
+}
