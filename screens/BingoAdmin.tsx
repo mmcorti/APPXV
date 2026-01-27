@@ -18,6 +18,10 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
     const [customImage, setCustomImage] = useState('');
     const [uploading, setUploading] = useState(false);
 
+    // AI State
+    const [aiTheme, setAiTheme] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+
     useEffect(() => {
         if (eventId && user.plan) {
             bingoService.updateSettings(eventId, { hostPlan: user.plan });
@@ -123,6 +127,26 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
     const handleReject = async (submissionId: string) => {
         if (!eventId) return;
         await bingoService.rejectSubmission(eventId, submissionId);
+    };
+
+    const handleGeneratePrompts = async () => {
+        if (!aiTheme) return alert('Ingresa una temática');
+        setIsGenerating(true);
+        try {
+            const { prompts } = await bingoService.generatePrompts(aiTheme);
+            // Map the simple prompts to the full BingoPrompt structure with IDs
+            const newPrompts = prompts.map((p, index) => ({
+                id: index + 1,
+                text: p.text,
+                icon: p.icon || 'photo_camera'
+            }));
+            setEditingPrompts(newPrompts);
+        } catch (error) {
+            console.error(error);
+            alert('Error al generar consignas');
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     if (!state) {
@@ -259,6 +283,44 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
                                         )}
                                     </div>
                                 </div>
+                            </section>
+
+                            {/* AI Generator */}
+                            <section className="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-xl shadow-sm border border-indigo-100">
+                                <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-900">
+                                    <span className="material-symbols-outlined">auto_awesome</span>
+                                    Generar con IA
+                                </h2>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        className="flex-1 border border-indigo-200 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                                        placeholder="Ej: Cumpleaños de 15, Boda campestre, Fiesta de Disfraces..."
+                                        value={aiTheme}
+                                        onChange={(e) => setAiTheme(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleGeneratePrompts()}
+                                    />
+                                    <button
+                                        onClick={handleGeneratePrompts}
+                                        disabled={isGenerating}
+                                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2 font-medium shadow-md shadow-indigo-200"
+                                    >
+                                        {isGenerating ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                Generando...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="material-symbols-outlined text-sm">magic_button</span>
+                                                Generar
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                                <p className="text-xs text-indigo-400 mt-2">
+                                    <span className="font-bold">Nota:</span> Esto reemplazará las consignas actuales en el editor (no en el juego en vivo hasta que guardes).
+                                </p>
                             </section>
 
                             {/* Prompt Grid Editor */}

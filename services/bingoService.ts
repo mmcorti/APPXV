@@ -68,6 +68,7 @@ export const bingoService = {
 
     // --- Admin Actions ---
 
+
     updatePrompts: async (eventId: string, prompts: BingoPrompt[]) => {
         const response = await fetch(`${API_BASE}/${eventId}/prompts`, {
             method: 'PUT',
@@ -76,6 +77,16 @@ export const bingoService = {
         });
         return response.json();
     },
+
+    generatePrompts: async (theme: string, count: number = 9): Promise<{ prompts: BingoPrompt[] }> => {
+        const response = await fetch(`${API_BASE}/generate-prompts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ theme, count }),
+        });
+        return response.json();
+    },
+
 
     updateSettings: async (eventId: string, settings: { googlePhotosLink?: string, hostPlan?: string, customImageUrl?: string }) => {
         const response = await fetch(`${API_BASE}/${eventId}/settings`, {
