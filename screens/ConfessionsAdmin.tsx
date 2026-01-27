@@ -80,13 +80,22 @@ const ConfessionsAdmin: React.FC<ConfessionsAdminProps> = ({ user }) => {
                             </div>
                         </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-3">
                         <button
-                            onClick={resetGame}
-                            className="p-2 bg-slate-800 hover:bg-red-900/50 text-red-400 rounded-lg transition-colors"
-                            title="Reset Game">
-                            <span className="material-symbols-outlined">delete_sweep</span>
+                            onClick={() => window.open(`#/confessions/${id}/screen`, '_blank')}
+                            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg font-medium transition-colors"
+                        >
+                            <span className="material-symbols-outlined text-sm">tv</span>
+                            Pantalla Gigante
                         </button>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={resetGame}
+                                className="p-2 bg-slate-800 hover:bg-red-900/50 text-red-400 rounded-lg transition-colors"
+                                title="Reset Game">
+                                <span className="material-symbols-outlined">delete_sweep</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

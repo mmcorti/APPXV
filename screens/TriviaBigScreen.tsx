@@ -237,9 +237,19 @@ const TriviaBigScreen: React.FC = () => {
 
     return (
         <div className="w-screen h-screen bg-[#0b0f19] text-white overflow-hidden relative">
-            {/* Background Effects */}
-            <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/20 blur-[150px] rounded-full mix-blend-screen animate-pulse pointer-events-none" />
-            <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-pink-500/20 blur-[150px] rounded-full mix-blend-screen animate-pulse pointer-events-none" />
+            {/* Background Image/Effects */}
+            {gameState.backgroundUrl ? (
+                <div className="absolute inset-0 z-0 opacity-40 blur-sm scale-105" style={{
+                    backgroundImage: `url("${gameState.backgroundUrl}")`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center'
+                }}></div>
+            ) : (
+                <>
+                    <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/20 blur-[150px] rounded-full mix-blend-screen animate-pulse pointer-events-none" />
+                    <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-pink-500/20 blur-[150px] rounded-full mix-blend-screen animate-pulse pointer-events-none" />
+                </>
+            )}
 
             {gameState.status === 'WAITING' && renderWaitingScreen()}
             {gameState.status === 'PLAYING' && (currentQuestion ? renderQuestionScreen() : renderWaitingScreen())}

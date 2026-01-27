@@ -151,7 +151,7 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
             whileHover={{ scale: 1.01, backgroundColor: "rgba(255,255,255,0.05)" }}
             whileTap={{ scale: 0.98 }}
             type="button"
-            onClick={() => window.location.href = `${API_URL}/auth/google`}
+            onClick={() => window.location.href = `${API_URL}/auth/google?state=${encodeURIComponent(window.location.origin)}`}
             className="w-full h-14 border border-white/10 rounded-2xl flex items-center justify-center gap-3 text-slate-200 font-bold transition-all"
           >
             <svg className="w-6 h-6" viewBox="0 0 24 24">

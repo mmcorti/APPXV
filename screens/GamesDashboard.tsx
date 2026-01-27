@@ -103,11 +103,24 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
 
     const invitation = invitations.find(inv => inv.id === id);
 
-    // Simulate connected devices
+    // Simulate connected devices realistically
     useEffect(() => {
-        const randomDevices = Math.floor(Math.random() * 150) + 20;
-        setConnectedDevices(randomDevices);
-    }, []);
+        if (!invitation) return;
+
+        // Base the number on confirmed guests
+        const confirmedCount = invitation.guests?.filter(g => g.status === 'confirmed').length || 0;
+
+        if (runningGame) {
+            // When game is running, participation is higher (40-80%)
+            const activeCount = Math.floor(confirmedCount * (Math.random() * 0.4 + 0.4));
+            setConnectedDevices(Math.max(activeCount, confirmedCount > 0 ? 5 : 0));
+        } else {
+            // When idle, only a few are "listening" or browsing (e.g., 2-5%)
+            // If it's a new event with 0 guests, show 0.
+            const idleCount = confirmedCount > 0 ? Math.floor(confirmedCount * (Math.random() * 0.03 + 0.02)) : 0;
+            setConnectedDevices(idleCount);
+        }
+    }, [invitation, runningGame]);
 
     // Check if any game is running
     const runningGame = games.find(g => g.status === 'running');
@@ -364,10 +377,10 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
                             </div>
                             <div className="flex items-center gap-4 text-sm">
                                 <span className="text-slate-400">
-                                    <span className="text-white font-bold">12</span> photos uploaded in last min
+                                    <span className="text-white font-bold">{runningGame ? Math.floor(Math.random() * 8 + 2) : 0}</span> photos uploaded in last min
                                 </span>
                                 <span className="text-slate-400">
-                                    <span className="text-white font-bold">89%</span> participation rate
+                                    <span className="text-white font-bold">{connectedDevices > 0 ? (runningGame ? '89%' : '12%') : '0%'}</span> participation rate
                                 </span>
                             </div>
                         </div>

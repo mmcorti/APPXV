@@ -99,7 +99,7 @@ const RaffleAdmin: React.FC<RaffleAdminProps> = ({ user }) => {
             <header className="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-10">
                 <div className="flex justify-between items-center max-w-5xl mx-auto">
                     <div className="flex items-center gap-3">
-                        <button onClick={() => navigate(`/dashboard`)} className="p-2 hover:bg-slate-800 rounded-lg">
+                        <button onClick={() => navigate(`/games/${eventId}`)} className="p-2 hover:bg-slate-800 rounded-lg">
                             <span className="material-symbols-outlined">arrow_back</span>
                         </button>
                         <div>

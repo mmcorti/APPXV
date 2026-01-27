@@ -141,7 +141,7 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
             <div className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-slate-800">
                 <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <button onClick={() => navigate(`/dashboard`)} className="p-2 hover:bg-slate-800 rounded-full text-slate-400">
+                        <button onClick={() => navigate(`/games/${eventId}`)} className="p-2 hover:bg-slate-800 rounded-full text-slate-400">
                             <span className="material-symbols-outlined">arrow_back</span>
                         </button>
                         <div>
@@ -151,6 +151,15 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
                                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{state.lobby.length} Conectados</span>
                             </div>
                         </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => window.open(`#/impostor/${eventId}/screen`, '_blank')}
+                            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg font-medium transition-colors"
+                        >
+                            <span className="material-symbols-outlined text-sm">tv</span>
+                            Pantalla Gigante
+                        </button>
                     </div>
                 </div>
             </div>

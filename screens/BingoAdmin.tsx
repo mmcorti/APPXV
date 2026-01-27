@@ -12,7 +12,7 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
     const { id: eventId } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [state, setState] = useState<BingoGameState | null>(null);
-    const [activeTab, setActiveTab] = useState<'CONFIG' | 'LIVE'>('CONFIG');
+    const [activeTab, setActiveTab] = useState<'CONFIG' | 'LIVE'>('LIVE');
     const [editingPrompts, setEditingPrompts] = useState<BingoPrompt[]>([]);
     const [googlePhotosLink, setGooglePhotosLink] = useState('');
     const [customImage, setCustomImage] = useState('');
@@ -94,7 +94,6 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
             if (!proceed) return;
         }
         await bingoService.startGame(eventId);
-        setActiveTab('LIVE');
     };
 
     const handleStop = async () => {
@@ -113,7 +112,6 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
         if (!eventId) return;
         if (confirm('¿Estás seguro? Esto reiniciará todo el juego.')) {
             await bingoService.resetGame(eventId);
-            setActiveTab('CONFIG');
         }
     };
 
@@ -184,16 +182,16 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
                 {/* Tabs */}
                 <div className="flex gap-4 mb-6 border-b border-gray-200">
                     <button
-                        onClick={() => setActiveTab('CONFIG')}
-                        className={`pb-2 px-4 font-semibold ${activeTab === 'CONFIG' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500'}`}
-                    >
-                        Configuración
-                    </button>
-                    <button
                         onClick={() => setActiveTab('LIVE')}
                         className={`pb-2 px-4 font-semibold ${activeTab === 'LIVE' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500'}`}
                     >
                         Juego en Vivo
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('CONFIG')}
+                        className={`pb-2 px-4 font-semibold ${activeTab === 'CONFIG' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500'}`}
+                    >
+                        Configuración
                     </button>
                 </div>
 
@@ -260,23 +258,6 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
                                             </div>
                                         )}
                                     </div>
-                                </div>
-                                <div className="flex gap-4">
-                                    <button
-                                        onClick={handleStart}
-                                        disabled={state.status === 'PLAYING'}
-                                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                    >
-                                        <span className="material-symbols-outlined">play_arrow</span>
-                                        Iniciar Juego
-                                    </button>
-                                    <button
-                                        onClick={handleReset}
-                                        className="bg-red-100 text-red-700 hover:bg-red-200 px-6 py-2 rounded-lg font-bold flex items-center gap-2"
-                                    >
-                                        <span className="material-symbols-outlined">restart_alt</span>
-                                        Reiniciar Juego
-                                    </button>
                                 </div>
                             </section>
 
@@ -345,24 +326,6 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
                                     Copiar enlace
                                 </button>
                             </section>
-
-                            {/* Big Screen Link */}
-                            <section className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
-                                <h3 className="font-bold text-indigo-900 mb-2 flex items-center gap-2">
-                                    <span className="material-symbols-outlined">tv</span>
-                                    Pantalla Gigante
-                                </h3>
-                                <p className="text-sm text-indigo-700 mb-3">
-                                    Abre esta pantalla en un proyector o TV grande para que todos vean el juego.
-                                </p>
-                                <button
-                                    onClick={() => window.open(`#/bingo/${eventId}/screen`, '_blank')}
-                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <span className="material-symbols-outlined text-sm">open_in_new</span>
-                                    Abrir Pantalla Gigante
-                                </button>
-                            </section>
                         </div>
                     </div>
                 )}
@@ -387,6 +350,23 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
 
                         {/* Game Controls */}
                         <div className="flex gap-4">
+                            {state.status === 'WAITING' && (
+                                <button
+                                    onClick={handleStart}
+                                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined">play_arrow</span>
+                                    Iniciar Juego
+                                </button>
+                            )}
+                            <button
+                                onClick={handleReset}
+                                className="bg-red-100 text-red-700 hover:bg-red-200 px-6 py-2 rounded-lg font-bold flex items-center gap-2"
+                            >
+                                <span className="material-symbols-outlined">restart_alt</span>
+                                Reiniciar Juego
+                            </button>
+
                             {state.status === 'PLAYING' && (
                                 <button
                                     onClick={handleStop}
@@ -405,7 +385,7 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
                                     Finalizar Juego
                                 </button>
                             )}
-                            {state.status !== 'PLAYING' && state.status !== 'WINNER' && (
+                            {state.status !== 'PLAYING' && state.status !== 'WINNER' && state.status !== 'WAITING' && (
                                 <button
                                     onClick={handleStart}
                                     className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2"
