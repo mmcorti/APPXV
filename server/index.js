@@ -2542,12 +2542,9 @@ app.get('/api/trivia/:eventId/stream', (req, res) => {
         clearInterval(keepAlive);
         triviaClients[eventId] = triviaClients[eventId].filter(c => c !== res);
 
-        // Remove player if they were a participant
-        if (clientId && state.players[clientId]) {
-            console.log(`👋 [TRIVIA] Removing player ${state.players[clientId].name} due to disconnect`);
-            delete state.players[clientId];
-            broadcastTriviaState(eventId);
-        }
+        // NOTE: We do NOT remove players from state on disconnect.
+        // This allows them to refresh the page or lose connection without losing their score/progress.
+        // Players persist until the game is reset by the admin.
     });
 });
 
