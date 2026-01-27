@@ -39,6 +39,9 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
     const [aiCount, setAiCount] = useState(5);
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
+    // Auto Mode
+    const [isAutoEnabled, setIsAutoEnabled] = useState(false);
+
     useEffect(() => {
         if (!eventId) return;
         const unsubscribe = triviaService.subscribe(eventId, (state) => {
@@ -220,6 +223,41 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
         }
     };
 
+
+    // Auto Mode Logic
+    useEffect(() => {
+        if (!isAutoEnabled || !gameState || gameState.status !== 'PLAYING') return;
+
+        const timer = setInterval(async () => {
+            const now = Date.now();
+            const currentQ = gameState.questions[gameState.currentQuestionIndex];
+
+            if (!currentQ) {
+                if (gameState.currentQuestionIndex === -1) {
+                    await handleNextQuestion();
+                }
+                return;
+            }
+
+            const endTime = (gameState.questionStartTime || 0) + (currentQ.durationSeconds * 1000);
+
+            if (now > endTime && !gameState.isAnswerRevealed) {
+                await handleRevealAnswer();
+            } else if (gameState.isAnswerRevealed) {
+                // Wait 5 seconds after reveal to show next question
+                if (now > endTime + 5000) {
+                    const success = await triviaService.nextQuestion(eventId!);
+                    if (!success) {
+                        setIsAutoEnabled(false);
+                        await handleEndGame();
+                    }
+                }
+            }
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [isAutoEnabled, gameState?.status, gameState?.currentQuestionIndex, gameState?.isAnswerRevealed]);
+
     const qrUrl = `${window.location.origin}/#/trivia/${eventId}/play`;
 
     return (
@@ -365,13 +403,24 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
                                                     </div>
                                                 )}
 
-                                                <div className="pt-8 mt-8 border-t border-slate-800">
+                                                <div className="pt-8 mt-8 border-t border-slate-800 space-y-4">
+                                                    <button
+                                                        onClick={() => setIsAutoEnabled(!isAutoEnabled)}
+                                                        className={`w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 border ${isAutoEnabled
+                                                            ? 'bg-pink-600/20 border-pink-500 text-pink-500 shadow-lg shadow-pink-500/20'
+                                                            : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                                                            }`}
+                                                    >
+                                                        <span className="material-symbols-outlined">{isAutoEnabled ? 'pause_circle' : 'autoplay'}</span>
+                                                        {isAutoEnabled ? 'MODO AUTOMÁTICO ACTIVO' : 'ACTIVAR MODO AUTOMÁTICO'}
+                                                    </button>
+
                                                     <button
                                                         onClick={handleEndGame}
-                                                        className="w-full bg-slate-800 hover:bg-red-900/40 hover:text-red-400 py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-slate-400"
+                                                        className="w-full bg-slate-800 hover:bg-slate-700 py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-white border border-slate-700"
                                                     >
-                                                        <span className="material-symbols-outlined">stop_circle</span>
-                                                        Finalizar Juego Prematuramente
+                                                        <span className="material-symbols-outlined">analytics</span>
+                                                        Mostrar Resultados
                                                     </button>
                                                 </div>
                                             </div>
