@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Nano Banana model for image generation (2026)
 const IMAGE_MODEL = 'gemini-2.5-flash-image';
+const TEXT_MODEL = 'gemini-1.5-flash'; // Using stable 1.5-flash to avoid 404s with -latest alias
 
 /**
  * Generate an image using Gemini API
@@ -122,7 +123,7 @@ export async function generateTriviaQuestions(theme, count = 5) {
 
     try {
         const model = genAI.getGenerativeModel({
-            model: 'gemini-1.5-flash-latest',
+            model: TEXT_MODEL,
             generationConfig: {
                 responseMimeType: "application/json",
             }
@@ -173,7 +174,7 @@ export async function generateBingoPrompts(theme, count = 9) {
 
     try {
         const model = genAI.getGenerativeModel({
-            model: 'gemini-1.5-flash-latest',
+            model: TEXT_MODEL,
             generationConfig: {
                 responseMimeType: "application/json",
             }
@@ -216,7 +217,7 @@ export async function generateImpostorTasks(theme) {
 
     try {
         const model = genAI.getGenerativeModel({
-            model: 'gemini-1.5-flash-latest',
+            model: TEXT_MODEL,
             generationConfig: {
                 responseMimeType: "application/json",
             }
