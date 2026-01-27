@@ -51,13 +51,7 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
         return unsubscribe;
     }, [eventId]);
 
-    if (!eventId || !gameState || !gameState.questions || !gameState.players) {
-        return (
-            <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-                <div className="w-12 h-12 border-4 border-pink-500 border-t-transparent rounded-full animate-spin" />
-            </div>
-        );
-    }
+
 
     const currentQuestion = (gameState?.questions && gameState.currentQuestionIndex >= 0)
         ? gameState.questions[gameState.currentQuestionIndex]
@@ -259,6 +253,14 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
     }, [isAutoEnabled, gameState?.status, gameState?.currentQuestionIndex, gameState?.isAnswerRevealed]);
 
     const qrUrl = `${window.location.origin}/#/trivia/${eventId}/play`;
+
+    if (!eventId || !gameState || !gameState.questions || !gameState.players) {
+        return (
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+                <div className="w-12 h-12 border-4 border-pink-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-slate-950 text-white pb-20">
