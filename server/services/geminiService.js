@@ -1,8 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Nano Banana model for image generation (2026)
-const IMAGE_MODEL = 'gemini-2.5-flash-image';
-const TEXT_MODEL = 'gemini-1.5-flash-latest'; // Use -latest for better stability across regions
+// stable models for AI Studio (API Key access)
+const IMAGE_MODEL = 'gemini-1.5-flash';
+const TEXT_MODEL = 'gemini-1.5-flash-latest';
 
 /**
  * Generate an image using Gemini API
@@ -11,45 +11,51 @@ const TEXT_MODEL = 'gemini-1.5-flash-latest'; // Use -latest for better stabilit
  */
 export async function generateImage(prompt) {
     console.log('[GeminiService] generateImage called with prompt:', prompt);
-    console.log('[GeminiService] Using model:', IMAGE_MODEL);
 
-    if (!process.env.GEMINI_API_KEY) {
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (!apiKey) {
         throw new Error('GEMINI_API_KEY not configured in environment');
     }
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const genAI = new GoogleGenerativeAI(apiKey);
 
     try {
-        const model = genAI.getGenerativeModel({ model: IMAGE_MODEL });
+        // Use v1beta for newest multimodal features
+        const model = genAI.getGenerativeModel({ model: IMAGE_MODEL }, { apiVersion: 'v1beta' });
 
         const result = await model.generateContent({
             contents: [{
                 role: 'user',
-                parts: [{ text: `Generate a high-quality image based on this description: ${prompt}` }]
+                parts: [{ text: `Generate a high-quality image based on this description: ${prompt}. Output ONLY the image data.` }]
             }],
             generationConfig: {
-                responseModalities: ['IMAGE', 'TEXT'],
+                responseModalities: ['IMAGE'],
             }
         });
 
-        const response = result.response;
-        console.log('[GeminiService] Response received');
+        const response = await result.response;
+        console.log('[GeminiService] AI Response received');
 
         // Check for image in response
-        for (const part of response.candidates?.[0]?.content?.parts || []) {
-            if (part.inlineData) {
-                console.log('[GeminiService] Image found in response');
-                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        const candidate = response.candidates?.[0];
+        if (candidate?.content?.parts) {
+            for (const part of candidate.content.parts) {
+                if (part.inlineData) {
+                    console.log('[GeminiService] Image found in response parts');
+                    return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                }
             }
         }
 
-        // If no image, check text response
-        const text = response.text?.() || '';
+        // Handle case where it returned text instead of image
+        const text = response.text ? response.text() : 'No text response';
         console.log('[GeminiService] No image in response. Text:', text.substring(0, 200));
-        throw new Error(`No image generated. Model response: ${text.substring(0, 100)}`);
+        throw new Error(`AI generated text instead of an image: ${text.substring(0, 100)}...`);
     } catch (error) {
-        console.error('[GeminiService] Error:', error.message);
-        throw error;
+        console.error('[GeminiService] Generation Error:', error);
+        // Extract more details if available
+        const details = error.response?.data?.error || error.message;
+        throw new Error(`Gemini API Error: ${details}`);
     }
 }
 
@@ -61,16 +67,16 @@ export async function generateImage(prompt) {
  */
 export async function editImage(base64Image, prompt) {
     console.log('[GeminiService] editImage called');
-    console.log('[GeminiService] Using model:', IMAGE_MODEL);
 
-    if (!process.env.GEMINI_API_KEY) {
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (!apiKey) {
         throw new Error('GEMINI_API_KEY not configured in environment');
     }
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const genAI = new GoogleGenerativeAI(apiKey);
 
     try {
-        const model = genAI.getGenerativeModel({ model: IMAGE_MODEL });
+        const model = genAI.getGenerativeModel({ model: IMAGE_MODEL }, { apiVersion: 'v1beta' });
 
         const cleanBase64 = base64Image.split(',')[1] || base64Image;
 
@@ -84,26 +90,29 @@ export async function editImage(base64Image, prompt) {
                             data: cleanBase64
                         }
                     },
-                    { text: `Edit this image based on these instructions: ${prompt}. Return the modified image.` }
+                    { text: `Edit this image based on these instructions: ${prompt}. Return ONLY the modified image.` }
                 ]
             }],
             generationConfig: {
-                responseModalities: ['IMAGE', 'TEXT'],
+                responseModalities: ['IMAGE'],
             }
         });
 
-        const response = result.response;
+        const response = await result.response;
+        const candidate = response.candidates?.[0];
 
-        for (const part of response.candidates?.[0]?.content?.parts || []) {
-            if (part.inlineData) {
-                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        if (candidate?.content?.parts) {
+            for (const part of candidate.content.parts) {
+                if (part.inlineData) {
+                    return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                }
             }
         }
 
         throw new Error('No edited image in response');
     } catch (error) {
-        console.error('[GeminiService] Edit error:', error.message);
-        throw error;
+        console.error('[GeminiService] Edit error:', error);
+        throw new Error(`Gemini Edit Error: ${error.message}`);
     }
 }
 /**
@@ -115,11 +124,12 @@ export async function editImage(base64Image, prompt) {
 export async function generateTriviaQuestions(theme, count = 5) {
     console.log(`[GeminiService] generateTriviaQuestions called for theme: ${theme}, count: ${count}`);
 
-    if (!process.env.GEMINI_API_KEY) {
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (!apiKey) {
         throw new Error('GEMINI_API_KEY not configured in environment');
     }
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const genAI = new GoogleGenerativeAI(apiKey);
 
     try {
         const model = genAI.getGenerativeModel({
@@ -166,11 +176,12 @@ export async function generateTriviaQuestions(theme, count = 5) {
 export async function generateBingoPrompts(theme, count = 9) {
     console.log(`[GeminiService] generateBingoPrompts called for theme: ${theme}, count: ${count}`);
 
-    if (!process.env.GEMINI_API_KEY) {
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (!apiKey) {
         throw new Error('GEMINI_API_KEY not configured in environment');
     }
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const genAI = new GoogleGenerativeAI(apiKey);
 
     try {
         const model = genAI.getGenerativeModel({
@@ -209,11 +220,12 @@ export async function generateBingoPrompts(theme, count = 9) {
 export async function generateImpostorTasks(theme) {
     console.log(`[GeminiService] generateImpostorTasks called for theme: ${theme}`);
 
-    if (!process.env.GEMINI_API_KEY) {
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (!apiKey) {
         throw new Error('GEMINI_API_KEY not configured in environment');
     }
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const genAI = new GoogleGenerativeAI(apiKey);
 
     try {
         const model = genAI.getGenerativeModel({
