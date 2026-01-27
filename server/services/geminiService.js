@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Nano Banana model for image generation (2026)
 const IMAGE_MODEL = 'gemini-2.5-flash-image';
-const TEXT_MODEL = 'gemini-1.5-flash'; // Recommended for speed and stability in v1/v1beta
+const TEXT_MODEL = 'gemini-1.5-flash-latest'; // Use -latest for better stability across regions
 
 /**
  * Generate an image using Gemini API

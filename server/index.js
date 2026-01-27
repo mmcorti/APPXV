@@ -100,11 +100,12 @@ app.post('/api/upload-image', async (req, res) => {
 });
 
 // --- AI IMAGE GENERATION ---
-import {
-    generateImage as geminiGenerateImage,
-    editImage as geminiEditImage,
+import * as geminiService from './services/geminiService.js';
+const {
+    generateImage: geminiGenerateImage,
+    editImage: geminiEditImage,
     generateTriviaQuestions
-} from './services/geminiService.js';
+} = geminiService;
 
 app.post('/api/trivia/generate-questions', async (req, res) => {
     try {
