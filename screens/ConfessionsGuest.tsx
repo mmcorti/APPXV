@@ -34,13 +34,13 @@ const ConfessionsGuest: React.FC = () => {
                 <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mb-6 shadow-2xl shadow-green-500/20">
                     <span className="material-symbols-outlined text-5xl">check</span>
                 </div>
-                <h2 className="text-3xl font-bold mb-2">Sent!</h2>
-                <p className="text-slate-400 text-center mb-8">Your confession is now live on the big screen.</p>
+                <h2 className="text-3xl font-black mb-2">¡Enviado!</h2>
+                <p className="text-slate-400 text-center mb-8">Tu confesión ya se puede ver en la pantalla gigante.</p>
                 <div className="flex flex-col gap-3 w-full max-w-xs">
                     <button
                         onClick={() => setSubmitted(false)}
                         className="w-full bg-white text-black font-bold py-4 rounded-xl hover:bg-slate-200 transition-colors">
-                        Send Another
+                        Enviar Otro
                     </button>
                     <button
                         onClick={() => window.close()}
@@ -56,15 +56,19 @@ const ConfessionsGuest: React.FC = () => {
         <div className="min-h-screen bg-[#101622] text-white font-display">
             {/* Header */}
             <div className="p-6 flex items-center justify-between border-b border-white/5">
+                <img
+                    src="https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png"
+                    alt="Logo"
+                    className="h-10 w-auto object-contain"
+                />
+                <h1 className="font-black text-xl tracking-tighter">Confessions <span className="text-pink-500">Guest</span></h1>
                 <span className="material-symbols-outlined text-pink-500">favorite</span>
-                <h1 className="font-bold text-lg">Confessions</h1>
-                <div className="w-6"></div>
             </div>
 
             <main className="p-6 max-w-md mx-auto flex flex-col gap-6">
                 <div>
-                    <h2 className="text-3xl font-bold mb-2">Share a secret</h2>
-                    <p className="text-slate-400">Whatever you type will appear on the big screen anonymously. Make it fun!</p>
+                    <h2 className="text-3xl font-black mb-2">Compartí un secreto</h2>
+                    <p className="text-slate-400">Todo lo que escribas aparecerá en la pantalla gigante de forma anónima. ¡Hacelo divertido!</p>
                 </div>
 
                 <div className="space-y-4">
@@ -98,10 +102,10 @@ const ConfessionsGuest: React.FC = () => {
                             ${!text.trim() ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-pink-600 hover:bg-pink-500 text-white shadow-pink-900/20 active:scale-[0.98]'}
                         `}
                     >
-                        {loading ? 'Sending...' : (
+                        {loading ? 'Enviando...' : (
                             <>
                                 <span className="material-symbols-outlined">send</span>
-                                Send Confession
+                                Enviar Mensaje
                             </>
                         )}
                     </button>
