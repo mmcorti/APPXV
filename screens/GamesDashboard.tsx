@@ -148,6 +148,18 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
             return;
         }
 
+        // Navigate to Bingo Admin for 'photo-bingo' game
+        if (gameId === 'photo-bingo') {
+            navigate(`/bingo/${id}/admin`);
+            return;
+        }
+
+        // Navigate to Trivia Admin for 'event-trivia' game
+        if (gameId === 'event-trivia') {
+            navigate(`/trivia/${id}/admin`);
+            return;
+        }
+
         // Navigate to Raffle Admin for 'raffle' game
         if (gameId === 'raffle') {
             navigate(`/raffle/${id}/admin`);
