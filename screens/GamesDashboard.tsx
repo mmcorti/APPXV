@@ -91,11 +91,16 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
     }, [invitation]);
 
     const handleStartGame = (gameId: string) => {
-        if (gameId === 'event-trivia') navigate(`/trivia/${id}/admin`);
-        else if (gameId === 'photo-bingo') navigate(`/bingo/${id}/admin`);
-        else if (gameId === 'raffle') navigate(`/raffle/${id}/admin`);
-        else if (gameId === 'confessions') navigate(`/confessions/${id}/admin`);
-        else if (gameId === 'impostor') navigate(`/impostor/${id}/admin`);
+        let path = '';
+        if (gameId === 'event-trivia') path = `/trivia/${id}/admin`;
+        else if (gameId === 'photo-bingo') path = `/bingo/${id}/admin`;
+        else if (gameId === 'raffle') path = `/raffle/${id}/admin`;
+        else if (gameId === 'confessions') path = `/confessions/${id}/admin`;
+        else if (gameId === 'impostor') path = `/impostor/${id}/admin`;
+
+        if (path) {
+            window.open(`#${path}`, '_blank');
+        }
     };
 
     return (
