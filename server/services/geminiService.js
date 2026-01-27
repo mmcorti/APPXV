@@ -1,8 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// stable models for AI Studio (API Key access)
-const IMAGE_MODEL = 'gemini-1.5-flash';
-const TEXT_MODEL = 'gemini-1.5-flash-latest';
+// Verified models from user's AI Studio list (Jan 2026)
+const IMAGE_MODEL = 'gemini-2.0-flash';
+const TEXT_MODEL = 'gemini-2.0-flash';
 
 /**
  * Generate an image using Gemini API
