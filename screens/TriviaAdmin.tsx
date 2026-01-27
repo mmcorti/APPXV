@@ -28,10 +28,14 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
     const [optionD, setOptionD] = useState('');
     const [correctOption, setCorrectOption] = useState<OptionKey>('A');
     const [duration, setDuration] = useState(10);
+    const [bgUrl, setBgUrl] = useState('');
 
     useEffect(() => {
         if (!eventId) return;
-        const unsubscribe = triviaService.subscribe(eventId, setGameState);
+        const unsubscribe = triviaService.subscribe(eventId, (state) => {
+            setGameState(state);
+            setBgUrl(state.backgroundUrl || '');
+        });
         return unsubscribe;
     }, [eventId]);
 
@@ -138,6 +142,12 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
         }
     };
 
+    const handleSaveBackground = async () => {
+        if (!eventId) return;
+        await triviaService.updateConfig(eventId, { backgroundUrl: bgUrl });
+        alert('Imagen de fondo actualizada!');
+    };
+
     const qrUrl = `${window.location.origin}/#/trivia/${eventId}/play`;
 
     return (
@@ -147,7 +157,7 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
                 <div className="max-w-6xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <button
-                            onClick={() => navigate(-1)}
+                            onClick={() => navigate(`/games/${eventId}`)}
                             className="p-2 hover:bg-slate-800 rounded-lg"
                         >
                             <span className="material-symbols-outlined">arrow_back</span>
@@ -265,6 +275,38 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
                             />
                         </div>
                         <p className="text-xs text-slate-400 mt-2 break-all">{qrUrl}</p>
+                    </div>
+
+                    {/* Background Configuration */}
+                    <div className="bg-slate-900 rounded-xl border border-slate-800 p-4">
+                        <h2 className="text-lg font-bold mb-3">Imagen de Pantalla</h2>
+                        <div className="aspect-video bg-slate-950 rounded-lg overflow-hidden mb-3 border border-slate-800">
+                            {bgUrl ? (
+                                <img src={bgUrl} alt="Preview" className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-slate-600">
+                                    <span className="material-symbols-outlined text-4xl">image</span>
+                                </div>
+                            )}
+                        </div>
+                        <div className="space-y-2">
+                            <input
+                                type="text"
+                                value={bgUrl}
+                                onChange={(e) => setBgUrl(e.target.value)}
+                                placeholder="https://url-de-la-imagen.png"
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-pink-500"
+                            />
+                            <button
+                                onClick={handleSaveBackground}
+                                className="w-full bg-slate-800 hover:bg-slate-700 py-2 rounded-lg text-sm font-bold transition-all"
+                            >
+                                Guardar Fondo
+                            </button>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-2 text-center">
+                            Aparecerá como fondo en la Pantalla Gigante
+                        </p>
                     </div>
                 </div>
 

@@ -305,15 +305,15 @@ app.get('/api/auth/google', (req, res) => {
 // Step 2: Handle callback from Google
 app.get('/api/auth/google/callback', async (req, res) => {
     try {
-        const { code, error } = req.query;
+        const { code, error, state } = req.query;
 
         if (error) {
             console.error('[GOOGLE AUTH] Error from Google:', error);
-            return res.redirect('/?error=google_auth_failed');
+            return res.redirect(`${state || ''}/?error=google_auth_failed`);
         }
 
         if (!code) {
-            return res.redirect('/?error=no_code');
+            return res.redirect(`${state || ''}/?error=no_code`);
         }
 
         // Exchange code for tokens
@@ -374,7 +374,8 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
         // Redirect to frontend with user data encoded in URL
         // Use the frontend URL (Vercel) for production, or fallback to root for local
-        const FRONTEND_URL = process.env.FRONTEND_URL || '';
+        // Use state (origin) if provided, otherwise fallback to configured FRONTEND_URL
+        const FRONTEND_URL = state || process.env.FRONTEND_URL || '';
         const userData = encodeURIComponent(JSON.stringify({
             id: userId,
             name: userName,
@@ -392,7 +393,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
     } catch (error) {
         console.error('[GOOGLE AUTH] Callback error:', error);
-        const FRONTEND_URL = process.env.FRONTEND_URL || '';
+        const FRONTEND_URL = state || process.env.FRONTEND_URL || '';
         res.redirect(`${FRONTEND_URL}/#/google-callback?error=google_auth_failed&message=` + encodeURIComponent(error.message));
     }
 });
@@ -2458,6 +2459,7 @@ const getTriviaState = (eventId) => {
             currentQuestionIndex: -1,
             questionStartTime: null,
             isAnswerRevealed: false,
+            backgroundUrl: 'https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png',
             players: {}
         };
     }
@@ -2654,11 +2656,22 @@ app.post('/api/trivia/:eventId/reset', (req, res) => {
         currentQuestionIndex: -1,
         questionStartTime: null,
         isAnswerRevealed: false,
+        backgroundUrl: 'https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png',
         players: {}
     };
 
     broadcastTriviaState(eventId);
     res.json({ success: true });
+});
+
+// Update config (background)
+app.put('/api/trivia/:eventId/config', (req, res) => {
+    const { eventId } = req.params;
+    const { backgroundUrl } = req.body;
+    const state = getTriviaState(eventId);
+    if (backgroundUrl !== undefined) state.backgroundUrl = backgroundUrl;
+    broadcastTriviaState(eventId);
+    res.json(state);
 });
 
 // Join player

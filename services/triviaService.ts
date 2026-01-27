@@ -34,6 +34,7 @@ export interface TriviaGameState {
     currentQuestionIndex: number;
     questionStartTime: number | null;
     isAnswerRevealed: boolean;
+    backgroundUrl: string;
     players: Record<string, TriviaPlayer>;
 }
 
@@ -45,6 +46,7 @@ const createInitialState = (eventId: string): TriviaGameState => ({
     currentQuestionIndex: -1,
     questionStartTime: null,
     isAnswerRevealed: false,
+    backgroundUrl: '',
     players: {},
 });
 
@@ -143,6 +145,15 @@ export const triviaService = {
     resetGame: async (eventId: string) => {
         const response = await fetch(`${API_BASE}/${eventId}/reset`, {
             method: 'POST',
+        });
+        return response.json();
+    },
+
+    updateConfig: async (eventId: string, config: { backgroundUrl?: string }) => {
+        const response = await fetch(`${API_BASE}/${eventId}/config`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config),
         });
         return response.json();
     },

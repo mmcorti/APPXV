@@ -393,21 +393,38 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
     <div className="bg-background-light dark:bg-background-dark min-h-screen text-slate-900 dark:text-white font-display">
       <div className="max-w-[480px] md:max-w-6xl mx-auto min-h-screen flex flex-col relative">
         {/* Header */}
-        <div className="px-6 pt-8 pb-4">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-bold text-sm mb-4 hover:text-primary transition-colors"
-          >
-            <span className="material-symbols-outlined text-lg">arrow_back</span>
-            Volver
-          </button>
+        <div className="px-6 pt-8 pb-4 flex items-center justify-between">
+          <div>
+            <button
+              onClick={() => navigate(`/games/${id}`)}
+              className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-bold text-sm mb-4 hover:text-primary transition-colors"
+            >
+              <span className="material-symbols-outlined text-lg">arrow_back</span>
+              Volver
+            </button>
 
-          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-purple-600">
-            FotoWall
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-            {event.eventName}
-          </p>
+            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-purple-600">
+              FotoWall
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+              {event.eventName}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                handleSave();
+                const playerConfig = { url: albumUrl, interval: intervalValue, shuffle };
+                localStorage.setItem(`fotowall_player_${id}`, JSON.stringify(playerConfig));
+                window.open(`/#/fotowall-player/${id}`, '_blank');
+              }}
+              disabled={linkStatus !== 'valid'}
+              className={`flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg font-medium transition-colors text-white ${linkStatus !== 'valid' ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <span className="material-symbols-outlined text-sm">tv</span>
+              Pantalla Gigante
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
