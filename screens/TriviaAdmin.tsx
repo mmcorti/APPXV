@@ -34,6 +34,11 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
     const [activeTab, setActiveTab] = useState<'LIVE' | 'CONFIG'>('LIVE');
     const [uploading, setUploading] = useState(false);
 
+    // AI Generation
+    const [aiTheme, setAiTheme] = useState('');
+    const [aiCount, setAiCount] = useState(5);
+    const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+
     useEffect(() => {
         if (!eventId) return;
         const unsubscribe = triviaService.subscribe(eventId, (state) => {
@@ -173,6 +178,45 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
             alert("Error al subir la imagen");
         } finally {
             setUploading(false);
+        }
+    };
+
+    const handleGenerateAI = async () => {
+        if (!aiTheme.trim()) {
+            alert('Por favor ingresa una temática');
+            return;
+        }
+
+        setIsGeneratingAI(true);
+        try {
+            const result = await triviaService.generateQuestions(aiTheme, aiCount);
+            if (result.success && Array.isArray(result.questions)) {
+                let addedCount = 0;
+                let limitReached = false;
+
+                for (const q of result.questions) {
+                    const saveResult = await triviaService.addQuestion(eventId!, q, user.plan, user.role);
+                    if (saveResult.limitReached) {
+                        limitReached = true;
+                        break;
+                    }
+                    addedCount++;
+                }
+
+                if (limitReached) {
+                    alert(`Se agregaron ${addedCount} preguntas, pero se alcanzó el límite de tu plan.`);
+                } else {
+                    alert(`¡Éxito! Se generaron y agregaron ${addedCount} preguntas.`);
+                }
+                setAiTheme('');
+            } else {
+                alert('Error al generar preguntas. Intenta con otra temática.');
+            }
+        } catch (error) {
+            console.error('AI Generation failed:', error);
+            alert('Error de conexión con el servicio de IA.');
+        } finally {
+            setIsGeneratingAI(false);
         }
     };
 
@@ -407,8 +451,62 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
                                             className="flex items-center gap-2 bg-pink-600 hover:bg-pink-500 px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-pink-600/20 active:scale-95"
                                         >
                                             <span className="material-symbols-outlined text-sm">add</span>
-                                            Agregar
+                                            Agregar Manual
                                         </button>
+                                    </div>
+
+                                    {/* AI Generator Block */}
+                                    <div className="mb-8 p-6 bg-indigo-600/10 border border-indigo-500/20 rounded-2xl">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+                                                <span className="material-symbols-outlined text-white text-sm">psychology</span>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-black uppercase tracking-wider text-indigo-400">Generador con IA</h3>
+                                                <p className="text-[10px] text-slate-500 font-medium">Crea preguntas automáticas con Gemini AI</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col md:flex-row gap-4 items-end">
+                                            <div className="flex-1 space-y-2">
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Temática del Evento / Trivia</label>
+                                                <input
+                                                    type="text"
+                                                    value={aiTheme}
+                                                    onChange={(e) => setAiTheme(e.target.value)}
+                                                    placeholder="Ej: Historia del Rock, Películas de Marvel, Cultura General..."
+                                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                                                />
+                                            </div>
+                                            <div className="w-full md:w-32 space-y-2">
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Cantidad</label>
+                                                <select
+                                                    value={aiCount}
+                                                    onChange={(e) => setAiCount(parseInt(e.target.value))}
+                                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                                                >
+                                                    {[1, 3, 5, 10, 15].map(n => (
+                                                        <option key={n} value={n}>{n} {n === 1 ? 'pregunta' : 'preguntas'}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <button
+                                                onClick={handleGenerateAI}
+                                                disabled={isGeneratingAI || !aiTheme.trim()}
+                                                className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
+                                            >
+                                                {isGeneratingAI ? (
+                                                    <>
+                                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                        <span>Generando...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span className="material-symbols-outlined text-sm">auto_awesome</span>
+                                                        Generar con IA
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
                                     </div>
 
                                     {/* Questions List */}

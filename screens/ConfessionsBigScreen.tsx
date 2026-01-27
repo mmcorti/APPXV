@@ -79,9 +79,16 @@ const ConfessionsBigScreen: React.FC = () => {
 
                 {/* Center: Chaotic Post-its */}
                 <div className="col-span-9 relative border-r border-white/10">
-                    <div className="absolute top-0 left-0 p-4 bg-black/30 backdrop-blur-md rounded-xl border border-white/10">
-                        <h1 className="text-3xl font-bold tracking-tight text-white/90">Confessions <span className="text-pink-500">Live</span></h1>
-                        <p className="text-white/50 text-sm">Send your secret anonymously</p>
+                    <div className="absolute top-0 left-0 p-5 bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 flex items-center gap-5">
+                        <img
+                            src="https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png"
+                            alt="Event Logo"
+                            className="w-14 h-14 object-contain"
+                        />
+                        <div>
+                            <h1 className="text-3xl font-black tracking-tight text-white">Confessions <span className="text-pink-500">Live</span></h1>
+                            <p className="text-white/60 text-sm font-medium">Enviá tus mensajes anonimos</p>
+                        </div>
                     </div>
 
                     {state.messages.map((msg) => {

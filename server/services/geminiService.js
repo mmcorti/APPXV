@@ -105,3 +105,53 @@ export async function editImage(base64Image, prompt) {
         throw error;
     }
 }
+/**
+ * Generate trivia questions using Gemini AI
+ * @param {string} theme - The theme of the questions
+ * @param {number} count - Number of questions to generate
+ * @returns {Promise<Array>} - List of trivia questions with options and correct answer
+ */
+export async function generateTriviaQuestions(theme, count = 5) {
+    console.log(`[GeminiService] generateTriviaQuestions called for theme: ${theme}, count: ${count}`);
+
+    if (!process.env.GEMINI_API_KEY) {
+        throw new Error('GEMINI_API_KEY not configured in environment');
+    }
+
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+    try {
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-1.5-flash',
+            generationConfig: {
+                responseMimeType: "application/json",
+            }
+        });
+
+        const prompt = `Generate ${count} trivia questions about the theme: "${theme}". 
+        Return ONLY a JSON array of objects. 
+        Each object MUST have the following structure:
+        {
+            "text": "The question text",
+            "options": [
+                {"key": "A", "text": "Option A text"},
+                {"key": "B", "text": "Option B text"},
+                {"key": "C", "text": "Option C text"},
+                {"key": "D", "text": "Option D text"}
+            ],
+            "correctOption": "A", // Or B, C, D
+            "durationSeconds": 15
+        }
+        The questions should be fun, varying in difficulty, and suitable for a general audience.
+        Ensure one option is clearly correct.`;
+
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+        console.log('[GeminiService] AI Response received');
+
+        return JSON.parse(responseText);
+    } catch (error) {
+        console.error('[GeminiService] Question generation error:', error.message);
+        throw error;
+    }
+}
