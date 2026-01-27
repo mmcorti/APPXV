@@ -40,53 +40,67 @@ const ImpostorBigScreen: React.FC = () => {
 
                 {/* WAITING PHASE */}
                 {state.status === 'WAITING' && (
-                    <div className="text-center space-y-12">
+                    <div className="text-center space-y-8">
                         <motion.h1
                             initial={{ opacity: 0, y: -20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="text-8xl font-black italic tracking-tighter uppercase"
+                            className="text-6xl md:text-7xl font-black italic tracking-tighter uppercase"
                         >
                             ¿Quién es el <span className="text-primary drop-shadow-[0_0_20px_rgba(164,19,236,0.6)]">Impostor</span>?
                         </motion.h1>
 
-                        {/* Branding Image */}
-                        {(state.config.customImageUrl && state.config.customImageUrl.length > 5) && (
-                            <div className="max-w-xl mx-auto rounded-3xl overflow-hidden shadow-2xl border-4 border-white/10 mb-8 animate-fade-in-up">
-                                <img
-                                    src={state.config.customImageUrl}
-                                    className="w-full h-64 object-cover"
-                                    alt="Event Branding"
-                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                />
-                            </div>
-                        )}
+                        <div className="flex flex-col lg:flex-row items-center justify-center gap-12 bg-white/5 p-10 rounded-[50px] border border-white/10 backdrop-blur-xl shadow-2xl">
 
-                        <div className="flex flex-col md:flex-row items-center justify-center gap-16 mt-6 bg-white/5 p-12 rounded-[50px] border border-white/10 backdrop-blur-xl shadow-2xl">
-
-                            {/* QR Section */}
+                            {/* LEFT: QR Section - MAIN PROTAGONIST */}
                             <div className="flex flex-col items-center gap-6">
-                                <div className="bg-white p-6 rounded-3xl shadow-[0_0_50px_rgba(255,255,255,0.2)]">
-                                    <img
-                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${window.location.origin}/#/impostor/${eventId}/guest`)}`}
-                                        alt="Scan to Join"
-                                        className="w-64 h-64"
-                                    />
-                                </div>
+                                <motion.div
+                                    initial={{ scale: 0.8, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                                    className="relative"
+                                >
+                                    {/* Glowing effect behind QR */}
+                                    <div className="absolute inset-0 bg-primary/30 blur-[50px] rounded-3xl scale-110" />
+                                    <div className="relative bg-white p-8 rounded-3xl shadow-[0_0_80px_rgba(255,255,255,0.3)]">
+                                        <img
+                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(`${window.location.origin}/#/impostor/${eventId}/guest`)}`}
+                                            alt="Scan to Join"
+                                            className="w-72 h-72 md:w-80 md:h-80"
+                                        />
+                                    </div>
+                                </motion.div>
                                 <div className="text-center">
-                                    <p className="text-2xl font-bold uppercase tracking-widest text-primary mb-1">¡Escaneá para jugar!</p>
-                                    <p className="text-slate-400 font-medium">Sumate a la votación desde tu celular</p>
+                                    <p className="text-3xl font-bold uppercase tracking-widest text-primary mb-2">¡Escaneá para jugar!</p>
+                                    <p className="text-slate-400 text-lg font-medium">Sumate a la votación desde tu celular</p>
                                 </div>
+
+                                {/* Logo/Branding Image - BELOW QR */}
+                                {(state.config.customImageUrl && state.config.customImageUrl.length > 5) && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.3 }}
+                                        className="max-w-xs rounded-2xl overflow-hidden shadow-lg border-2 border-white/10"
+                                    >
+                                        <img
+                                            src={state.config.customImageUrl}
+                                            className="w-full h-32 object-cover"
+                                            alt="Event Branding"
+                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                        />
+                                    </motion.div>
+                                )}
                             </div>
 
                             {/* Divider for desktop */}
-                            <div className="hidden md:block w-px h-64 bg-white/10" />
+                            <div className="hidden lg:block w-px h-96 bg-white/10" />
 
-                            {/* Lobby / Players List */}
-                            <div className="flex flex-col items-center gap-8">
-                                <h3 className="text-3xl font-bold uppercase tracking-tight text-white/80">
+                            {/* RIGHT: Lobby / Players List */}
+                            <div className="flex flex-col items-center gap-6 min-w-[300px]">
+                                <h3 className="text-2xl font-bold uppercase tracking-tight text-white/80">
                                     {state.activePlayers.length > 0 ? "Jugadores en Escena" : "Lobby de Invitados"}
                                 </h3>
-                                <div className="flex flex-wrap justify-center gap-6 max-w-2xl">
+                                <div className="flex flex-wrap justify-center gap-5 max-w-lg">
                                     {(state.activePlayers.length > 0 ? state.activePlayers : state.lobby).length > 0 ? (
                                         (state.activePlayers.length > 0 ? state.activePlayers : state.lobby).map((player, i) => (
                                             <motion.div
@@ -94,20 +108,27 @@ const ImpostorBigScreen: React.FC = () => {
                                                 initial={{ opacity: 0, scale: 0.8 }}
                                                 animate={{ opacity: 1, scale: 1 }}
                                                 transition={{ delay: i * 0.1 }}
-                                                className="flex flex-col items-center gap-3"
+                                                className="flex flex-col items-center gap-2"
                                             >
                                                 <div className="relative">
                                                     <div className="absolute inset-0 bg-primary/30 blur-lg rounded-full" />
-                                                    <img src={player.avatar} className="w-20 h-20 rounded-full bg-slate-800 relative z-10 border-2 border-white/20" />
+                                                    <img src={player.avatar} className="w-16 h-16 rounded-full bg-slate-800 relative z-10 border-2 border-white/20" />
                                                 </div>
-                                                <span className="text-sm font-bold uppercase tracking-tight w-24 truncate text-center">{player.name}</span>
+                                                <span className="text-xs font-bold uppercase tracking-tight w-20 truncate text-center">{player.name}</span>
                                             </motion.div>
                                         ))
                                     ) : (
-                                        <div className="text-slate-500 text-2xl font-medium animate-pulse py-8">
+                                        <div className="text-slate-500 text-xl font-medium animate-pulse py-8 flex flex-col items-center gap-3">
+                                            <span className="material-symbols-outlined text-4xl">hourglass_empty</span>
                                             ¡Escaneá el código para unirte!
                                         </div>
                                     )}
+                                </div>
+                                <div className="text-center mt-4">
+                                    <span className="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full text-sm font-bold">
+                                        <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                                        {state.lobby.length} conectados
+                                    </span>
                                 </div>
                             </div>
                         </div>
