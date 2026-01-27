@@ -97,8 +97,11 @@ export const impostorService = {
         return res.json();
     },
 
-    subscribe(eventId: string, callback: (state: ImpostorState) => void) {
-        const eventSource = new EventSource(`${API_URL}/events/${eventId}/stream`);
+    subscribe(eventId: string, callback: (state: ImpostorState) => void, playerId?: string) {
+        const url = playerId
+            ? `${API_URL}/events/${eventId}/stream?clientId=${playerId}`
+            : `${API_URL}/events/${eventId}/stream`;
+        const eventSource = new EventSource(url);
 
         eventSource.addEventListener('IMPOSTOR_UPDATE', (event: any) => {
             const data = JSON.parse(event.data);

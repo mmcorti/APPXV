@@ -5,8 +5,12 @@ const API_BASE = '/api/raffle';
 
 export const raffleService = {
     // Subscribe to real-time state updates via SSE
-    subscribe: (eventId: string, callback: (state: RaffleState) => void) => {
-        const eventSource = new EventSource(`${API_BASE}/${eventId}/stream`);
+    subscribe: (eventId: string, callback: (state: RaffleState) => void, playerId?: string) => {
+        const url = playerId
+            ? `${API_BASE}/${eventId}/stream?clientId=${playerId}`
+            : `${API_BASE}/${eventId}/stream`;
+
+        const eventSource = new EventSource(url);
 
         eventSource.onmessage = (event) => {
             try {
@@ -66,11 +70,11 @@ export const raffleService = {
     // --- Guest Actions ---
 
     // Join the raffle (for Participant mode)
-    joinRaffle: async (eventId: string, name: string) => {
+    joinRaffle: async (eventId: string, name: string, playerId?: string) => {
         const response = await fetch(`${API_BASE}/${eventId}/join`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name }),
+            body: JSON.stringify({ name, playerId }),
         });
         if (!response.ok) {
             const data = await response.json();

@@ -56,9 +56,13 @@ export const getStoredState = (eventId: string): TriviaGameState => {
 
 export const triviaService = {
     // Subscribe to real-time state updates via SSE
-    subscribe: (eventId: string, callback: (state: TriviaGameState) => void) => {
+    subscribe: (eventId: string, callback: (state: TriviaGameState) => void, playerId?: string) => {
+        const url = playerId
+            ? `${API_BASE}/${eventId}/stream?clientId=${playerId}`
+            : `${API_BASE}/${eventId}/stream`;
+
         // Create SSE connection
-        const eventSource = new EventSource(`${API_BASE}/${eventId}/stream`);
+        const eventSource = new EventSource(url);
 
         eventSource.onmessage = (event) => {
             try {

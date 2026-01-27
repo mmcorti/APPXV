@@ -82,7 +82,7 @@ const WelcomeScreen: React.FC = () => {
             }
           </div>
 
-          <p className="text-white/60 text-center mb-8 font-medium text-base md:text-lg leading-relaxed">La plataforma inteligente para eventos extraordinarios.</p>
+          <p className="text-white/60 text-center mb-8 font-medium text-base md:text-xl leading-relaxed">La plataforma inteligente para eventos extraordinarios.</p>
 
           <button
             onClick={() => navigate('/login')}

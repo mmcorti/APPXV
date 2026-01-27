@@ -170,5 +170,16 @@ export const impostorGameService = {
     resetGame: (eventId) => {
         gameSessions.delete(eventId);
         return impostorGameService.getOrCreateSession(eventId);
+    },
+
+    leaveSession: (eventId, playerId) => {
+        const session = gameSessions.get(eventId);
+        if (session) {
+            session.lobby = session.lobby.filter(p => p.id !== playerId);
+            // Optionally remove from activePlayers if game is in WAITING state?
+            // User said "desaparezca de la pantalla de conectados", which usually means the lobby.
+            return true;
+        }
+        return false;
     }
 };

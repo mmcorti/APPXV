@@ -21,9 +21,9 @@ const TriviaGuest: React.FC = () => {
 
     useEffect(() => {
         if (!eventId) return;
-        const unsubscribe = triviaService.subscribe(eventId, setGameState);
+        const unsubscribe = triviaService.subscribe(eventId, setGameState, playerId || undefined);
         return unsubscribe;
-    }, [eventId]);
+    }, [eventId, playerId]);
 
     // Timer Sync
     useEffect(() => {

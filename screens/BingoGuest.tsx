@@ -47,7 +47,7 @@ const BingoGuest: React.FC = () => {
                     setHasSubmitted(true);
                 }
             }
-        });
+        }, savedPlayerId || undefined);
 
         return unsubscribe;
     }, [eventId]);
