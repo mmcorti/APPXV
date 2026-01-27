@@ -140,6 +140,7 @@ export async function generateTriviaQuestions(theme, count = 5) {
         });
 
         const prompt = `Generate ${count} trivia questions about the theme: "${theme}". 
+        Language: Español Latino.
         Return ONLY a JSON array of objects. 
         Each object MUST have the following structure:
         {
@@ -192,6 +193,7 @@ export async function generateBingoPrompts(theme, count = 9) {
         });
 
         const prompt = `Generate ${count} Photo Bingo challenges about the theme: "${theme}". 
+        Language: Español Latino.
         Return ONLY a JSON array of objects.
         Each object MUST have the following structure:
         {
@@ -245,7 +247,7 @@ export async function generateImpostorTasks(theme) {
         Civilians: "Take a photo of the bride smiling."
         Impostor: "Take a photo of someone in a white dress."
         
-        Use the theme provided. Language: Spanish.`;
+        Use the theme provided. Language: Español Latino.`;
 
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
