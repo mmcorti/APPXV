@@ -103,6 +103,9 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
 
     const invitation = invitations.find(inv => inv.id === id);
 
+    // Check if any game is running (must be declared before useEffect that uses it)
+    const runningGame = games.find(g => g.status === 'running');
+
     // Simulate connected devices realistically
     useEffect(() => {
         if (!invitation) return;
@@ -121,9 +124,6 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
             setConnectedDevices(idleCount);
         }
     }, [invitation, runningGame]);
-
-    // Check if any game is running
-    const runningGame = games.find(g => g.status === 'running');
 
     useEffect(() => {
         setCurrentMode(runningGame ? 'Game Active' : 'Lobby / Idle');
