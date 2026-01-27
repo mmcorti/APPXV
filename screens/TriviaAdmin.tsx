@@ -51,7 +51,7 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
         return unsubscribe;
     }, [eventId]);
 
-    if (!eventId || !gameState) {
+    if (!eventId || !gameState || !gameState.questions || !gameState.players) {
         return (
             <div className="min-h-screen bg-slate-950 flex items-center justify-center">
                 <div className="w-12 h-12 border-4 border-pink-500 border-t-transparent rounded-full animate-spin" />
@@ -59,10 +59,10 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
         );
     }
 
-    const currentQuestion = gameState.currentQuestionIndex >= 0
+    const currentQuestion = (gameState?.questions && gameState.currentQuestionIndex >= 0)
         ? gameState.questions[gameState.currentQuestionIndex]
         : null;
-    const totalPlayers = Object.keys(gameState.players).length;
+    const totalPlayers = gameState?.players ? Object.keys(gameState.players).length : 0;
 
     const resetForm = () => {
         setQuestionText('');
