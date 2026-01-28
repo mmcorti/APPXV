@@ -25,6 +25,26 @@ const TriviaGuest: React.FC = () => {
         return unsubscribe;
     }, [eventId, playerId]);
 
+    // Validar sesión con el servidor (Resync)
+    useEffect(() => {
+        if (!gameState || !playerId || !playerName || !eventId) return;
+
+        // Si tengo un ID local pero NO estoy en la lista del servidor, me vuelvo a unir sigilosamente
+        if (gameState.players && !gameState.players[playerId]) {
+            console.log('🔄 Sincronizando sesión perdida con el servidor...');
+            triviaService.joinPlayer(eventId, playerId, playerName).then(() => {
+                console.log('✅ Re-unido exitosamente');
+            }).catch(err => {
+                console.error('Error al re-unirse:', err);
+                // Si falla, limpiar local storage para obligar a loguearse de nuevo
+                localStorage.removeItem(`${PLAYER_ID_KEY}_${eventId}`);
+                localStorage.removeItem(`${PLAYER_NAME_KEY}_${eventId}`);
+                setPlayerId(null);
+                setPlayerName('');
+            });
+        }
+    }, [gameState?.players, playerId, eventId, playerName]);
+
     // Timer Sync
     useEffect(() => {
         if (!gameState || !eventId) return;
