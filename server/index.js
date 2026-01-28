@@ -2630,6 +2630,22 @@ app.post('/api/trivia/:eventId/questions', (req, res) => {
     res.json({ success: true, question: newQuestion });
 });
 
+// Update all questions duration (Bulk Action)
+app.put('/api/trivia/:eventId/questions/duration', (req, res) => {
+    const { eventId } = req.params;
+    const { durationSeconds } = req.body;
+
+    const state = getTriviaState(eventId);
+    const newDuration = parseInt(durationSeconds) || 10;
+
+    state.questions.forEach(q => {
+        q.durationSeconds = newDuration;
+    });
+
+    broadcastTriviaState(eventId);
+    res.json({ success: true, count: state.questions.length });
+});
+
 // Update question
 app.put('/api/trivia/:eventId/questions/:questionId', (req, res) => {
     const { eventId, questionId } = req.params;
