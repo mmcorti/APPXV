@@ -48,23 +48,23 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
         className="w-full max-w-[440px] z-10"
       >
         {/* Header/Banner */}
-        <div className="relative mb-8 text-center">
+        <div className="relative mb-12 text-center">
           <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
+            initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-            className="w-20 h-20 bg-indigo-600 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-2xl shadow-indigo-600/40 border border-white/10"
+            transition={{ duration: 0.8 }}
+            className="mb-8 h-24 flex items-center justify-center"
           >
-            <span className="material-symbols-outlined text-4xl text-white icon-filled">event_available</span>
-          </motion.div>
-          <div className="mb-6 h-12 flex items-center justify-center">
             <img
               src="/logo.png"
               alt="APPXV"
-              className="h-full object-contain drop-shadow-[0_0_15px_rgba(79,70,229,0.4)]"
+              className="h-full object-contain drop-shadow-[0_0_25px_rgba(79,70,229,0.5)]"
             />
+          </motion.div>
+          <div className="flex items-center justify-center gap-2">
+            <span className="material-symbols-outlined text-sm text-indigo-400">event_available</span>
+            <p className="text-slate-400 font-medium italic text-sm">Gestiona tus eventos con estilo premium</p>
           </div>
-          <p className="text-slate-400 font-medium italic">Gestiona tus eventos con estilo premium</p>
         </div>
 
         {/* Main Card */}

@@ -315,16 +315,13 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                       <div className="relative z-10 p-8 pt-10">
                         <div className="flex justify-between items-start mb-8">
                           <div className="min-w-0">
-                            <h3 className="text-2xl font-black italic tracking-tighter truncate uppercase mb-1 drop-shadow-lg text-white group-hover:text-primary transition-colors">{inv.eventName}</h3>
-                            <div className="flex items-center gap-3 text-slate-400">
-                              <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest bg-white/5 px-2 py-1 rounded-lg">
+                            <h3 className="text-2xl font-black italic tracking-tighter uppercase mb-1 drop-shadow-lg text-white group-hover:text-primary transition-colors leading-tight">{inv.eventName}</h3>
+                            <div className="flex items-center gap-2 text-slate-400">
+                              <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest bg-white/5 px-2 py-1 rounded-lg border border-white/5">
                                 <span className="material-symbols-outlined text-[14px]">calendar_month</span>
                                 {inv.date}
                               </span>
-                              <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest bg-white/5 px-2 py-1 rounded-lg">
-                                <span className="material-symbols-outlined text-[14px]">schudule</span>
-                                {inv.time}
-                              </span>
+                              <span className="text-[10px] font-black uppercase tracking-widest opacity-40">{inv.time}</span>
                             </div>
                           </div>
                           <div className="flex gap-2">
