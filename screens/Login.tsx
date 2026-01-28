@@ -48,12 +48,12 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
         className="w-full max-w-[440px] z-10"
       >
         {/* Header/Banner */}
-        <div className="relative mb-12 text-center">
+        <div className="relative mb-2 text-center">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.8 }}
-            className="mb-6 flex justify-center pt-6"
+            className="mb-0 flex justify-center pt-0"
           >
             <img
               src="/logo.png"
@@ -61,17 +61,17 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
               className="h-48 object-contain drop-shadow-[0_0_25px_rgba(79,70,229,0.5)]"
             />
           </motion.div>
-          <div className="flex items-center justify-center gap-2">
+          <div className="mt6 flex items-center justify-center gap-2">
             <span className="material-symbols-outlined text-lg text-indigo-400">event_available</span>
             <p className="text-slate-400 font-medium italic text-lg">Gestiona tus eventos con estilo premium</p>
           </div>
         </div>
 
         {/* Main Card */}
-        <div className="bg-slate-900/40 backdrop-blur-2xl border border-white/10 p-8 rounded-[32px] shadow-2xl">
-          <div className="mb-8">
+        <div className="bg-slate-900/40 backdrop-blur-2xl border border-white/10 p-6 rounded-[32px] shadow-2xl">
+          <div className="mb-6">
             <h2 className="text-slate-100 text-2xl font-bold tracking-tight">Bienvenido</h2>
-            <p className="text-slate-400 text-sm mt-1">Ingresa tus credenciales para continuar</p>
+            <p className="text-slate-400 text-sm mt-0">Ingresa tus credenciales para continuar</p>
           </div>
 
           <AnimatePresence>
