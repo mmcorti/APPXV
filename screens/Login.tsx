@@ -58,12 +58,12 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
             <img
               src="/logo.png"
               alt="APPXV"
-              className="h-24 object-contain drop-shadow-[0_0_25px_rgba(79,70,229,0.5)]"
+              className="h-48 object-contain drop-shadow-[0_0_25px_rgba(79,70,229,0.5)]"
             />
           </motion.div>
           <div className="flex items-center justify-center gap-2">
-            <span className="material-symbols-outlined text-base text-indigo-400">event_available</span>
-            <p className="text-slate-400 font-medium italic text-base">Gestiona tus eventos con estilo premium</p>
+            <span className="material-symbols-outlined text-lg text-indigo-400">event_available</span>
+            <p className="text-slate-400 font-medium italic text-lg">Gestiona tus eventos con estilo premium</p>
           </div>
         </div>
 
