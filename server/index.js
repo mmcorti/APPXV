@@ -2529,11 +2529,21 @@ app.get('/api/trivia/:eventId/stream', (req, res) => {
 
     // Send current state immediately
     const state = getTriviaState(eventId);
+
+    // Update player last seen if they are a participant
+    if (clientId && state.players[clientId]) {
+        state.players[clientId].lastSeen = Date.now();
+    }
+
     res.write(`data: ${JSON.stringify(state)}\n\n`);
 
     // Keep-alive ping every 30 seconds
     const keepAlive = setInterval(() => {
         res.write(': ping\n\n');
+        // Update presence if player exists
+        if (clientId && state.players[clientId]) {
+            state.players[clientId].lastSeen = Date.now();
+        }
     }, 30000);
 
     // Remove client on disconnect
@@ -2544,9 +2554,35 @@ app.get('/api/trivia/:eventId/stream', (req, res) => {
 
         // NOTE: We do NOT remove players from state on disconnect.
         // This allows them to refresh the page or lose connection without losing their score/progress.
-        // Players persist until the game is reset by the admin.
+        // Players persist until the game is reset by the admin or cleaned up by the garbage collector.
     });
 });
+
+// Garbage Collector: Cleanup inactive players every minute
+setInterval(() => {
+    Object.keys(triviaGames).forEach(eventId => {
+        const state = triviaGames[eventId];
+        if (!state.players) return;
+
+        const now = Date.now();
+        let changed = false;
+
+        Object.keys(state.players).forEach(playerId => {
+            const player = state.players[playerId];
+            // Remove players inactive for more than 10 minutes
+            // This prevents "zombies" from filling up the plan limit (e.g., 20 guests)
+            if (player.lastSeen && (now - player.lastSeen > 10 * 60 * 1000)) {
+                console.log(`🧹 [TRIVIA GC] Removing inactive player ${player.name} (${playerId})`);
+                delete state.players[playerId];
+                changed = true;
+            }
+        });
+
+        if (changed) {
+            broadcastTriviaState(eventId);
+        }
+    });
+}, 60 * 1000); // Run every minute
 
 // Get current game state
 app.get('/api/trivia/:eventId', (req, res) => {
@@ -2731,7 +2767,8 @@ app.post('/api/trivia/:eventId/join', (req, res) => {
             id: playerId,
             name,
             score: 0,
-            answers: {}
+            answers: {},
+            lastSeen: Date.now()
         };
         broadcastTriviaState(eventId);
     }
