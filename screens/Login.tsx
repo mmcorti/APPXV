@@ -53,7 +53,7 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.8 }}
-            className="mb-8 h-24 flex items-center justify-center"
+            className="mb-8 h-26 flex items-center justify-center"
           >
             <img
               src="/logo.png"
