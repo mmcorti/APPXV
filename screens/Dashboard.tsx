@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { User, InvitationData } from '../types';
 import PlanUpgradeBanner from '../components/PlanUpgradeBanner';
 
@@ -30,7 +31,6 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [limitError, setLimitError] = useState<string | null>(null);
 
-  // Fetch usage summary
   useEffect(() => {
     const fetchUsage = async () => {
       try {
@@ -48,12 +48,10 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
 
   const canCreateEvent = !usage || usage.events.current < usage.events.limit;
 
-
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEventName.trim() || isCreating) return;
 
-    // Check limits
     if (!canCreateEvent) {
       setLimitError(`Has alcanzado el límite de ${usage?.events.limit} eventos para tu plan ${usage?.plan}`);
       return;
@@ -132,280 +130,412 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
   };
 
   return (
-    <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white pb-24 min-h-screen relative max-w-[480px] md:max-w-7xl mx-auto overflow-x-hidden">
-      <div className="sticky top-0 z-40 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md px-4 pt-6 pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="bg-center bg-no-repeat bg-cover rounded-full size-12 border-2 border-white dark:border-slate-700 shadow-sm" style={{ backgroundImage: `url(${user.avatar})` }}></div>
-              <div className="absolute bottom-0 right-0 size-3 bg-green-500 border-2 border-white dark:border-background-dark rounded-full"></div>
-            </div>
-            <div>
-              <p className="text-slate-500 dark:text-slate-400 text-xs font-medium leading-none mb-1">¡Hola,</p>
-              <h2 className="text-slate-900 dark:text-white text-lg font-bold leading-none">{user.name}!</h2>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={onRefresh} className="flex items-center justify-center size-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 transition-colors hover:bg-blue-50 hover:text-blue-500">
-              <span className="material-symbols-outlined">refresh</span>
-            </button>
+    <div className="min-h-screen bg-slate-950 text-white font-display overflow-x-hidden relative">
+      {/* Visual background accents */}
+      <div className="fixed top-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none"></div>
+      <div className="fixed bottom-[-10%] left-[-10%] w-[60%] h-[60%] bg-purple-600/5 blur-[140px] rounded-full pointer-events-none"></div>
 
-            {/* Upgrade Plan Button - only for subscribers, not for staff */}
-            {user.role !== 'admin' && user.role !== 'staff' && user.role !== 'event_staff' && user.plan !== 'vip' && (
-              <button
-                onClick={() => alert(`¡Próximamente! Podrás actualizar a ${user.plan === 'freemium' ? 'Premium' : 'VIP'} para obtener más beneficios.`)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold transition-all hover:scale-105 active:scale-95 ${user.plan === 'freemium'
-                  ? 'bg-purple-500 hover:bg-purple-600 text-white shadow-lg shadow-purple-500/30'
-                  : 'bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/30'
-                  }`}
-              >
-                <span className="material-symbols-outlined text-sm">upgrade</span>
-                {user.plan === 'freemium' ? 'Hazte Premium' : 'Hazte VIP'}
-              </button>
-            )}
-
-            <button onClick={onLogout} className="flex items-center justify-center size-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 transition-colors hover:bg-red-50 hover:text-red-500">
-              <span className="material-symbols-outlined">logout</span>
-            </button>
-            {/* Only show create event button for admin/subscriber, not for staff */}
-            {user.role !== 'staff' && user.role !== 'event_staff' && (
-              <button
-                onClick={() => canCreateEvent ? setShowAddModal(true) : setLimitError(`Límite de eventos alcanzado (${usage?.events.display})`)}
-                className={`flex items-center justify-center size-10 rounded-full shadow-lg transition-transform active:scale-90 ${canCreateEvent ? 'bg-primary text-white shadow-primary/20' : 'bg-slate-300 dark:bg-slate-600 text-slate-500 cursor-not-allowed'}`}
-              >
-                <span className="material-symbols-outlined">add</span>
-              </button>
-            )}
+      {/* HEADER NAVBAR */}
+      <header className="sticky top-0 z-40 bg-slate-950/60 backdrop-blur-xl border-b border-white/5 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="relative"
+          >
+            <div className="absolute inset-0 bg-primary/20 blur-lg rounded-full animate-pulse"></div>
+            <img src={user.avatar} className="relative z-10 size-12 rounded-full border-2 border-white/10 shadow-xl object-cover" alt={user.name} />
+          </motion.div>
+          <div>
+            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest leading-none mb-1 opacity-50">Event Manager</p>
+            <h2 className="text-white text-lg font-black italic tracking-tight leading-none truncate max-w-[150px]">{user.name}</h2>
           </div>
         </div>
-        {/* Plan Upgrade Banner */}
-        {usage && user.role !== 'admin' && user.plan !== 'vip' && (
-          <PlanUpgradeBanner
-            currentPlan={user.plan as 'freemium' | 'premium' | 'vip'}
-            resourceType="events"
-            current={usage.events.current}
-            limit={usage.events.limit}
-            className="mt-3"
+
+        <div className="flex items-center gap-3">
+          <motion.img
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.3 }}
+            src="/logo.png"
+            className="h-6 w-auto hidden md:block mr-4 grayscale brightness-200"
+            alt="APPXV Watermark"
           />
-        )}
+
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onRefresh}
+            className="flex items-center justify-center size-10 rounded-2xl bg-white/5 border border-white/10 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <span className="material-symbols-outlined text-xl">refresh</span>
+          </motion.button>
+
+          {user.role !== 'admin' && user.role !== 'staff' && user.role !== 'event_staff' && user.plan !== 'vip' && (
+            <motion.button
+              whileHover={{ scale: 1.05, translateY: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => navigate('/login')} // Redirect to login to re-evaluate plan if they buy
+              className={`hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${user.plan === 'freemium'
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_10px_20px_rgba(139,92,246,0.3)]'
+                : 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-[0_10px_20px_rgba(245,158,11,0.3)]'
+                }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">stars</span>
+              {user.plan === 'freemium' ? 'Mejorar a Premium' : 'Mejorar a VIP'}
+            </motion.button>
+          )}
+
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onLogout}
+            className="flex items-center justify-center size-10 rounded-2xl bg-white/5 border border-white/10 text-red-400/70 transition-colors hover:bg-red-500/10 hover:text-red-400"
+          >
+            <span className="material-symbols-outlined text-xl">logout</span>
+          </motion.button>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        <AnimatePresence>
+          {usage && user.role !== 'admin' && user.plan !== 'vip' && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="mb-8"
+            >
+              <PlanUpgradeBanner
+                currentPlan={user.plan as 'freemium' | 'premium' | 'vip'}
+                resourceType="events"
+                current={usage.events.current}
+                limit={usage.events.limit}
+                className="rounded-3xl border border-white/10 overflow-hidden shadow-2xl"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {limitError && (
-          <div className="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 text-sm flex items-center gap-2">
-            <span className="material-symbols-outlined text-lg">warning</span>
-            {limitError}
-            <button onClick={() => setLimitError(null)} className="ml-auto">
-              <span className="material-symbols-outlined text-sm">close</span>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm flex items-center gap-3 backdrop-blur-md"
+          >
+            <span className="material-symbols-outlined">warning</span>
+            <span className="font-bold tracking-tight">{limitError}</span>
+            <button onClick={() => setLimitError(null)} className="ml-auto hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-[16px]">close</span>
             </button>
-          </div>
+          </motion.div>
         )}
-      </div>
 
-      <div className="flex flex-col gap-6 px-4 mt-4">
         {loading ? (
-          <div className="py-20 flex flex-col items-center justify-center gap-4 text-slate-400">
-            <div className="size-12 rounded-full border-4 border-slate-200 border-t-primary animate-spin"></div>
-            <p className="font-bold text-xs uppercase tracking-widest">Cargando eventos...</p>
-          </div>
-        ) : invitations.length > 0 ? (
-          <div>
-            {(user.role === 'admin' || user.role === 'subscriber') && (
-              <div className="flex justify-end mb-4 gap-2">
-                {user.role === 'admin' && (
-                  <button
-                    onClick={() => navigate('/subscribers')}
-                    className="bg-white dark:bg-slate-800 text-slate-700 dark:text-gray-200 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:border-purple-300 hover:text-purple-600 transition-colors shadow-sm text-sm font-semibold"
-                  >
-                    <span className="material-symbols-outlined text-lg">group_add</span>
-                    Suscriptores
-                  </button>
-                )}
-                <button
-                  onClick={() => navigate('/staff-roster')}
-                  className="bg-white dark:bg-slate-800 text-slate-700 dark:text-gray-200 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm text-sm font-semibold"
-                >
-                  <span className="material-symbols-outlined text-lg">groups</span>
-                  Mi Staff
-                </button>
-              </div>
-            )}
-            <h2 className="text-slate-900 dark:text-white text-lg font-bold mb-4 px-1">Tus Eventos</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {invitations.map((inv) => (
-                <div
-                  key={inv.id}
-                  className="relative overflow-hidden rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm"
-                >
-                  <div className="p-5">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="min-w-0">
-                        <h3 className="text-xl font-bold tracking-tight truncate">{inv.eventName}</h3>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm flex items-center gap-1">
-                          <span className="material-symbols-outlined text-base">calendar_month</span>
-                          {inv.date}
-                        </p>
-                      </div>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => navigate(`/edit/${inv.id}`)}
-                          className="p-2 rounded-xl bg-slate-50 dark:bg-slate-700 text-primary hover:bg-blue-50 transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-xl">edit</span>
-                        </button>
-                        {/* Only show delete button for admin/subscriber, not for staff */}
-                        {user.role !== 'staff' && user.role !== 'event_staff' && (
-                          <button
-                            onClick={() => handleDeleteEvent(inv)}
-                            disabled={deletingEventId === inv.id}
-                            className={`p-2 rounded-xl bg-slate-50 dark:bg-slate-700 text-red-500 hover:bg-red-50 transition-colors ${deletingEventId === inv.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          >
-                            <span className={`material-symbols-outlined text-xl ${deletingEventId === inv.id ? 'animate-spin' : ''}`}>
-                              {deletingEventId === inv.id ? 'progress_activity' : 'delete'}
-                            </span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className={`grid gap-2 ${user.role === 'admin' ? 'grid-cols-6' : 'grid-cols-5'}`}>
-                      <button
-                        onClick={() => navigate(`/guests/${inv.id}`)}
-                        disabled={(user.role === 'staff' || user.role === 'event_staff') && !(inv.permissions?.access_invitados || user.permissions?.access_invitados)}
-                        className={`flex flex-col items-center justify-center gap-1 py-3 font-bold text-[10px] rounded-xl transition-all ${(user.role === 'staff' || user.role === 'event_staff') && !(inv.permissions?.access_invitados || user.permissions?.access_invitados)
-                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                          : 'bg-blue-50 dark:bg-blue-900/20 text-primary hover:scale-[0.98]'
-                          }`}
-                      >
-                        <span className="material-symbols-outlined text-lg">groups</span>
-                        Invitados
-                      </button>
-                      <button
-                        onClick={() => navigate(`/tables/${inv.id}`)}
-                        disabled={(user.role === 'staff' || user.role === 'event_staff') && !(inv.permissions?.access_mesas || user.permissions?.access_mesas)}
-                        className={`flex flex-col items-center justify-center gap-1 py-3 font-bold text-[10px] rounded-xl transition-all ${(user.role === 'staff' || user.role === 'event_staff') && !(inv.permissions?.access_mesas || user.permissions?.access_mesas)
-                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                          : 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 hover:scale-[0.98]'
-                          }`}
-                      >
-                        <span className="material-symbols-outlined text-lg">table_restaurant</span>
-                        Mesas
-                      </button>
-                      <button
-                        onClick={() => handleShareGeneralLink(inv)}
-                        disabled={(user.role === 'staff' || user.role === 'event_staff') && !(inv.permissions?.access_link || user.permissions?.access_link)}
-                        className={`flex flex-col items-center justify-center gap-1 py-3 font-bold text-[10px] rounded-xl transition-all ${(user.role === 'staff' || user.role === 'event_staff') && !(inv.permissions?.access_link || user.permissions?.access_link)
-                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                          : 'bg-primary text-white shadow-lg shadow-primary/20 active:scale-[0.98]'
-                          }`}
-                      >
-                        <span className="material-symbols-outlined text-lg">share</span>
-                        Link
-                      </button>
-                      <button
-                        onClick={() => navigate(`/fotowall/${inv.id}`)}
-                        disabled={(user.role === 'staff' || user.role === 'event_staff') && !(inv.permissions?.access_fotowall || user.permissions?.access_fotowall)}
-                        className={`flex flex-col items-center justify-center gap-1 py-3 font-bold text-[10px] rounded-xl transition-all ${(user.role === 'staff' || user.role === 'event_staff') && !(inv.permissions?.access_fotowall || user.permissions?.access_fotowall)
-                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                          : 'bg-pink-50 dark:bg-pink-900/20 text-pink-600 hover:scale-[0.98]'
-                          }`}
-                      >
-                        <span className="material-symbols-outlined text-lg">photo_library</span>
-                        FotoWall
-                      </button>
-                      <button
-                        onClick={() => navigate(`/games/${inv.id}`)}
-                        disabled={(user.role === 'staff' || user.role === 'event_staff') && !(inv.permissions?.access_games || user.permissions?.access_games)}
-                        className={`flex flex-col items-center justify-center gap-1 py-3 font-bold text-[10px] rounded-xl transition-all ${(user.role === 'staff' || user.role === 'event_staff') && !(inv.permissions?.access_games || user.permissions?.access_games)
-                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                          : 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 hover:scale-[0.98]'
-                          }`}
-                      >
-                        <span className="material-symbols-outlined text-lg">sports_esports</span>
-                        Juegos
-                      </button>
-                      {(user.role === 'admin' || user.role === 'subscriber') && (
-                        <button
-                          onClick={() => navigate(`/event-staff/${inv.id}`)}
-                          className="flex flex-col items-center justify-center gap-1 py-3 bg-teal-50 dark:bg-teal-900/20 text-teal-600 font-bold text-[10px] rounded-xl hover:scale-[0.98] transition-all"
-                        >
-                          <span className="material-symbols-outlined text-lg">badge</span>
-                          Staff
-                        </button>
-                      )}
-                      {(user.role === 'admin' || user.role === 'subscriber') && (
-                        <button
-                          onClick={() => navigate(`/costs/${inv.id}`)}
-                          className="flex flex-col items-center justify-center gap-1 py-3 bg-amber-50 dark:bg-amber-900/20 text-amber-600 font-bold text-[10px] rounded-xl hover:scale-[0.98] transition-all"
-                        >
-                          <span className="material-symbols-outlined text-lg">account_balance_wallet</span>
-                          Gastos
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="py-32 flex flex-col items-center justify-center gap-6">
+            <div className="size-16 rounded-3xl border-4 border-white/5 border-t-primary animate-spin shadow-[0_0_30px_rgba(19,91,236,0.2)]"></div>
+            <p className="font-black text-[11px] uppercase tracking-[0.3em] text-slate-500 animate-pulse">Sincronizando eventos...</p>
           </div>
         ) : (
-          <div className="py-12 text-center">
-            <div className="size-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-400 mx-auto mb-4">
-              <span className="material-symbols-outlined text-4xl">event_busy</span>
+          <div className="space-y-10">
+            {/* ACTION CENTER */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-1">
+              <div>
+                <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter mb-2">Tus <span className="text-primary italic">Eventos</span></h1>
+                <p className="text-slate-500 font-medium">Gestioná y personalizá cada detalle de tus celebraciones.</p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                {(user.role === 'admin' || user.role === 'subscriber') && (
+                  <>
+                    {user.role === 'admin' && (
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => navigate('/subscribers')}
+                        className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-6 py-3 rounded-2xl flex items-center gap-2 transition-all shadow-xl backdrop-blur-md text-xs font-black uppercase tracking-widest"
+                      >
+                        <span className="material-symbols-outlined text-[18px] text-purple-400">group_add</span>
+                        Suscriptores
+                      </motion.button>
+                    )}
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => navigate('/staff-roster')}
+                      className="bg-white/5 hover:bg-white/10 text-white border border-white/10 px-6 py-3 rounded-2xl flex items-center gap-2 transition-all shadow-xl backdrop-blur-md text-xs font-black uppercase tracking-widest"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-emerald-400">groups</span>
+                      Mi Staff
+                    </motion.button>
+                  </>
+                )}
+
+                {user.role !== 'staff' && user.role !== 'event_staff' && (
+                  <motion.button
+                    whileHover={{ scale: 1.05, translateY: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => canCreateEvent ? setShowAddModal(true) : setLimitError(`Límite de eventos alcanzado (${usage?.events.display})`)}
+                    className={`flex items-center gap-2 px-8 py-3 rounded-2xl shadow-2xl transition-all text-xs font-black uppercase tracking-widest ${canCreateEvent
+                      ? 'bg-primary text-white shadow-primary/20 hover:shadow-primary/40'
+                      : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50'}`}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                    Nuevo Evento
+                  </motion.button>
+                )}
+              </div>
             </div>
-            <p className="text-slate-500 font-medium">
-              {user.role === 'staff' || user.role === 'event_staff'
-                ? 'No tienes eventos asignados'
-                : 'No tienes eventos creados'}
-            </p>
-            {user.role !== 'staff' && user.role !== 'event_staff' && (
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="mt-4 text-primary font-bold hover:underline"
-              >
-                Crea tu primer evento ahora
-              </button>
-            )}
+
+            {/* EVENTS GRID */}
+            <AnimatePresence mode="popLayout">
+              {invitations.length > 0 ? (
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={{
+                    visible: { transition: { staggerChildren: 0.1 } }
+                  }}
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+                >
+                  {invitations.map((inv) => (
+                    <motion.div
+                      variants={{
+                        hidden: { opacity: 0, scale: 0.9, y: 20 },
+                        visible: { opacity: 1, scale: 1, y: 0 }
+                      }}
+                      key={inv.id}
+                      className="group relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-[40px] overflow-hidden hover:border-white/20 transition-all duration-500 shadow-2xl"
+                    >
+                      {/* Event Banner Image (Subtle) */}
+                      <div className="absolute top-0 left-0 w-full h-32 opacity-20 group-hover:opacity-30 transition-opacity pointer-events-none">
+                        <img src={inv.image} className="w-full h-full object-cover" alt="" />
+                        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-slate-900"></div>
+                      </div>
+
+                      <div className="relative z-10 p-8 pt-10">
+                        <div className="flex justify-between items-start mb-8">
+                          <div className="min-w-0">
+                            <h3 className="text-2xl font-black italic tracking-tighter truncate uppercase mb-1 drop-shadow-lg text-white group-hover:text-primary transition-colors">{inv.eventName}</h3>
+                            <div className="flex items-center gap-3 text-slate-400">
+                              <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest bg-white/5 px-2 py-1 rounded-lg">
+                                <span className="material-symbols-outlined text-[14px]">calendar_month</span>
+                                {inv.date}
+                              </span>
+                              <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest bg-white/5 px-2 py-1 rounded-lg">
+                                <span className="material-symbols-outlined text-[14px]">schudule</span>
+                                {inv.time}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <motion.button
+                              whileHover={{ scale: 1.1, rotate: -5 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => navigate(`/edit/${inv.id}`)}
+                              className="p-3 rounded-2xl bg-white/5 border border-white/10 text-primary hover:bg-primary/10 transition-all"
+                              title="Editar Evento"
+                            >
+                              <span className="material-symbols-outlined text-xl italic font-black">edit_note</span>
+                            </motion.button>
+                            {user.role !== 'staff' && user.role !== 'event_staff' && (
+                              <motion.button
+                                whileHover={{ scale: 1.1, rotate: 5 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => handleDeleteEvent(inv)}
+                                disabled={deletingEventId === inv.id}
+                                className={`p-3 rounded-2xl bg-white/5 border border-white/10 text-red-400 hover:bg-red-400/10 transition-all ${deletingEventId === inv.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                title="Eliminar Evento"
+                              >
+                                <span className={`material-symbols-outlined text-xl ${deletingEventId === inv.id ? 'animate-spin' : ''}`}>
+                                  {deletingEventId === inv.id ? 'progress_activity' : 'delete_sweep'}
+                                </span>
+                              </motion.button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* ACCESS BUTTONS GRID */}
+                        <div className="grid grid-cols-3 gap-3">
+                          {[
+                            { label: 'Invitados', icon: 'groups', color: 'text-blue-400', bg: 'bg-blue-400/10', path: `/guests/${inv.id}`, perm: inv.permissions?.access_invitados || user.permissions?.access_invitados },
+                            { label: 'Mesas', icon: 'table_restaurant', color: 'text-purple-400', bg: 'bg-purple-400/10', path: `/tables/${inv.id}`, perm: inv.permissions?.access_mesas || user.permissions?.access_mesas },
+                            { label: 'Link', icon: 'send', color: 'text-indigo-400', bg: 'bg-primary', path: 'share', perm: inv.permissions?.access_link || user.permissions?.access_link },
+                            { label: 'FotoWall', icon: 'photo_size_select_actual', color: 'text-pink-400', bg: 'bg-pink-400/10', path: `/fotowall/${inv.id}`, perm: inv.permissions?.access_fotowall || user.permissions?.access_fotowall },
+                            { label: 'Juegos', icon: 'videogame_asset', color: 'text-orange-400', bg: 'bg-orange-400/10', path: `/games/${inv.id}`, perm: inv.permissions?.access_games || user.permissions?.access_games },
+                            { label: 'Gestión', icon: 'more_horiz', color: 'text-slate-400', bg: 'bg-white/5', path: 'more' }
+                          ].map((btn, idx) => {
+                            const isAction = btn.path === 'share' || btn.path === 'more';
+                            const disabled = (user.role === 'staff' || user.role === 'event_staff') && btn.perm === false;
+
+                            return (
+                              <motion.button
+                                key={idx}
+                                whileHover={!disabled ? { scale: 1.05, y: -2 } : {}}
+                                whileTap={!disabled ? { scale: 0.95 } : {}}
+                                onClick={() => {
+                                  if (btn.path === 'share') handleShareGeneralLink(inv);
+                                  else if (btn.path === 'more') navigate(`/edit/${inv.id}`);
+                                  else navigate(btn.path);
+                                }}
+                                disabled={disabled}
+                                className={`group/btn flex flex-col items-center justify-center gap-2 py-4 rounded-[28px] transition-all relative overflow-hidden active:scale-95 ${disabled
+                                  ? 'bg-white/5 text-slate-600 grayscale cursor-not-allowed opacity-50'
+                                  : btn.bg === 'bg-primary'
+                                    ? 'bg-primary text-white shadow-xl shadow-primary/20 active:bg-primary/80'
+                                    : `${btn.bg} ${btn.color} border border-white/5 hover:border-white/10 active:opacity-70`
+                                  }`}
+                              >
+                                {btn.bg === 'bg-primary' && (
+                                  <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent pointer-events-none"></div>
+                                )}
+                                <span className="material-symbols-outlined text-[22px] icon-filled">{btn.icon}</span>
+                                <span className={`text-[9px] font-black uppercase tracking-widest ${btn.bg === 'bg-primary' ? 'text-white/80' : 'text-slate-500 group-hover/btn:text-white transition-colors'}`}>{btn.label}</span>
+                              </motion.button>
+                            );
+                          })}
+                        </div>
+
+                        {/* BOTTOM STAFF/COSTS MINI BUTTONS */}
+                        {(user.role === 'admin' || user.role === 'subscriber') && (
+                          <div className="grid grid-cols-2 gap-3 mt-3">
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => navigate(`/event-staff/${inv.id}`)}
+                              className="flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-teal-500/10 text-teal-400 border border-white/5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest"
+                            >
+                              <span className="material-symbols-outlined text-lg">badge</span>
+                              Equipo Staff
+                            </motion.button>
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => navigate(`/costs/${inv.id}`)}
+                              className="flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-amber-500/10 text-amber-400 border border-white/5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest"
+                            >
+                              <span className="material-symbols-outlined text-lg">account_balance_wallet</span>
+                              Control Gastos
+                            </motion.button>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="py-32 text-center bg-white/5 backdrop-blur-md rounded-[50px] border border-white/5 block"
+                >
+                  <div className="size-28 bg-white/5 border border-white/10 rounded-full flex items-center justify-center text-slate-700 mx-auto mb-8 shadow-2xl relative">
+                    <div className="absolute inset-0 bg-primary/10 blur-[40px] rounded-full animate-pulse"></div>
+                    <span className="material-symbols-outlined text-6xl relative z-10 text-slate-400 opacity-50">calendar_add_on</span>
+                  </div>
+                  <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-2">
+                    {user.role === 'staff' || user.role === 'event_staff'
+                      ? 'No hay eventos asignados'
+                      : 'Empezá hoy mismo'}
+                  </h3>
+                  <p className="text-slate-500 font-medium mb-10 text-lg">
+                    {user.role === 'staff' || user.role === 'event_staff'
+                      ? 'Contactá al administrador para que te asigne a un evento.'
+                      : 'Tu próximo gran evento extraordinario comienza con un click.'}
+                  </p>
+                  {user.role !== 'staff' && user.role !== 'event_staff' && (
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setShowAddModal(true)}
+                      className="px-10 py-5 bg-primary text-white font-black text-sm uppercase tracking-[0.2em] rounded-full shadow-[0_20px_40px_rgba(19,91,236,0.3)] hover:shadow-primary/50 transition-all border-2 border-white/20"
+                    >
+                      Crear mi Primer Evento
+                    </motion.button>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
-      </div>
+      </main>
 
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300">
-            <form onSubmit={handleCreateEvent} className="p-6 space-y-5">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-lg font-bold">Nuevo Evento</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="size-8 flex items-center justify-center rounded-full bg-slate-50 dark:bg-slate-900 text-slate-400"
-                >
-                  <span className="material-symbols-outlined text-xl">close</span>
-                </button>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre del Evento</label>
-                <input
-                  autoFocus
-                  required
-                  type="text"
-                  value={newEventName}
-                  onChange={(e) => setNewEventName(e.target.value)}
-                  className="w-full rounded-2xl border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-primary focus:border-primary p-4"
-                  placeholder="Ej: Boda de Elena & Marco"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={isCreating}
-                className={`w-full h-14 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/20 active:scale-[0.98] transition-all ${isCreating ? 'opacity-70 cursor-not-allowed' : ''}`}
-              >
-                {isCreating ? 'Creando...' : 'Crear y Personalizar'}
-              </button>
-            </form>
-          </div>
+      {/* FOOTER WATERMARK */}
+      <footer className="mt-20 py-16 px-6 relative overflow-hidden flex flex-col items-center">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+        <img
+          src="/Logo Madiba Tech.jpg"
+          className="h-10 w-auto opacity-10 grayscale brightness-200 mb-6"
+          alt="Madiba Tech"
+        />
+        <div className="relative z-10 text-center space-y-2">
+          <p className="text-white text-[10px] font-black tracking-[0.5em] uppercase opacity-20">Designed by Madiba Tech</p>
+          <p className="text-white/10 text-[9px] font-bold">© 2026 APPXV Platform. Ultra Luxury Edition.</p>
         </div>
-      )}
+      </footer>
+
+      {/* ADD MODAL */}
+      <AnimatePresence>
+        {showAddModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAddModal(false)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
+            ></motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 40 }}
+              className="relative w-full max-w-lg bg-slate-900 border border-white/10 rounded-[50px] overflow-hidden shadow-[0_50px_100px_rgba(0,0,0,0.5)] z-10"
+            >
+              <div className="absolute top-[-50%] right-[-50%] w-full h-full bg-primary/10 blur-[100px] rounded-full"></div>
+
+              <form onSubmit={handleCreateEvent} className="relative z-10 p-10 md:p-14 space-y-8">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-3xl font-black italic uppercase tracking-tighter text-white">Nuevo <span className="text-primary">Evento</span></h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="size-10 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 text-slate-400 transition-colors"
+                  >
+                    <span className="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Nombre del Evento</label>
+                  <input
+                    autoFocus
+                    required
+                    type="text"
+                    value={newEventName}
+                    onChange={(e) => setNewEventName(e.target.value)}
+                    className="w-full bg-white/5 border-2 border-white/5 rounded-3xl p-6 text-white text-lg font-bold placeholder:text-slate-700 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                    placeholder="Ej: Gran Gala Anual 2026"
+                  />
+                  <p className="text-[10px] text-slate-600 font-medium italic ml-1">Podrás personalizar el diseño y detalles en el siguiente paso.</p>
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.02, translateY: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="submit"
+                  disabled={isCreating}
+                  className={`w-full h-16 bg-primary text-white font-black uppercase tracking-[0.2em] rounded-full shadow-[0_20px_40px_rgba(19,91,236,0.3)] transition-all ${isCreating ? 'opacity-70 cursor-not-allowed' : ''} border-2 border-white/20`}
+                >
+                  {isCreating ? 'Procesando...' : 'Crear mi Evento'}
+                </motion.button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
 
 export default DashboardScreen;
+
