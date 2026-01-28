@@ -53,7 +53,7 @@ const RaffleBigScreen: React.FC = () => {
                 {state.participants && state.mode === 'PARTICIPANT' && !isWinner && (
                     <div className="flex items-center gap-2 text-slate-400 font-mono text-sm">
                         <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                        {Object.keys(state.participants).length} Participantes
+                        {Object.values(state.participants).filter((p: any) => p.online).length} Participantes
                     </div>
                 )}
             </div>

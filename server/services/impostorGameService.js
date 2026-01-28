@@ -52,10 +52,27 @@ export const impostorGameService = {
             session.lobby.push({
                 id: player.id,
                 name: player.name,
-                avatar: player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.id}`
+                avatar: player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.id}`,
+                online: true
             });
         }
         return session;
+    },
+
+    setPlayerStatus: (eventId, playerId, isOnline) => {
+        const session = gameSessions.get(eventId);
+        if (session) {
+            // Update in Lobby
+            const lobbyPlayer = session.lobby.find(p => p.id === playerId);
+            if (lobbyPlayer) lobbyPlayer.online = isOnline;
+
+            // Update in Active Game
+            const activePlayer = session.activePlayers.find(p => p.id === playerId);
+            if (activePlayer) activePlayer.online = isOnline;
+
+            return true;
+        }
+        return false;
     },
 
     updateConfig: (eventId, config) => {

@@ -127,7 +127,7 @@ const ImpostorBigScreen: React.FC = () => {
                                 <div className="text-center mt-4">
                                     <span className="inline-flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full text-sm font-bold">
                                         <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                                        {state.lobby.length} conectados
+                                        {state.lobby.filter((p: any) => p.online).length} conectados
                                     </span>
                                 </div>
                             </div>

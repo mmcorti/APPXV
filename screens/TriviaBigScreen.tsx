@@ -86,7 +86,7 @@ const TriviaBigScreen: React.FC = () => {
                     </ol>
                     <div className="mt-6 pt-6 border-t border-white/10">
                         <p className="text-3xl text-pink-400 font-mono animate-pulse">
-                            {Object.keys(gameState.players).length} Jugadores Listos
+                            {Object.values(gameState.players).filter((p: any) => p.online).length} Jugadores Conectados
                         </p>
                     </div>
                 </div>
