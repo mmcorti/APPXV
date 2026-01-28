@@ -658,6 +658,42 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
                                     </div>
                                 </div>
 
+                                {/* Global Time Config */}
+                                <div className="bg-slate-900 rounded-3xl border border-slate-800 p-6 shadow-xl">
+                                    <h2 className="text-xl font-black mb-6 flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-pink-500">timer</span>
+                                        Tiempo Global
+                                    </h2>
+                                    <div className="space-y-4">
+                                        <p className="text-[10px] text-slate-400 font-medium">
+                                            Establece el tiempo de respuesta para <b>todas</b> las preguntas actuales.
+                                            Esto sobrescribirá las configuraciones individuales.
+                                        </p>
+                                        <div className="flex gap-4 items-end">
+                                            <div className="flex-1 space-y-2">
+                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Segundos por pregunta</label>
+                                                <input
+                                                    type="number"
+                                                    value={duration}
+                                                    onChange={(e) => setDuration(Math.max(5, parseInt(e.target.value) || 10))}
+                                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500 transition-colors font-bold"
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={async () => {
+                                                    if (window.confirm(`¿Estás seguro de cambiar el tiempo a ${duration} segundos para TODAS las ${gameState.questions.length} preguntas?`)) {
+                                                        await triviaService.updateAllDurations(eventId!, duration);
+                                                        alert('¡Tiempos actualizados correctamente!');
+                                                    }
+                                                }}
+                                                className="bg-indigo-600 hover:bg-indigo-500 px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-600/20 active:scale-95 whitespace-nowrap"
+                                            >
+                                                APLICAR A TODAS
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {/* Background Config */}
                                 <div className="bg-slate-900 rounded-3xl border border-slate-800 p-6 shadow-xl">
                                     <h2 className="text-xl font-black mb-6 flex items-center gap-2">

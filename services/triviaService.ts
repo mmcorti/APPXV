@@ -110,6 +110,15 @@ export const triviaService = {
         return response.json();
     },
 
+    updateAllDurations: async (eventId: string, durationSeconds: number) => {
+        const response = await fetch(`${API_BASE}/${eventId}/questions/duration`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ durationSeconds }),
+        });
+        return response.json();
+    },
+
     deleteQuestion: async (eventId: string, questionId: string) => {
         const response = await fetch(`${API_BASE}/${eventId}/questions/${questionId}`, {
             method: 'DELETE',
