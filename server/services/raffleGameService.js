@@ -59,10 +59,20 @@ export const raffleGameService = {
         const participant = {
             id,
             name,
-            joinedAt: new Date().toISOString()
+            joinedAt: new Date().toISOString(),
+            online: true
         };
         game.participants[id] = participant;
         return participant;
+    },
+
+    setParticipantStatus: (eventId, participantId, isOnline) => {
+        const game = games[eventId];
+        if (game && game.participants[participantId]) {
+            game.participants[participantId].online = isOnline;
+            return true;
+        }
+        return false;
     },
 
     start: (eventId) => {

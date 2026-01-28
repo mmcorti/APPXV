@@ -111,7 +111,7 @@ const BingoBigScreen: React.FC = () => {
         );
     }
 
-    const playerCount = Object.keys(state.players).length;
+    const playerCount = Object.values(state.players).filter((p: any) => p.online).length;
 
     // Generate QR URL
     const guestUrl = window.location.origin + `/#/bingo/${eventId}/play`;

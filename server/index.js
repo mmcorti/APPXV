@@ -2533,6 +2533,9 @@ app.get('/api/trivia/:eventId/stream', (req, res) => {
     // Update player last seen if they are a participant
     if (clientId && state.players[clientId]) {
         state.players[clientId].lastSeen = Date.now();
+        state.players[clientId].online = true;
+        // If they were offline, broadcast their return immediately
+        broadcastTriviaState(eventId);
     }
 
     res.write(`data: ${JSON.stringify(state)}\n\n`);
@@ -2543,6 +2546,10 @@ app.get('/api/trivia/:eventId/stream', (req, res) => {
         // Update presence if player exists
         if (clientId && state.players[clientId]) {
             state.players[clientId].lastSeen = Date.now();
+            if (!state.players[clientId].online) {
+                state.players[clientId].online = true;
+                broadcastTriviaState(eventId);
+            }
         }
     }, 30000);
 
@@ -2552,9 +2559,11 @@ app.get('/api/trivia/:eventId/stream', (req, res) => {
         clearInterval(keepAlive);
         triviaClients[eventId] = triviaClients[eventId].filter(c => c !== res);
 
-        // NOTE: We do NOT remove players from state on disconnect.
-        // This allows them to refresh the page or lose connection without losing their score/progress.
-        // Players persist until the game is reset by the admin or cleaned up by the garbage collector.
+        // Mark player as offline but persist data
+        if (clientId && state.players[clientId]) {
+            state.players[clientId].online = false;
+            broadcastTriviaState(eventId);
+        }
     });
 });
 
@@ -2784,7 +2793,8 @@ app.post('/api/trivia/:eventId/join', (req, res) => {
             name,
             score: 0,
             answers: {},
-            lastSeen: Date.now()
+            lastSeen: Date.now(),
+            online: true
         };
         broadcastTriviaState(eventId);
     }
@@ -2996,11 +3006,10 @@ app.get('/api/bingo/:eventId/stream', (req, res) => {
         clearInterval(keepAlive);
         bingoClients[eventId] = bingoClients[eventId].filter(c => c !== res);
 
-        // Remove player if they were a participant
+        // Mark player as offline but persist data
         if (clientId && state.players[clientId]) {
-            console.log(`👋 [BINGO] Removing player ${state.players[clientId].name} due to disconnect`);
-            delete state.players[clientId];
-            delete state.cards[clientId];
+            state.players[clientId].online = false;
+            console.log(`👋 [BINGO] Player ${state.players[clientId].name} went offline (persisted)`);
             broadcastBingoState(eventId);
         }
     });
@@ -3194,7 +3203,8 @@ app.post('/api/bingo/:eventId/join', (req, res) => {
     const player = {
         id: playerId,
         name: name || 'Jugador Anónimo',
-        joinedAt: Date.now()
+        joinedAt: Date.now(),
+        online: true
     };
 
     state.players[playerId] = player;
@@ -3329,11 +3339,11 @@ app.get('/api/raffle/:eventId/stream', (req, res) => {
     req.on('close', () => {
         raffleClients[eventId] = raffleClients[eventId].filter(client => client !== res);
 
-        // Remove participant if disconnected
+        // Mark participant as offline if disconnected
         if (clientId) {
-            const removed = raffleGameService.removeParticipant(eventId, clientId);
-            if (removed) {
-                console.log(`👋 [RAFFLE] Removing participant ${clientId} due to disconnect`);
+            const updated = raffleGameService.setParticipantStatus(eventId, clientId, false);
+            if (updated) {
+                console.log(`👋 [RAFFLE] Participant ${clientId} went offline`);
                 broadcastRaffleState(eventId);
             }
         }
@@ -3475,11 +3485,11 @@ app.get('/api/events/:eventId/stream', (req, res) => {
         clearInterval(keepAlive);
         eventClients[eventId] = eventClients[eventId].filter(client => client !== res);
 
-        // Handle Impostor player removal
+        // Handle Impostor player offline
         if (clientId) {
-            const removed = impostorGameService.leaveSession(eventId, clientId);
-            if (removed) {
-                console.log(`👋 [IMPOSTOR] Removing player ${clientId} from lobby due to disconnect`);
+            const updated = impostorGameService.setPlayerStatus(eventId, clientId, false);
+            if (updated) {
+                console.log(`👋 [IMPOSTOR] Player ${clientId} went offline`);
                 broadcastImpostorState(eventId);
             }
         }
