@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePlan } from '../hooks/usePlan';
 import { InvitationData, User } from '../types';
 
 interface Game {
@@ -77,6 +78,7 @@ interface GamesDashboardProps {
 const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { limits } = usePlan();
     const [games] = useState<Game[]>(DEFAULT_GAMES);
     const [connectedDevices, setConnectedDevices] = useState(0);
     const [currentMode] = useState<'Lobby / Idle' | 'Game Active'>('Lobby / Idle');
@@ -139,6 +141,32 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
             </header>
 
             <main className="max-w-7xl mx-auto px-8 py-12">
+                {limits.maxGameParticipants !== Infinity && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mb-12 bg-indigo-900/30 border border-indigo-500/30 rounded-3xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 backdrop-blur-sm"
+                    >
+                        <div className="flex items-start gap-4">
+                            <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400">
+                                <span className="material-symbols-outlined text-2xl">group_add</span>
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-lg text-indigo-100 mb-1">Límite de Jugadores: {limits.maxGameParticipants}</h3>
+                                <p className="text-indigo-200/60 text-sm max-w-md">
+                                    Tu plan actual permite hasta {limits.maxGameParticipants} participantes simultáneos en los juegos interactivos.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => navigate('/prices')}
+                            className="bg-indigo-500 hover:bg-indigo-400 text-white px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-wider shadow-lg shadow-indigo-500/20 transition-all active:scale-95 whitespace-nowrap"
+                        >
+                            Aumentar Límite
+                        </button>
+                    </motion.div>
+                )}
+
                 <div className="mb-14">
                     <h2 className="text-5xl font-black tracking-tighter mb-4">Selecciona una Actividad</h2>
                     <p className="text-slate-400 text-lg max-w-2xl font-medium leading-relaxed">

@@ -95,12 +95,19 @@ export const PlanProvider: React.FC<{ children: ReactNode; userPlan?: string }> 
         // Mapping from lowercase plan names to PLANS_FE keys
         const planMapping: Record<string, string> = {
             'freemium': 'FREE',
+            'free': 'FREE',
+            'general': 'FREE',
             'premium': 'PREMIUM',
+            'invitado especial': 'PREMIUM',
+            'invitado_especial': 'PREMIUM',
+            'special': 'PREMIUM',
             'vip': 'VIP',
             'honor': 'HONOR'
         };
 
-        const key = planMapping[userPlan?.toLowerCase() || ''] || 'FREE';
+        // Standardize input
+        const normalizedInput = (userPlan || '').toLowerCase().trim();
+        const key = planMapping[normalizedInput] || 'FREE';
         const currentPlan = PLANS_FE[key as keyof typeof PLANS_FE] || PLANS_FE.FREE;
         const limits = PLAN_LIMITS_FE[currentPlan as keyof typeof PLAN_LIMITS_FE] || PLAN_LIMITS_FE.freemium;
 

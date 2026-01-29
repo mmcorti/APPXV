@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, InvitationData } from '../types';
 import { UpgradePrompt } from '../components/UpgradePrompt';
-import { usePlan } from '../hooks/usePlan';
+import { usePlan, PLANS_FE } from '../hooks/usePlan';
 
 interface UsageSummary {
   events: { current: number; limit: number; display: string };
@@ -31,6 +31,7 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
   const [isCreating, setIsCreating] = useState(false);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [limitError, setLimitError] = useState<string | null>(null);
+  const { currentPlan, limits } = usePlan(); // Use hook for normalized plan
 
   useEffect(() => {
     const fetchUsage = async () => {
@@ -176,13 +177,13 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
               whileHover={{ scale: 1.05, translateY: -2 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => navigate('/login')} // Redirect to login to re-evaluate plan if they buy
-              className={`hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${user.plan === 'freemium'
+              className={`hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${currentPlan === PLANS_FE.FREE
                 ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_10px_20px_rgba(139,92,246,0.3)]'
                 : 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-[0_10px_20px_rgba(245,158,11,0.3)]'
                 }`}
             >
               <span className="material-symbols-outlined text-[16px]">stars</span>
-              {user.plan === 'freemium' ? 'Mejorar a Premium' : 'Mejorar a VIP'}
+              {currentPlan === PLANS_FE.FREE ? 'Mejorar a Premium' : 'Mejorar a VIP'}
             </motion.button>
           )}
 
@@ -215,7 +216,7 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                 />
               )}
               {/* General upgrade teaser for free users */}
-              {user.plan === 'freemium' && usage.events.current < usage.events.limit && (
+              {currentPlan === PLANS_FE.FREE && usage && usage.events.current < usage.events.limit && (
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-6 text-white shadow-xl flex items-center justify-between border border-white/10">
                   <div>
                     <h3 className="font-bold text-lg mb-1">Mejora tu experiencia</h3>
