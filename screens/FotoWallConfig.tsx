@@ -73,8 +73,9 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
 
   const isAdmin = user?.role === 'admin';
   const isStaff = user?.role === 'staff' || user?.role === 'event_staff';
+  const userPlan = user?.plan || 'freemium';
 
-  const approvedCount = allPhotos.filter(p => !p.isBlocked).length;
+  const approvedCount = (allPhotos || []).filter(p => !p.isBlocked).length;
 
   // Use hook for limits
   const { checkLimit } = usePlan();
@@ -98,7 +99,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
       if (fw.shuffle !== undefined) setShuffle(fw.shuffle);
       if (fw.overlayTitle) setOverlayTitle(fw.overlayTitle);
       if (fw.mode) setMode(fw.mode);
-      if (fw.filters) setFilters(prev => ({ ...prev, ...fw.filters }));
+      if (fw.filters && typeof fw.filters === 'object') setFilters(prev => ({ ...prev, ...fw.filters }));
     } else {
       // Fallback to localStorage for migration or if not yet in DB
       const savedConfig = localStorage.getItem(configKey);
@@ -122,13 +123,13 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
         try {
           const settings = JSON.parse(savedModeration);
           if (settings.mode) setMode(settings.mode);
-          if (settings.filters) setFilters(prev => ({ ...prev, ...settings.filters }));
+          if (settings.filters && typeof settings.filters === 'object') setFilters(prev => ({ ...prev, ...settings.filters }));
         } catch (e) {
           console.error("Error loading moderation settings:", e);
         }
       }
     }
-  }, [event, id]);
+  }, [event?.id, id]);
 
   // Load all photos when moderation tab is active or mode changes
   useEffect(() => {
@@ -195,7 +196,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
       const data = await res.json();
       console.log('[FOTOWALL] Response:', data);
 
-      if (data.photos) {
+      if (data.photos && Array.isArray(data.photos)) {
         setAllPhotos(data.photos);
         setTotalPhotos(data.total || data.photos.length);
         setBlockedCount(data.blocked || 0);

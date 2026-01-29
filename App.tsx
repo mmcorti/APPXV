@@ -512,7 +512,7 @@ const App: React.FC = () => {
   }, [invitations.length, user]);
 
   return (
-    <PlanProvider>
+    <PlanProvider userPlan={user?.plan}>
       <HashRouter>
         <Routes>
           <Route path="/" element={<WelcomeScreen />} />

@@ -89,28 +89,41 @@ interface PlanContextType {
 const PlanContext = createContext<PlanContextType | undefined>(undefined);
 
 export const PlanProvider: React.FC<{ children: ReactNode; userPlan?: string }> = ({ children, userPlan }) => {
-    // Normalize plan or default to free
-    const planKey = (userPlan?.toLowerCase() || DEFAULT_PLAN) as keyof typeof PLAN_LIMITS_FE;
-    const currentPlan = PLANS_FE[planKey.toUpperCase() as keyof typeof PLANS_FE] || PLANS_FE.FREE;
-    const limits = PLAN_LIMITS_FE[currentPlan];
-
-    const checkLimit = (resource: keyof typeof PLAN_LIMITS_FE.freemium, currentCount: number) => {
-        const limit = limits[resource] as number;
-        if (typeof limit !== 'number') return { allowed: true, limit: Infinity, remaining: Infinity };
-
-        return {
-            allowed: currentCount < limit,
-            limit,
-            remaining: Math.max(0, limit - currentCount)
+    // Memoize the context value to prevent unnecessary re-renders of children
+    const value = React.useMemo(() => {
+        // Normalize plan or default to free
+        // Mapping from lowercase plan names to PLANS_FE keys
+        const planMapping: Record<string, string> = {
+            'freemium': 'FREE',
+            'premium': 'PREMIUM',
+            'vip': 'VIP',
+            'honor': 'HONOR'
         };
-    };
 
-    const canAccess = (feature: keyof typeof PLAN_LIMITS_FE.freemium) => {
-        return !!limits[feature];
-    };
+        const key = planMapping[userPlan?.toLowerCase() || ''] || 'FREE';
+        const currentPlan = PLANS_FE[key as keyof typeof PLANS_FE] || PLANS_FE.FREE;
+        const limits = PLAN_LIMITS_FE[currentPlan as keyof typeof PLAN_LIMITS_FE] || PLAN_LIMITS_FE.freemium;
+
+        const checkLimit = (resource: keyof typeof PLAN_LIMITS_FE.freemium, currentCount: number) => {
+            const limit = (limits[resource] as number) ?? 0;
+            if (limit === Infinity) return { allowed: true, limit: Infinity, remaining: Infinity };
+
+            return {
+                allowed: currentCount < limit,
+                limit,
+                remaining: Math.max(0, limit - currentCount)
+            };
+        };
+
+        const canAccess = (feature: keyof typeof PLAN_LIMITS_FE.freemium) => {
+            return !!limits[feature];
+        };
+
+        return { currentPlan, limits, checkLimit, canAccess };
+    }, [userPlan]);
 
     return (
-        <PlanContext.Provider value={{ currentPlan, limits, checkLimit, canAccess }}>
+        <PlanContext.Provider value={value}>
             {children}
         </PlanContext.Provider>
     );
