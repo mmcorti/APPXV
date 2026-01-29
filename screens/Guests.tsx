@@ -286,28 +286,61 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                 <div className="pt-2 border-t border-slate-50 dark:border-slate-700">
                   <p className="text-[9px] font-black text-slate-400 uppercase mb-1.5 font-sans">Invitados que asisten:</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {/* Invitado Principal - con etiqueta de categoría */}
-                    <span className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-1.5">
-                      <span className="size-1.5 bg-green-500 rounded-full"></span>
-                      {g.name}
-                      <span className="text-[8px] text-slate-400 uppercase ml-0.5">({mainGuestLabel})</span>
-                    </span>
+                    {/* Determine display name for main guest: prefer confirmed name from slots if available */}
+                    {(() => {
+                      const getMainCategory = (alloted: GuestAllotment) => {
+                        if (alloted.adults > 0) return 'adults';
+                        if (alloted.teens > 0) return 'teens';
+                        if (alloted.kids > 0) return 'kids';
+                        if (alloted.infants > 0) return 'infants';
+                        return 'adults';
+                      };
+                      const mainCat = getMainCategory(allotted);
+                      const confirmedName = g.status === 'confirmed' && g.companionNames?.[mainCat]?.[0];
+                      const displayName = (confirmedName && confirmedName.trim()) ? confirmedName : g.name;
+
+                      return (
+                        <span className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-1.5">
+                          <span className="size-1.5 bg-green-500 rounded-full"></span>
+                          {displayName}
+                          <span className="text-[8px] text-slate-400 uppercase ml-0.5">({mainGuestLabel})</span>
+                        </span>
+                      );
+                    })()}
 
                     {/* Acompañantes */}
-                    {g.companionNames && [
-                      { list: g.companionNames.adults || [], label: "Adulto" },
-                      { list: g.companionNames.teens || [], label: "Adol." },
-                      { list: g.companionNames.kids || [], label: "Niño" },
-                      { list: g.companionNames.infants || [], label: "Bebé" },
-                    ].map(type =>
-                      type.list.filter(n => n && n.trim() !== "" && n.toLowerCase() !== g.name.toLowerCase()).map((name, idx) => (
-                        <span key={`${type.label}-${idx}`} className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-1.5">
-                          <span className="size-1.5 bg-green-500 rounded-full"></span>
-                          {name}
-                          <span className="text-[8px] text-slate-400 uppercase ml-0.5">({type.label})</span>
-                        </span>
-                      ))
-                    )}
+                    {(() => {
+                      const getMainCategory = (allotted: GuestAllotment) => {
+                        if (allotted.adults > 0) return 'adults';
+                        if (allotted.teens > 0) return 'teens';
+                        if (allotted.kids > 0) return 'kids';
+                        if (allotted.infants > 0) return 'infants';
+                        return 'adults';
+                      };
+                      const mainCategory = getMainCategory(allotted);
+
+                      return g.companionNames && [
+                        { list: (g.companionNames.adults || []).slice(0, confirmed.adults), label: "Adulto", key: 'adults' },
+                        { list: (g.companionNames.teens || []).slice(0, confirmed.teens), label: "Adol.", key: 'teens' },
+                        { list: (g.companionNames.kids || []).slice(0, confirmed.kids), label: "Niño", key: 'kids' },
+                        { list: (g.companionNames.infants || []).slice(0, confirmed.infants), label: "Bebé", key: 'infants' },
+                      ].map(type =>
+                        type.list.filter((n, idx) => {
+                          if (!n || n.trim() === "") return false;
+                          // Skip the main guest slot (always slot 0 of their category)
+                          if (type.key === mainCategory && idx === 0) return false;
+                          // Secondary check: if name matches main guest exactly (case-insensitive)
+                          if (n.toLowerCase() === g.name.toLowerCase()) return false;
+                          return true;
+                        }).map((name, idx) => (
+                          <span key={`${type.label}-${idx}`} className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-1.5">
+                            <span className="size-1.5 bg-green-500 rounded-full"></span>
+                            {name}
+                            <span className="text-[8px] text-slate-400 uppercase ml-0.5">({type.label})</span>
+                          </span>
+                        ))
+                      );
+                    })()}
                   </div>
                 </div>
               )}
