@@ -173,13 +173,14 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
       // 2.5 Filter by Search Query (search main guest name AND companion names)
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
-        const mainNameMatch = g.name.toLowerCase().includes(query);
-        const companionNames = g.companionNames || { adults: [], teens: [], kids: [], infants: [] };
+        const mainNameMatch = (g.name || "").toLowerCase().includes(query);
+
+        const companions = g.companionNames || {};
         const allCompanionNames = [
-          ...companionNames.adults,
-          ...companionNames.teens,
-          ...companionNames.kids,
-          ...companionNames.infants
+          ...(companions.adults || []),
+          ...(companions.teens || []),
+          ...(companions.kids || []),
+          ...(companions.infants || [])
         ];
         const companionMatch = allCompanionNames.some(n => n && n.toLowerCase().includes(query));
 
@@ -294,12 +295,12 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
 
                     {/* Acompañantes */}
                     {g.companionNames && [
-                      { list: g.companionNames.adults, label: "Adulto" },
-                      { list: g.companionNames.teens, label: "Adol." },
-                      { list: g.companionNames.kids, label: "Niño" },
-                      { list: g.companionNames.infants, label: "Bebé" },
+                      { list: g.companionNames.adults || [], label: "Adulto" },
+                      { list: g.companionNames.teens || [], label: "Adol." },
+                      { list: g.companionNames.kids || [], label: "Niño" },
+                      { list: g.companionNames.infants || [], label: "Bebé" },
                     ].map(type =>
-                      type.list?.filter(n => n.trim() !== "" && n.toLowerCase() !== g.name.toLowerCase()).map((name, idx) => (
+                      type.list.filter(n => n && n.trim() !== "" && n.toLowerCase() !== g.name.toLowerCase()).map((name, idx) => (
                         <span key={`${type.label}-${idx}`} className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-1.5">
                           <span className="size-1.5 bg-green-500 rounded-full"></span>
                           {name}
