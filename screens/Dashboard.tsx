@@ -149,7 +149,20 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
             <img src={user.avatar} className="relative z-10 size-12 rounded-full border-2 border-white/10 shadow-xl object-cover" alt={user.name} />
           </motion.div>
           <div>
-            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest leading-none mb-1 opacity-50">Event Manager</p>
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest leading-none opacity-50">Event Manager</p>
+              <div className={`
+                px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tighter border
+                ${currentPlan === PLANS_FE.FREE ? 'bg-slate-500/10 text-slate-400 border-slate-500/20' :
+                  currentPlan === PLANS_FE.PREMIUM ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                    currentPlan === PLANS_FE.VIP ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                      'bg-purple-500/10 text-purple-400 border-purple-500/20'}
+              `}>
+                {currentPlan === PLANS_FE.FREE ? 'Free' :
+                  currentPlan === PLANS_FE.PREMIUM ? 'Premium' :
+                    currentPlan === PLANS_FE.VIP ? 'VIP' : 'Honor'}
+              </div>
+            </div>
             <h2 className="text-white text-lg font-black italic tracking-tight leading-none truncate max-w-[150px]">{user.name}</h2>
           </div>
         </div>
@@ -217,12 +230,12 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
               )}
               {/* General upgrade teaser for free users */}
               {currentPlan === PLANS_FE.FREE && usage && usage.events.current < usage.events.limit && (
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-6 text-white shadow-xl flex items-center justify-between border border-white/10">
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[40px] p-8 text-white shadow-2xl flex items-center justify-between border border-white/10">
                   <div>
-                    <h3 className="font-bold text-lg mb-1">Mejora tu experiencia</h3>
+                    <h3 className="font-bold text-xl mb-1 tracking-tight">Mejora tu experiencia</h3>
                     <p className="text-sm text-blue-100/80">Accede a IA, más invitados y herramientas premium.</p>
                   </div>
-                  <button onClick={() => navigate('/prices')} className="bg-white text-blue-600 px-5 py-2.5 rounded-xl text-xs font-bold uppercase shadow-sm hover:shadow-md transition-all">Ver Planes</button>
+                  <button onClick={() => navigate('/prices')} className="bg-white text-blue-600 px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-lg hover:shadow-xl transition-all">Ver Planes</button>
                 </div>
               )}
             </motion.div>
@@ -288,8 +301,8 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                     whileHover={{ scale: 1.05, translateY: -2 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => canCreateEvent ? setShowAddModal(true) : setLimitError(`Límite de eventos alcanzado (${usage?.events.display})`)}
-                    className={`flex items-center gap-2 px-8 py-3 rounded-2xl shadow-2xl transition-all text-xs font-black uppercase tracking-widest ${canCreateEvent
-                      ? 'bg-primary text-white shadow-primary/20 hover:shadow-primary/40'
+                    className={`flex items-center gap-2 px-8 py-3.5 rounded-[20px] shadow-2xl transition-all text-[11px] font-black uppercase tracking-widest ${canCreateEvent
+                      ? 'bg-primary text-white shadow-primary/30 hover:shadow-primary/50'
                       : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50'}`}
                   >
                     <span className="material-symbols-outlined text-[18px]">add_circle</span>

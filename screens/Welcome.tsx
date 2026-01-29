@@ -24,7 +24,8 @@ const WelcomeScreen: React.FC = () => {
       ],
       buttonText: 'EMPEZAR GRATIS',
       buttonAction: () => navigate('/login'),
-      color: 'bg-[#135bec]',
+      color: 'bg-slate-700',
+      textColor: 'text-slate-500',
       isPopular: false
     },
     {
@@ -42,7 +43,8 @@ const WelcomeScreen: React.FC = () => {
       ],
       buttonText: 'ELEGIR ESPECIAL',
       buttonAction: () => navigate('/login'),
-      color: 'bg-[#135bec]',
+      color: 'bg-gradient-to-br from-blue-600 to-indigo-700',
+      textColor: 'text-blue-900',
       isPopular: true
     },
     {
@@ -60,7 +62,8 @@ const WelcomeScreen: React.FC = () => {
       ],
       buttonText: 'ELEGIR VIP',
       buttonAction: () => navigate('/login'),
-      color: 'bg-[#135bec]',
+      color: 'bg-gradient-to-br from-amber-400 to-orange-600',
+      textColor: 'text-amber-600',
       isPopular: false
     },
     {
@@ -79,9 +82,10 @@ const WelcomeScreen: React.FC = () => {
       ],
       buttonText: 'CONTACTAR AHORA',
       buttonAction: () => window.location.href = 'mailto:tech@madiba.com.ar',
-      color: 'bg-gradient-to-r from-[#b89b5e] to-[#d4af37]',
+      color: 'bg-gradient-to-br from-purple-600 to-fuchsia-700',
+      textColor: 'text-purple-700',
       isPopular: false
-    }
+    },
   ];
 
   return (
@@ -198,7 +202,7 @@ const WelcomeScreen: React.FC = () => {
                 </div>
 
                 <div className="p-10 flex-1 flex flex-col items-center">
-                  <p className={`text-4xl font-black mb-8 tracking-tighter ${plan.name === 'INVITADO DE HONOR' ? 'text-[#a37e4c]' : 'text-slate-900'}`}>{plan.price}</p>
+                  <p className={`text-4xl font-black mb-8 tracking-tighter ${plan.textColor}`}>{plan.price}</p>
 
                   <ul className="space-y-4 mb-10 w-full">
                     {plan.features.map((feat, i) => (
@@ -211,11 +215,9 @@ const WelcomeScreen: React.FC = () => {
 
                   <button
                     onClick={plan.buttonAction}
-                    className={`w-full py-4 rounded-3xl font-black text-sm uppercase tracking-wider transition-all transform active:scale-95 ${plan.isPopular
-                      ? 'bg-[#135bec] text-white shadow-[0_10px_20px_rgba(19,91,236,0.3)]'
-                      : plan.name === 'INVITADO DE HONOR'
-                        ? 'bg-[#efe6da] text-[#a37e4c] hover:bg-[#eaddcc]'
-                        : 'bg-slate-50 text-slate-800 hover:bg-slate-100'
+                    className={`w-full py-4 rounded-[24px] font-black text-sm uppercase tracking-wider transition-all transform active:scale-95 ${plan.isPopular
+                      ? 'bg-blue-600 text-white shadow-[0_10px_20px_rgba(37,99,235,0.3)]'
+                      : 'bg-slate-50 text-slate-800 hover:bg-slate-100 border border-slate-200'
                       }`}
                   >
                     {plan.buttonText}
