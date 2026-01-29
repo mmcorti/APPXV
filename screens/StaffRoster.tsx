@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '../types';
-import PlanUpgradeBanner from '../components/PlanUpgradeBanner';
+import { UpgradePrompt } from '../components/UpgradePrompt';
+import { usePlan } from '../hooks/usePlan';
 
 interface StaffRosterProps {
     user: User;
@@ -18,6 +19,7 @@ interface RosterMember {
 
 const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
     const navigate = useNavigate();
+    const { checkLimit } = usePlan();
     const [roster, setRoster] = useState<RosterMember[]>([]);
     const [loading, setLoading] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
@@ -62,13 +64,9 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
         }
 
         // Limit Enforcement
-        const isAdmin = user.role === 'admin';
-        const plan = isAdmin ? 'vip' : (user.plan || 'freemium');
-        const limits = { freemium: 3, premium: 20, vip: Infinity };
-        const limit = limits[plan as keyof typeof limits] || 3;
-
-        if (!isAdmin && roster.length >= limit) {
-            alert(`Has alcanzado el límite de ${limit} miembros para tu plan ${plan.toUpperCase()}. Por favor, sube de nivel tu plan para agregar más.`);
+        const limitCheck = checkLimit('maxStaffRoster', roster.length);
+        if (!limitCheck.allowed) {
+            alert(`Has alcanzado el límite de ${limitCheck.limit} miembros. Por favor, sube de nivel tu plan.`);
             return;
         }
 
@@ -139,16 +137,14 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
                 </button>
             </div>
 
-            {user.role !== 'admin' && (
-                <div className="mb-6">
-                    <PlanUpgradeBanner
-                        currentPlan={user.plan as any}
-                        resourceType="staff"
-                        current={roster.length}
-                        limit={(user.plan === 'vip' ? Infinity : (user.plan === 'premium' ? 20 : 3))}
-                    />
-                </div>
-            )}
+            <div className="mb-6">
+                <UpgradePrompt
+                    resourceName="miembros del staff"
+                    currentCount={roster.length}
+                    limit={checkLimit('maxStaffRoster', roster.length).limit}
+                    showAlways={true}
+                />
+            </div>
 
             {isCreating && (
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8 animate-fade-in">

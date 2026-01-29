@@ -4,36 +4,78 @@
  */
 
 // Plan configuration constants
+// Plan names mapping context for clearer usage
+export const PLANS = {
+    FREE: 'freemium',
+    PREMIUM: 'premium',
+    VIP: 'vip',
+    HONOR: 'honor'
+};
+
 export const PLAN_LIMITS = {
     freemium: {
         maxEvents: 1,
-        maxGuestsPerEvent: 50,
-        maxSubscribers: 0, // Only ADMIN can create subscribers
+        maxGuestsPerEvent: 40,
+        maxSubscribers: 0,
         maxStaffRoster: 3,
         maxPhotosPerEvent: 20,
         maxTriviaQuestions: 5,
         maxGameParticipants: 20,
-        aiFeatures: false
+        maxExpenses: 10,
+        maxSuppliers: 3,
+        maxParticipants: 2,
+        aiFeatures: false,
+        aiModeration: false,
+        moderation: 'manual', // manual, ai-basic, ai-advanced
+        gameAi: false
     },
     premium: {
-        maxEvents: 10,
-        maxGuestsPerEvent: 200,
-        maxSubscribers: 0, // Only ADMIN can create subscribers
+        maxEvents: 5,
+        maxGuestsPerEvent: 100,
+        maxSubscribers: 0,
         maxStaffRoster: 20,
         maxPhotosPerEvent: 200,
         maxTriviaQuestions: 40,
         maxGameParticipants: 120,
-        aiFeatures: true
+        maxExpenses: 50,
+        maxSuppliers: 20,
+        maxParticipants: 10,
+        aiFeatures: true,
+        aiModeration: true, // Google Vision
+        moderation: 'ai-basic',
+        gameAi: true
     },
     vip: {
-        maxEvents: Infinity,
-        maxGuestsPerEvent: Infinity,
-        maxSubscribers: 0, // Only ADMIN can create subscribers
-        maxStaffRoster: Infinity,
-        maxPhotosPerEvent: 1000,
+        maxEvents: 20,
+        maxGuestsPerEvent: 200,
+        maxSubscribers: 0,
+        maxStaffRoster: 50,
+        maxPhotosPerEvent: 500,
         maxTriviaQuestions: Infinity,
         maxGameParticipants: 300,
-        aiFeatures: true
+        maxExpenses: 500,
+        maxSuppliers: 50,
+        maxParticipants: 50,
+        aiFeatures: true,
+        aiModeration: true, // Advanced
+        moderation: 'ai-advanced',
+        gameAi: true
+    },
+    honor: {
+        maxEvents: 100,
+        maxGuestsPerEvent: 1000,
+        maxSubscribers: Infinity,
+        maxStaffRoster: 100,
+        maxPhotosPerEvent: 2000,
+        maxTriviaQuestions: Infinity,
+        maxGameParticipants: 1000,
+        maxExpenses: Infinity,
+        maxSuppliers: Infinity,
+        maxParticipants: Infinity,
+        aiFeatures: true,
+        aiModeration: true,
+        moderation: 'ai-advanced',
+        gameAi: true
     }
 };
 
@@ -86,6 +128,18 @@ export const checkLimit = ({ plan, resource, currentCount }) => {
         case 'bingoParticipants': // Backwards compatibility
             limit = limits.maxGameParticipants;
             resourceName = 'participantes del juego';
+            break;
+        case 'expenses':
+            limit = limits.maxExpenses;
+            resourceName = 'gastos';
+            break;
+        case 'suppliers':
+            limit = limits.maxSuppliers;
+            resourceName = 'proveedores';
+            break;
+        case 'participants': // Payment participants
+            limit = limits.maxParticipants;
+            resourceName = 'participantes de gastos';
             break;
         case 'subscribers':
             // Subscribers can only be created by admins
@@ -142,6 +196,16 @@ export const getUsageSummary = (counts, plan) => {
             current: counts.staffRoster || 0,
             limit: limits.maxStaffRoster,
             display: `${counts.staffRoster || 0}/${limits.maxStaffRoster === Infinity ? '∞' : limits.maxStaffRoster}`
+        },
+        expenses: {
+            current: counts.expenses || 0,
+            limit: limits.maxExpenses,
+            display: `${counts.expenses || 0}/${limits.maxExpenses === Infinity ? '∞' : limits.maxExpenses}`
+        },
+        suppliers: {
+            current: counts.suppliers || 0,
+            limit: limits.maxSuppliers,
+            display: `${counts.suppliers || 0}/${limits.maxSuppliers === Infinity ? '∞' : limits.maxSuppliers}`
         },
         plan: plan,
         aiFeatures: limits.aiFeatures

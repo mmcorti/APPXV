@@ -10,47 +10,74 @@ const WelcomeScreen: React.FC = () => {
 
   const plans = [
     {
-      name: 'FREEMIUM',
-      price: '$0',
+      name: 'INVITADO GENERAL',
+      price: 'Free',
       features: [
         '1 Evento',
-        '50 Invitados',
+        '40 Invitados',
+        'Mesas Ilimitadas',
+        'Invitaciones Digitales Ilimitadas',
         '3 Staff',
+        'Control Hasta 10 Gastos, 3 Proveedores, 2 participantes',
         'FotoWall Básico (20 fotos)',
         'Moderación Manual'
       ],
-      buttonText: 'Comenzar Gratis',
+      buttonText: 'EMPEZAR GRATIS',
       buttonAction: () => navigate('/login'),
       color: 'bg-[#135bec]',
       isPopular: false
     },
     {
-      name: 'PREMIUM',
+      name: 'INVITADO ESPECIAL',
       price: '$25.000',
       features: [
         '5 Eventos',
-        '200 Invitados',
+        '100 Invitados',
+        'Mesas Ilimitadas',
+        'Invitaciones Digitales Ilimitadas',
         '20 Staff',
+        'Control Hasta 50 Gastos, 20 Proveedores, 10 participantes',
         'FotoWall Pro (200 fotos)',
-        'Moderación IA Google Vision'
+        'Uso de IA en Games Sí'
       ],
-      buttonText: 'Elegir Premium',
+      buttonText: 'ELEGIR ESPECIAL',
       buttonAction: () => navigate('/login'),
       color: 'bg-[#135bec]',
       isPopular: true
     },
     {
-      name: 'VIP',
-      price: '$250.000',
+      name: 'INVITADO VIP',
+      price: '$75.000',
       features: [
-        'Eventos Ilimitados',
-        'Invitados Ilimitados',
-        'Staff Ilimitado',
-        'FotoWall Enterprise (1,000 fotos)',
-        'Moderación IA Avanzada',
-        'Soporte prioritario'
+        '20 Eventos',
+        '200 Invitados',
+        'Mesas Ilimitadas',
+        'Invitaciones Digitales Ilimitadas',
+        '50 Staff',
+        'Hasta 500 Gastos, 50 Proveedores, 50 participantes',
+        'FotoWall Premium (500 fotos)',
+        'Moderación Automática IA'
       ],
-      buttonText: 'Contactar para VIP',
+      buttonText: 'ELEGIR VIP',
+      buttonAction: () => navigate('/login'),
+      color: 'bg-[#135bec]',
+      isPopular: false
+    },
+    {
+      name: 'INVITADO DE HONOR',
+      price: 'Contáctanos',
+      features: [
+        '100 Eventos',
+        '1.000 Invitados',
+        'Mesas Ilimitadas',
+        'Invitaciones Digitales Ilimitadas',
+        '100 Staff',
+        'Control Ilimitado',
+        'FotoWall Ultra (2.000 fotos)',
+        'Moderación Automática IA',
+        'Uso de IA en Games Sí'
+      ],
+      buttonText: 'CONTACTAR AHORA',
       buttonAction: () => window.location.href = 'mailto:tech@madiba.com.ar',
       color: 'bg-gradient-to-r from-[#b89b5e] to-[#d4af37]',
       isPopular: false
@@ -142,29 +169,36 @@ const WelcomeScreen: React.FC = () => {
       <section className="py-24 px-6 bg-slate-950">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-black text-white uppercase tracking-tighter italic mb-4">Planes a tu Medida</h2>
-            <p className="text-slate-500">Escala tu evento según tus necesidades.</p>
+            <h2 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mb-4">Planes adaptados a tus invitados</h2>
+            <p className="text-slate-500 text-lg">Escoge el plan ideal según el <span className="text-white font-bold">tipo de invitados</span> en tu evento.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {plans.map((plan, idx) => (
               <div
                 key={idx}
-                className={`relative bg-white rounded-[40px] flex flex-col shadow-2xl transition-all duration-300 hover:scale-[1.02] ${plan.isPopular ? 'ring-[4px] ring-primary border-transparent' : 'border border-slate-100'}`}
+                className={`relative bg-white rounded-[40px] flex flex-col shadow-2xl transition-all duration-300 hover:scale-[1.02] ${plan.isPopular ? 'ring-[4px] ring-[#135bec] border-transparent' : 'border border-slate-100'}`}
               >
-                {plan.isPopular && (
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-5 py-2 rounded-full shadow-xl flex items-center gap-2 z-20 border border-slate-100">
-                    <span className="material-symbols-outlined text-[16px] text-primary font-black">star_rate</span>
-                    <span className="text-[11px] font-black text-slate-800 uppercase tracking-widest leading-none">Más Elegido</span>
-                  </div>
-                )}
-
-                <div className={`${plan.color} py-8 px-4 text-center shadow-inner`}>
-                  <h3 className="text-white text-xl font-black tracking-[0.2em]">{plan.name}</h3>
+                <div className={`${plan.color} py-8 px-4 text-center shadow-inner relative overflow-hidden`}>
+                  {plan.isPopular && (
+                    <>
+                      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 bg-white px-5 py-1 rounded-b-xl shadow-xl z-20 flex items-center gap-1 border-x border-b border-slate-100">
+                        <span className="material-symbols-outlined text-[12px] text-primary font-black">star</span>
+                        <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest leading-none">Más Elegido</span>
+                      </div>
+                      <div className="mt-4">
+                        <h3 className="text-white text-lg font-black tracking-tight">{plan.name}</h3>
+                        <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Más Elegido</p>
+                      </div>
+                    </>
+                  )}
+                  {!plan.isPopular && (
+                    <h3 className="text-white text-lg font-black tracking-tight">{plan.name}</h3>
+                  )}
                 </div>
 
                 <div className="p-10 flex-1 flex flex-col items-center">
-                  <p className="text-slate-900 text-4xl font-black mb-8 tracking-tighter">{plan.price}</p>
+                  <p className={`text-4xl font-black mb-8 tracking-tighter ${plan.name === 'INVITADO DE HONOR' ? 'text-[#a37e4c]' : 'text-slate-900'}`}>{plan.price}</p>
 
                   <ul className="space-y-4 mb-10 w-full">
                     {plan.features.map((feat, i) => (
@@ -177,9 +211,11 @@ const WelcomeScreen: React.FC = () => {
 
                   <button
                     onClick={plan.buttonAction}
-                    className={`w-full py-4 rounded-full font-black text-xs uppercase tracking-widest transition-all transform active:scale-95 ${plan.isPopular
-                      ? 'bg-primary text-white shadow-[0_10px_30px_rgba(19,91,236,0.3)]'
-                      : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
+                    className={`w-full py-4 rounded-3xl font-black text-sm uppercase tracking-wider transition-all transform active:scale-95 ${plan.isPopular
+                      ? 'bg-[#135bec] text-white shadow-[0_10px_20px_rgba(19,91,236,0.3)]'
+                      : plan.name === 'INVITADO DE HONOR'
+                        ? 'bg-[#efe6da] text-[#a37e4c] hover:bg-[#eaddcc]'
+                        : 'bg-slate-50 text-slate-800 hover:bg-slate-100'
                       }`}
                   >
                     {plan.buttonText}
@@ -189,10 +225,10 @@ const WelcomeScreen: React.FC = () => {
             ))}
           </div>
         </div>
-      </section>
+      </section >
 
       {/* FOOTER */}
-      <footer className="py-12 px-6 bg-slate-900 border-t border-white/5 text-center">
+      < footer className="py-12 px-6 bg-slate-900 border-t border-white/5 text-center" >
         <div className="max-w-7xl mx-auto flex flex-col items-center gap-6">
           <img src="/Logo Madiba Tech.jpg" className="h-12 w-auto opacity-50 grayscale" alt="Logo Footer" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           <div className="space-y-2">
@@ -201,8 +237,8 @@ const WelcomeScreen: React.FC = () => {
             <p className="text-primary text-xs font-bold hover:underline cursor-pointer mt-2">tech@madib.com.ar</p>
           </div>
         </div>
-      </footer>
-    </div>
+      </footer >
+    </div >
   );
 };
 

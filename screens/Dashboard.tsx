@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, InvitationData } from '../types';
-import PlanUpgradeBanner from '../components/PlanUpgradeBanner';
+import { UpgradePrompt } from '../components/UpgradePrompt';
+import { usePlan } from '../hooks/usePlan';
 
 interface UsageSummary {
   events: { current: number; limit: number; display: string };
@@ -198,20 +199,31 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         <AnimatePresence>
-          {usage && user.role !== 'admin' && user.plan !== 'vip' && (
+          {usage && (
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="mb-8"
+              className="mb-8 space-y-4"
             >
-              <PlanUpgradeBanner
-                currentPlan={user.plan as 'freemium' | 'premium' | 'vip'}
-                resourceType="events"
-                current={usage.events.current}
-                limit={usage.events.limit}
-                className="rounded-3xl border border-white/10 overflow-hidden shadow-2xl"
-              />
+              {/* Show prompts for events if limit reached */}
+              {usage.events.current >= usage.events.limit && (
+                <UpgradePrompt
+                  resourceName="eventos"
+                  currentCount={usage.events.current}
+                  limit={usage.events.limit}
+                />
+              )}
+              {/* General upgrade teaser for free users */}
+              {user.plan === 'freemium' && usage.events.current < usage.events.limit && (
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-6 text-white shadow-xl flex items-center justify-between border border-white/10">
+                  <div>
+                    <h3 className="font-bold text-lg mb-1">Mejora tu experiencia</h3>
+                    <p className="text-sm text-blue-100/80">Accede a IA, más invitados y herramientas premium.</p>
+                  </div>
+                  <button onClick={() => navigate('/prices')} className="bg-white text-blue-600 px-5 py-2.5 rounded-xl text-xs font-bold uppercase shadow-sm hover:shadow-md transition-all">Ver Planes</button>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

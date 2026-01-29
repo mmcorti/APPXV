@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { notionService } from '../services/notion';
 import { InvitationData } from '../types';
+import { UpgradePrompt } from '../components/UpgradePrompt';
+import { usePlan } from '../hooks/usePlan';
 
 interface Expense {
     id: string;
@@ -26,6 +28,8 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
     const [filter, setFilter] = useState<'all' | 'Pagado' | 'Pendiente' | 'Adelanto'>('all');
 
     const event = invitations.find(inv => inv.id === id);
+    const { checkLimit } = usePlan();
+    const limitCheck = checkLimit('maxExpenses', expenses.length);
 
     useEffect(() => {
         if (id) loadExpenses();
@@ -145,6 +149,15 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
                     </div>
                 </div>
 
+                {/* Plan Limit Upgrade */}
+                <div className="px-4 mb-4">
+                    <UpgradePrompt
+                        resourceName="gastos"
+                        currentCount={expenses.length}
+                        limit={limitCheck.limit}
+                    />
+                </div>
+
                 {/* Filter Tabs */}
                 <div className="px-4 py-2 flex gap-2 overflow-x-auto hide-scrollbar">
                     {(['all', 'Pagado', 'Pendiente', 'Adelanto'] as const).map(f => (
@@ -250,14 +263,17 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
                     <span className="material-symbols-outlined">category</span>
                 </button>
                 <button
-                    onClick={() => navigate(`/costs/${id}/add`)}
-                    className="size-16 rounded-full bg-primary text-[#102218] flex items-center justify-center shadow-xl shadow-primary/20 hover:scale-105 transition-transform"
+                    onClick={() => {
+                        if (!limitCheck.allowed) alert(`Límite de ${limitCheck.limit} gastos alcanzado. Mejora tu plan.`);
+                        else navigate(`/costs/${id}/add`);
+                    }}
+                    className={`size-16 rounded-full flex items-center justify-center shadow-xl transition-transform ${limitCheck.allowed ? 'bg-primary text-[#102218] hover:scale-105' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}
                     title="Agregar Gasto"
                 >
                     <span className="material-symbols-outlined text-3xl font-bold">add</span>
                 </button>
             </div>
-        </div>
+        </div >
     );
 };
 

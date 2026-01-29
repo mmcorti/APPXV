@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { notionService } from '../services/notion';
+import { UpgradePrompt } from '../components/UpgradePrompt';
+import { usePlan } from '../hooks/usePlan';
 
 interface Participant {
     id: string;
@@ -13,6 +15,8 @@ const Participants: React.FC = () => {
     const { id: eventId } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [participants, setParticipants] = useState<Participant[]>([]);
+    const { checkLimit } = usePlan();
+    const limitCheck = checkLimit('maxParticipants', participants.length);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({ name: '', weight: 1 });
@@ -83,11 +87,16 @@ const Participants: React.FC = () => {
                 <h2 className="text-lg font-bold leading-tight flex-1 text-center">Participantes</h2>
                 <div className="flex w-12 items-center justify-end">
                     <button
-                        onClick={() => { setShowForm(true); setEditingId(null); setFormData({ name: '', weight: 1 }); }}
-                        className="flex cursor-pointer items-center justify-center rounded-full h-10 w-10 bg-primary text-background-dark shadow-lg active:scale-95 transition-transform"
+                        onClick={() => {
+                            if (!limitCheck.allowed) alert(`Límite de ${limitCheck.limit} participantes alcanzado.`);
+                            else { setShowForm(true); setEditingId(null); setFormData({ name: '', weight: 1 }); }
+                        }}
+                        className={`flex cursor-pointer items-center justify-center rounded-full h-10 w-10 text-background-dark shadow-lg active:scale-95 transition-transform ${limitCheck.allowed ? 'bg-primary' : 'bg-slate-300 cursor-not-allowed'}`}
                     >
                         <span className="material-symbols-outlined text-2xl">add</span>
                     </button>
+                    {/* Only show import button if space available */}
+                    {/* Only show import button if space available */}
                     <button
                         onClick={async () => {
                             if (!confirm('¿Importar miembros del Staff asignados a este evento? Se agregarán con peso 0 (solo registro de pagos).')) return;
@@ -117,6 +126,15 @@ const Participants: React.FC = () => {
                     <p className="text-sm text-slate-500 dark:text-slate-400">
                         Agrega a las personas que participan del reparto de gastos.
                     </p>
+                </div>
+
+                {/* Plan Limit Upgrade */}
+                <div className="px-4 mb-4">
+                    <UpgradePrompt
+                        resourceName="participantes"
+                        currentCount={participants.length}
+                        limit={limitCheck.limit}
+                    />
                 </div>
 
                 {loading ? (
@@ -160,49 +178,51 @@ const Participants: React.FC = () => {
             </main>
 
             {/* Add/Edit Form Modal */}
-            {showForm && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center">
-                    <div className="bg-white dark:bg-[#193324] w-full max-w-md rounded-t-3xl p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-lg font-bold">{editingId ? 'Editar Participante' : 'Nuevo Participante'}</h3>
-                            <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600">
-                                <span className="material-symbols-outlined">close</span>
-                            </button>
-                        </div>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <input
-                                type="text"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                placeholder="Nombre"
-                                className="w-full h-12 bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 text-base"
-                                required
-                            />
-                            <div>
-                                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">
-                                    Peso en el reparto (ej: 1 = parte igual, 2 = paga doble)
-                                </label>
-                                <input
-                                    type="number"
-                                    value={formData.weight}
-                                    onChange={(e) => setFormData({ ...formData, weight: parseFloat(e.target.value) || 1 })}
-                                    min="0.1"
-                                    step="0.1"
-                                    className="w-full h-12 bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 text-base"
-                                />
+            {
+                showForm && (
+                    <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center">
+                        <div className="bg-white dark:bg-[#193324] w-full max-w-md rounded-t-3xl p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-lg font-bold">{editingId ? 'Editar Participante' : 'Nuevo Participante'}</h3>
+                                <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600">
+                                    <span className="material-symbols-outlined">close</span>
+                                </button>
                             </div>
-                            <button
-                                type="submit"
-                                disabled={saving || !formData.name}
-                                className="w-full bg-primary text-background-dark font-bold h-14 rounded-xl disabled:opacity-50"
-                            >
-                                {saving ? 'Guardando...' : (editingId ? 'Actualizar' : 'Agregar')}
-                            </button>
-                        </form>
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <input
+                                    type="text"
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    placeholder="Nombre"
+                                    className="w-full h-12 bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 text-base"
+                                    required
+                                />
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">
+                                        Peso en el reparto (ej: 1 = parte igual, 2 = paga doble)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={formData.weight}
+                                        onChange={(e) => setFormData({ ...formData, weight: parseFloat(e.target.value) || 1 })}
+                                        min="0.1"
+                                        step="0.1"
+                                        className="w-full h-12 bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-4 text-base"
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={saving || !formData.name}
+                                    className="w-full bg-primary text-background-dark font-bold h-14 rounded-xl disabled:opacity-50"
+                                >
+                                    {saving ? 'Guardando...' : (editingId ? 'Actualizar' : 'Agregar')}
+                                </button>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 

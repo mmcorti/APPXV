@@ -42,6 +42,7 @@ import ImpostorGuest from './screens/ImpostorGuest';
 import GoogleCallbackScreen from './screens/GoogleCallback';
 import { InvitationData, User, Guest, Table, SeatedGuest, StaffPermissions } from './types';
 import { notionService } from './services/notion';
+import { PlanProvider } from './hooks/usePlan';
 
 const INITIAL_INVITATION: InvitationData = {
   id: '1',
@@ -769,6 +770,7 @@ const App: React.FC = () => {
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </HashRouter>
+    </PlanProvider >
   );
 };
 

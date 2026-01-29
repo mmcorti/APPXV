@@ -2,7 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { InvitationData, Guest, GuestAllotment, GuestCompanionNames, User } from '../types';
-import PlanUpgradeBanner from '../components/PlanUpgradeBanner';
+import { UpgradePrompt } from '../components/UpgradePrompt';
+import { usePlan } from '../hooks/usePlan';
 
 interface GuestsScreenProps {
   invitations: InvitationData[];
@@ -13,16 +14,11 @@ interface GuestsScreenProps {
 
 type GuestFilter = 'all' | 'confirmed' | 'declined' | 'pending';
 
-// Plan limits for guests
-const GUEST_LIMITS = {
-  freemium: 50,
-  premium: 200,
-  vip: Infinity
-};
 
 const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, onDeleteGuest, user }) => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { checkLimit } = usePlan();
   const invitation = invitations.find(inv => inv.id === id);
 
   const [filter, setFilter] = useState<GuestFilter>('all');
@@ -103,6 +99,8 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
 
     return { total, si, no, pend, catTotal, catSi, catNo, catPend };
   }, [invitation.guests]);
+
+  const limitCheck = checkLimit('maxGuestsPerEvent', stats.total);
 
 
   const handleSendWhatsApp = (guest: Guest) => {
@@ -401,28 +399,36 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
         <h1 className="text-base font-bold">Invitados & Confirmaciones</h1>
-        <button onClick={() => {
-          setEditingId(null);
-          setCurrentGuest({
-            name: '',
-            allotted: { adults: 0, teens: 0, kids: 0, infants: 0 },
-            companionNames: { adults: [], teens: [], kids: [], infants: [] }
-          });
-          setShowModal('add');
-        }} className="text-primary font-bold text-xs uppercase bg-primary/5 px-3 py-1.5 rounded-lg border border-primary/10">NUEVO</button>
+        <button
+          onClick={() => {
+            if (!limitCheck.allowed) return;
+            setEditingId(null);
+            setCurrentGuest({
+              name: '',
+              allotted: { adults: 0, teens: 0, kids: 0, infants: 0 },
+              companionNames: { adults: [], teens: [], kids: [], infants: [] }
+            });
+            setShowModal('add');
+          }}
+          className={`font-bold text-xs uppercase px-3 py-1.5 rounded-lg border transition-all ${limitCheck.allowed
+            ? 'text-primary bg-primary/5 border-primary/10 hover:bg-primary/10'
+            : 'text-slate-400 bg-slate-100 border-slate-200 cursor-not-allowed'
+            }`}
+          disabled={!limitCheck.allowed}
+        >
+          {limitCheck.allowed ? 'NUEVO' : 'LÍMITE ALCANZADO'}
+        </button>
       </header>
 
       {/* Plan Upgrade Banner for Guests */}
-      {user && user.role !== 'admin' && user.plan !== 'vip' && (
-        <div className="px-4 pt-2">
-          <PlanUpgradeBanner
-            currentPlan={user.plan as 'freemium' | 'premium' | 'vip'}
-            resourceType="guests"
-            current={stats.total}
-            limit={GUEST_LIMITS[user.plan as keyof typeof GUEST_LIMITS] || 50}
-          />
-        </div>
-      )}
+      <div className="px-4 pt-2">
+        <UpgradePrompt
+          resourceName="invitados"
+          currentCount={stats.total}
+          limit={limitCheck.limit}
+          showAlways={true}
+        />
+      </div>
 
       <div className="p-4 space-y-6">
         <div className="grid grid-cols-4 gap-2">
