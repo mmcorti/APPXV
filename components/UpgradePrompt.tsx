@@ -40,10 +40,10 @@ export const UpgradePrompt: React.FC<UpgradePromptProps> = ({ resourceName, curr
     return (
         <div className={`
             flex flex-col md:flex-row items-center justify-between gap-4 
-            p-4 rounded-xl border
+            p-5 rounded-[32px] border
             ${isAtLimit
-                ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30'
-                : 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900/30'}
+                ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30 shadow-[0_10px_30px_rgba(239,68,68,0.1)]'
+                : 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900/30 shadow-[0_10px_30px_rgba(59,130,246,0.1)]'}
             transition-all animate-in fade-in slide-in-from-bottom-2
         `}>
             <div className="flex items-start gap-3">
@@ -66,7 +66,7 @@ export const UpgradePrompt: React.FC<UpgradePromptProps> = ({ resourceName, curr
             <button
                 onClick={() => navigate('/prices')} // Assuming /prices or back to welcome/upgrade page
                 className={`
-                    px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider whitespace-nowrap shadow-sm hover:shadow-md transition-all
+                    px-6 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider whitespace-nowrap shadow-sm hover:shadow-md transition-all
                     ${isAtLimit
                         ? 'bg-red-600 text-white hover:bg-red-700'
                         : 'bg-white text-blue-600 hover:bg-blue-50 border border-blue-200'}
