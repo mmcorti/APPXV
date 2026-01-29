@@ -42,6 +42,7 @@ import ImpostorGuest from './screens/ImpostorGuest';
 import GoogleCallbackScreen from './screens/GoogleCallback';
 import { InvitationData, User, Guest, Table, SeatedGuest, StaffPermissions } from './types';
 import { notionService } from './services/notion';
+import { PlanProvider } from './hooks/usePlan';
 
 const INITIAL_INVITATION: InvitationData = {
   id: '1',
@@ -511,264 +512,266 @@ const App: React.FC = () => {
   }, [invitations.length, user]);
 
   return (
-    <HashRouter>
-      <Routes>
-        <Route path="/" element={<WelcomeScreen />} />
-        <Route path="/login" element={<LoginScreen onLogin={handleAuthSuccess} />} />
-        <Route path="/google-callback" element={<GoogleCallbackScreen onLogin={handleAuthSuccess} />} />
-        <Route
-          path="/register"
-          element={user?.role === 'admin' ? <RegisterScreen onRegister={(name, email) => handleAuthSuccess('', name, email)} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/dashboard"
-          element={user ? <DashboardScreen user={user} invitations={invitations} loading={loading} onAddEvent={addInvitation} onDeleteEvent={handleDeleteEvent} onLogout={handleLogout} onRefresh={() => loadAllData(user.email, (user.role === 'event_staff' || user.role === 'staff') ? user.id : undefined)} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/edit/:id"
-          element={user ? <InvitationEditor invitations={invitations} onSave={handleUpdateInvitation} user={user} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/guests/:id"
-          element={user ? <GuestsScreen invitations={invitations} onSaveGuest={handleSaveGuest} onDeleteGuest={handleDeleteGuest} user={user} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/tables/:id"
-          element={user ? <TablesScreen invitations={invitations} onAddTable={handleAddTable} onUpdateTable={handleUpdateTable} onReorderTables={handleReorderTables} onUpdateSeating={handleUpdateTableGuests} onDeleteTable={handleDeleteTable} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/fotowall/:id"
-          element={user ? <FotoWallConfigScreen invitations={invitations} user={user} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/fotowall-player/:id"
-          element={<FotoWallPlayerScreen invitations={invitations} user={user} />}
-        />
-        <Route
-          path="/fotowall-admin/:id"
-          element={user ? <FotoWallAdminScreen /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/fotowall-moderation-settings/:id"
-          element={user ? <FotoWallModerationSettingsScreen user={user} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/subscribers"
-          element={user?.role === 'admin' ? <ManageSubscribersScreen /> : <Navigate to="/dashboard" />}
-        />
-        <Route
-          path="/staff-roster"
-          element={user ? <StaffRosterScreen user={user} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/event-staff/:id"
-          element={user ? <EventStaffAssignmentsScreen user={user} invitations={invitations} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/costs/:id"
-          element={user ? <CostControl invitations={invitations} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/costs/:id/add"
-          element={user ? <AddExpense /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/costs/:id/edit/:expenseId"
-          element={user ? <AddExpense /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/costs/:id/suppliers"
-          element={user ? <Suppliers /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/costs/:id/categories"
-          element={user ? <ExpenseCategories /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/costs/:id/participants"
-          element={user ? <Participants /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/costs/:id/balances"
-          element={user ? <BalanceSummary /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/games/:id"
-          element={user ? <GamesDashboard invitations={invitations} user={user} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/trivia/:id/admin"
-          element={user ? <TriviaAdmin user={user} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/trivia/:id/screen"
-          element={<TriviaBigScreen />}
-        />
-        <Route
-          path="/trivia/:id/play"
-          element={<TriviaGuest />}
-        />
-        <Route
-          path="/bingo/:id/admin"
-          element={user ? <BingoAdmin user={user} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/bingo/:id/screen"
-          element={<BingoBigScreen />}
-        />
-        <Route
-          path="/bingo/:id/play"
-          element={<BingoGuest />}
-        />
-        <Route
-          path="/raffle/:id/admin"
-          element={user ? <RaffleAdmin user={user} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/raffle/:id/screen"
-          element={<RaffleBigScreen />}
-        />
-        <Route
-          path="/raffle/:id/guest"
-          element={<RaffleGuest />}
-        />
-        <Route
-          path="/confessions/:id/admin"
-          element={user ? <ConfessionsAdmin user={user} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/confessions/:id/screen"
-          element={<ConfessionsBigScreen />}
-        />
-        <Route
-          path="/confessions/:id/guest"
-          element={<ConfessionsGuest />}
-        />
-        <Route
-          path="/impostor/:id/admin"
-          element={user ? <ImpostorAdmin user={user} /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/impostor/:id/screen"
-          element={<ImpostorBigScreen />}
-        />
-        <Route
-          path="/impostor/:id/guest"
-          element={<ImpostorGuest user={user} />}
-        />
-        <Route
-          path="/location/:id"
-          element={<LocationScreen invitations={invitations} />}
-        />
-        <Route path="/rsvp/:id" element={<GuestRSVPScreen loading={loading} invitations={invitations} onRsvpSubmit={async (invId, guestData) => {
-          const inv = invitations.find(i => i.id === invId);
-          if (inv) {
-            const guest = inv.guests.find(g => g.name.toLowerCase() === guestData.name?.toLowerCase());
+    <PlanProvider>
+      <HashRouter>
+        <Routes>
+          <Route path="/" element={<WelcomeScreen />} />
+          <Route path="/login" element={<LoginScreen onLogin={handleAuthSuccess} />} />
+          <Route path="/google-callback" element={<GoogleCallbackScreen onLogin={handleAuthSuccess} />} />
+          <Route
+            path="/register"
+            element={user?.role === 'admin' ? <RegisterScreen onRegister={(name, email) => handleAuthSuccess('', name, email)} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/dashboard"
+            element={user ? <DashboardScreen user={user} invitations={invitations} loading={loading} onAddEvent={addInvitation} onDeleteEvent={handleDeleteEvent} onLogout={handleLogout} onRefresh={() => loadAllData(user.email, (user.role === 'event_staff' || user.role === 'staff') ? user.id : undefined)} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/edit/:id"
+            element={user ? <InvitationEditor invitations={invitations} onSave={handleUpdateInvitation} user={user} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/guests/:id"
+            element={user ? <GuestsScreen invitations={invitations} onSaveGuest={handleSaveGuest} onDeleteGuest={handleDeleteGuest} user={user} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/tables/:id"
+            element={user ? <TablesScreen invitations={invitations} onAddTable={handleAddTable} onUpdateTable={handleUpdateTable} onReorderTables={handleReorderTables} onUpdateSeating={handleUpdateTableGuests} onDeleteTable={handleDeleteTable} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/fotowall/:id"
+            element={user ? <FotoWallConfigScreen invitations={invitations} user={user} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/fotowall-player/:id"
+            element={<FotoWallPlayerScreen invitations={invitations} user={user} />}
+          />
+          <Route
+            path="/fotowall-admin/:id"
+            element={user ? <FotoWallAdminScreen /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/fotowall-moderation-settings/:id"
+            element={user ? <FotoWallModerationSettingsScreen user={user} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/subscribers"
+            element={user?.role === 'admin' ? <ManageSubscribersScreen /> : <Navigate to="/dashboard" />}
+          />
+          <Route
+            path="/staff-roster"
+            element={user ? <StaffRosterScreen user={user} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/event-staff/:id"
+            element={user ? <EventStaffAssignmentsScreen user={user} invitations={invitations} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/costs/:id"
+            element={user ? <CostControl invitations={invitations} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/costs/:id/add"
+            element={user ? <AddExpense /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/costs/:id/edit/:expenseId"
+            element={user ? <AddExpense /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/costs/:id/suppliers"
+            element={user ? <Suppliers /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/costs/:id/categories"
+            element={user ? <ExpenseCategories /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/costs/:id/participants"
+            element={user ? <Participants /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/costs/:id/balances"
+            element={user ? <BalanceSummary /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/games/:id"
+            element={user ? <GamesDashboard invitations={invitations} user={user} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/trivia/:id/admin"
+            element={user ? <TriviaAdmin user={user} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/trivia/:id/screen"
+            element={<TriviaBigScreen />}
+          />
+          <Route
+            path="/trivia/:id/play"
+            element={<TriviaGuest />}
+          />
+          <Route
+            path="/bingo/:id/admin"
+            element={user ? <BingoAdmin user={user} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/bingo/:id/screen"
+            element={<BingoBigScreen />}
+          />
+          <Route
+            path="/bingo/:id/play"
+            element={<BingoGuest />}
+          />
+          <Route
+            path="/raffle/:id/admin"
+            element={user ? <RaffleAdmin user={user} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/raffle/:id/screen"
+            element={<RaffleBigScreen />}
+          />
+          <Route
+            path="/raffle/:id/guest"
+            element={<RaffleGuest />}
+          />
+          <Route
+            path="/confessions/:id/admin"
+            element={user ? <ConfessionsAdmin user={user} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/confessions/:id/screen"
+            element={<ConfessionsBigScreen />}
+          />
+          <Route
+            path="/confessions/:id/guest"
+            element={<ConfessionsGuest />}
+          />
+          <Route
+            path="/impostor/:id/admin"
+            element={user ? <ImpostorAdmin user={user} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/impostor/:id/screen"
+            element={<ImpostorBigScreen />}
+          />
+          <Route
+            path="/impostor/:id/guest"
+            element={<ImpostorGuest user={user} />}
+          />
+          <Route
+            path="/location/:id"
+            element={<LocationScreen invitations={invitations} />}
+          />
+          <Route path="/rsvp/:id" element={<GuestRSVPScreen loading={loading} invitations={invitations} onRsvpSubmit={async (invId, guestData) => {
+            const inv = invitations.find(i => i.id === invId);
+            if (inv) {
+              const guest = inv.guests.find(g => g.name.toLowerCase() === guestData.name?.toLowerCase());
 
-            if (guest) {
-              // UPDATE EXISTING GUEST
-              await notionService.updateRSVP(
-                guest.id as string,
-                guestData.status as string,
-                guestData.confirmed as any,
-                guestData.companionNames as any
-              );
+              if (guest) {
+                // UPDATE EXISTING GUEST
+                await notionService.updateRSVP(
+                  guest.id as string,
+                  guestData.status as string,
+                  guestData.confirmed as any,
+                  guestData.companionNames as any
+                );
 
-              await refreshEventData(invId);
+                await refreshEventData(invId);
 
-              // SYNC TABLE ASSIGNMENTS after RSVP change
-              const tables = inv.tables || [];
-              for (const table of tables) {
-                const guestAssignments = table.guests.filter(a => a.guestId === guest.id?.toString());
-                if (guestAssignments.length > 0) {
-                  let newAssignments;
+                // SYNC TABLE ASSIGNMENTS after RSVP change
+                const tables = inv.tables || [];
+                for (const table of tables) {
+                  const guestAssignments = table.guests.filter(a => a.guestId === guest.id?.toString());
+                  if (guestAssignments.length > 0) {
+                    let newAssignments;
 
-                  if (guestData.status === 'declined') {
-                    // Remove declined guest from table
-                    newAssignments = table.guests
-                      .filter(a => a.guestId !== guest.id?.toString())
-                      .map(a => ({
-                        guestId: a.guestId,
-                        companionId: a.companionId,
-                        companionIndex: a.companionIndex ?? -1,
-                        name: a.name,
-                        companionName: a.name,
-                        status: a.status || 'pending'
-                      }));
-                  } else {
-                    // Update names and status for confirmed guest
-                    const allNames = guestData.companionNames ? [
-                      ...guestData.companionNames.adults,
-                      ...guestData.companionNames.teens,
-                      ...guestData.companionNames.kids,
-                      ...guestData.companionNames.infants
-                    ].filter(n => n.trim()) : [];
+                    if (guestData.status === 'declined') {
+                      // Remove declined guest from table
+                      newAssignments = table.guests
+                        .filter(a => a.guestId !== guest.id?.toString())
+                        .map(a => ({
+                          guestId: a.guestId,
+                          companionId: a.companionId,
+                          companionIndex: a.companionIndex ?? -1,
+                          name: a.name,
+                          companionName: a.name,
+                          status: a.status || 'pending'
+                        }));
+                    } else {
+                      // Update names and status for confirmed guest
+                      const allNames = guestData.companionNames ? [
+                        ...guestData.companionNames.adults,
+                        ...guestData.companionNames.teens,
+                        ...guestData.companionNames.kids,
+                        ...guestData.companionNames.infants
+                      ].filter(n => n.trim()) : [];
 
-                    newAssignments = table.guests.map(a => {
-                      if (a.guestId === guest.id?.toString()) {
-                        // Find updated name by companion index
-                        const idx = a.companionIndex ?? -1;
-                        const updatedName = idx >= 0 && idx < allNames.length
-                          ? allNames[idx]
-                          : (idx === -1 && allNames.length > 0 ? allNames[0] : a.name);
+                      newAssignments = table.guests.map(a => {
+                        if (a.guestId === guest.id?.toString()) {
+                          // Find updated name by companion index
+                          const idx = a.companionIndex ?? -1;
+                          const updatedName = idx >= 0 && idx < allNames.length
+                            ? allNames[idx]
+                            : (idx === -1 && allNames.length > 0 ? allNames[0] : a.name);
+                          return {
+                            guestId: a.guestId,
+                            companionId: a.companionId,
+                            companionIndex: a.companionIndex ?? -1,
+                            name: updatedName,
+                            companionName: updatedName,
+                            status: guestData.status || 'confirmed'
+                          };
+                        }
                         return {
                           guestId: a.guestId,
                           companionId: a.companionId,
                           companionIndex: a.companionIndex ?? -1,
-                          name: updatedName,
-                          companionName: updatedName,
-                          status: guestData.status || 'confirmed'
+                          name: a.name,
+                          companionName: a.name,
+                          status: a.status || 'pending'
                         };
-                      }
-                      return {
-                        guestId: a.guestId,
-                        companionId: a.companionId,
-                        companionIndex: a.companionIndex ?? -1,
-                        name: a.name,
-                        companionName: a.name,
-                        status: a.status || 'pending'
-                      };
-                    });
+                      });
+                    }
+
+                    // Update table assignments
+                    await notionService.updateTableGuests(table.id, newAssignments);
                   }
-
-                  // Update table assignments
-                  await notionService.updateTableGuests(table.id, newAssignments);
                 }
+
+                const updatedGuests = inv.guests.map(g => g.name === guestData.name ? { ...g, ...guestData as Guest } : g);
+                updateGuests(invId, updatedGuests);
+              } else {
+                // CREATE NEW GUEST (from Public Link)
+                const confirmedData = guestData.confirmed || { adults: 1, teens: 0, kids: 0, infants: 0 };
+
+                const newGuest: Guest = {
+                  id: Date.now(), // Temporary ID
+                  name: guestData.name || 'Invitado',
+                  email: '',
+                  status: guestData.status || 'confirmed',
+                  // Use confirmed values for allotted since this is a new guest confirming attendance
+                  allotted: {
+                    adults: confirmedData.adults || 0,
+                    teens: confirmedData.teens || 0,
+                    kids: confirmedData.kids || 0,
+                    infants: confirmedData.infants || 0
+                  },
+                  confirmed: confirmedData,
+                  companionNames: guestData.companionNames,
+                  sent: false
+                };
+
+                await notionService.saveGuest(invId, newGuest);
+                await refreshEventData(invId);
+
+                updateGuests(invId, [...inv.guests, newGuest]);
               }
-
-              const updatedGuests = inv.guests.map(g => g.name === guestData.name ? { ...g, ...guestData as Guest } : g);
-              updateGuests(invId, updatedGuests);
-            } else {
-              // CREATE NEW GUEST (from Public Link)
-              const confirmedData = guestData.confirmed || { adults: 1, teens: 0, kids: 0, infants: 0 };
-
-              const newGuest: Guest = {
-                id: Date.now(), // Temporary ID
-                name: guestData.name || 'Invitado',
-                email: '',
-                status: guestData.status || 'confirmed',
-                // Use confirmed values for allotted since this is a new guest confirming attendance
-                allotted: {
-                  adults: confirmedData.adults || 0,
-                  teens: confirmedData.teens || 0,
-                  kids: confirmedData.kids || 0,
-                  infants: confirmedData.infants || 0
-                },
-                confirmed: confirmedData,
-                companionNames: guestData.companionNames,
-                sent: false
-              };
-
-              await notionService.saveGuest(invId, newGuest);
-              await refreshEventData(invId);
-
-              updateGuests(invId, [...inv.guests, newGuest]);
             }
-          }
-        }} />} />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </HashRouter>
+          }} />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </HashRouter>
+    </PlanProvider>
   );
 };
 

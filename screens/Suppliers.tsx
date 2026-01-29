@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { notionService } from '../services/notion';
+import { UpgradePrompt } from '../components/UpgradePrompt';
+import { usePlan } from '../hooks/usePlan';
 
 interface Supplier {
     id: string;
@@ -21,6 +23,8 @@ const Suppliers: React.FC = () => {
     const { id: eventId } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+    const { checkLimit } = usePlan();
+    const limitCheck = checkLimit('maxSuppliers', suppliers.length);
     const [categories, setCategories] = useState<ExpenseCategory[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -111,8 +115,12 @@ const Suppliers: React.FC = () => {
                 <h2 className="text-lg font-bold leading-tight flex-1 text-center">Proveedores</h2>
                 <div className="flex w-12 items-center justify-end">
                     <button
-                        onClick={() => { setShowForm(true); setEditingId(null); setFormData({ name: '', category: '', phone: '', email: '' }); }}
-                        className="flex cursor-pointer items-center justify-center rounded-full h-10 w-10 bg-primary text-background-dark shadow-lg active:scale-95 transition-transform"
+                        disabled={!limitCheck.allowed}
+                        onClick={() => {
+                            if (!limitCheck.allowed) alert(`Límite de ${limitCheck.limit} proveedores alcanzado.`);
+                            else { setShowForm(true); setEditingId(null); setFormData({ name: '', category: '', phone: '', email: '' }); }
+                        }}
+                        className={`flex cursor-pointer items-center justify-center rounded-full h-10 w-10 text-background-dark shadow-lg active:scale-95 transition-transform ${limitCheck.allowed ? 'bg-primary' : 'bg-slate-300 cursor-not-allowed'}`}
                     >
                         <span className="material-symbols-outlined text-2xl">add</span>
                     </button>
@@ -135,6 +143,15 @@ const Suppliers: React.FC = () => {
                             />
                         </div>
                     </label>
+                </div>
+
+                {/* Plan Limit Upgrade */}
+                <div className="px-4 mb-4">
+                    <UpgradePrompt
+                        resourceName="proveedores"
+                        currentCount={suppliers.length}
+                        limit={limitCheck.limit}
+                    />
                 </div>
 
                 {/* Supplier List */}

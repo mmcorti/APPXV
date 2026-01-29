@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { InvitationData, User } from '../types';
-import PlanUpgradeBanner from '../components/PlanUpgradeBanner';
+import { UpgradePrompt } from '../components/UpgradePrompt';
+import { usePlan } from '../hooks/usePlan';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
 
@@ -72,11 +73,14 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
 
   const isAdmin = user?.role === 'admin';
   const isStaff = user?.role === 'staff' || user?.role === 'event_staff';
-  // For staff, use the event owner's plan if available (inherited from subscriber)
-  const userPlan = isAdmin ? 'vip' : (isStaff ? (event?.ownerPlan || 'freemium') : (user?.plan || 'freemium'));
-  const photoLimit = userPlan === 'vip' ? 1000 : userPlan === 'premium' ? 200 : 20;
+
   const approvedCount = allPhotos.filter(p => !p.isBlocked).length;
-  const isAtPhotoLimit = !isAdmin && approvedCount >= photoLimit;
+
+  // Use hook for limits
+  const { checkLimit } = usePlan();
+  const limitCheck = checkLimit('maxPhotos', approvedCount);
+  const isAtPhotoLimit = !limitCheck.allowed;
+  const photoLimit = limitCheck.limit;
 
   // Storage keys
   const configKey = `fotowall_config_${id}`;
@@ -704,28 +708,13 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
 
               {/* Photo Limit Warning */}
               {isAtPhotoLimit && (
-                <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-3xl p-5 space-y-3 animate-in fade-in zoom-in duration-300">
-                  <div className="flex items-center gap-3">
-                    <div className="size-10 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-red-500/20">
-                      <span className="material-symbols-outlined">warning</span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-black text-red-600 dark:text-red-400 uppercase tracking-tight">Límite de Fotos Alcanzado</p>
-                      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Has llegado al máximo de {photoLimit} fotos para tu plan {userPlan.toUpperCase()}.</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <p className="text-[10px] text-slate-600 dark:text-slate-300 leading-tight">
-                      Para mostrar más fotos en el reproductor de este evento, necesitas actualizar tu plan.
-                      Las fotos adicionales no se mostrarán en la pantalla principal.
-                    </p>
-                    <button
-                      onClick={() => alert('¡Hazte Premium!')}
-                      className="w-full bg-red-500 hover:bg-red-600 text-white font-black py-2.5 rounded-xl text-xs transition-all active:scale-[0.98] shadow-md shadow-red-500/10"
-                    >
-                      HAZTE PREMIUM PARA AGREGAR MÁS
-                    </button>
-                  </div>
+                <div className="mb-4">
+                  <UpgradePrompt
+                    resourceName="fotos"
+                    currentCount={approvedCount}
+                    limit={photoLimit}
+                    showAlways={true}
+                  />
                 </div>
               )}
 

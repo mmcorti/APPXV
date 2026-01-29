@@ -1992,7 +1992,33 @@ app.post('/api/events/:eventId/expenses', async (req, res) => {
     try {
         await schema.init();
         const { eventId } = req.params;
-        const { name, category, supplier, total, paid, status, staff } = req.body;
+        const { name, category, supplier, total, paid, status, staff, userPlan } = req.body;
+
+        // CHECK LIMITS
+        const currentCountDetails = await notionClient.databases.query({
+            database_id: DS.EXPENSES,
+            filter: {
+                property: schema.get('EXPENSES', 'Event'),
+                relation: { contains: eventId }
+            }
+        });
+        const currentCount = currentCountDetails.results.length;
+
+        const limitCheck = checkLimit({
+            plan: userPlan || DEFAULT_PLAN,
+            resource: 'expenses',
+            currentCount
+        });
+
+        if (!limitCheck.allowed) {
+            return res.status(403).json({
+                error: limitCheck.reason,
+                limitReached: true,
+                current: currentCount,
+                limit: limitCheck.limit
+            });
+        }
+
         const properties = {};
         const isMapped = (dbKey, internalKey) => {
             return schema.mappings[dbKey] && schema.mappings[dbKey][internalKey];
@@ -2113,7 +2139,33 @@ app.post('/api/events/:eventId/suppliers', async (req, res) => {
     try {
         await schema.init();
         const { eventId } = req.params;
-        const { name, category, phone, email } = req.body;
+        const { name, category, phone, email, userPlan } = req.body;
+
+        // CHECK LIMITS
+        const currentCountDetails = await notionClient.databases.query({
+            database_id: DS.SUPPLIERS,
+            filter: {
+                property: schema.get('SUPPLIERS', 'Event'),
+                relation: { contains: eventId }
+            }
+        });
+        const currentCount = currentCountDetails.results.length;
+
+        const limitCheck = checkLimit({
+            plan: userPlan || DEFAULT_PLAN,
+            resource: 'suppliers',
+            currentCount
+        });
+
+        if (!limitCheck.allowed) {
+            return res.status(403).json({
+                error: limitCheck.reason,
+                limitReached: true,
+                current: currentCount,
+                limit: limitCheck.limit
+            });
+        }
+
         const properties = {};
         properties[schema.get('SUPPLIERS', 'Name')] = { title: [{ text: { content: name || '' } }] };
         properties[schema.get('SUPPLIERS', 'Category')] = { rich_text: [{ text: { content: category || '' } }] };
@@ -2269,7 +2321,30 @@ app.post('/api/events/:eventId/participants', async (req, res) => {
     try {
         await schema.init();
         const { eventId } = req.params;
-        const { name, weight = 1 } = req.body;
+        const { name, weight = 1, userPlan } = req.body;
+
+        // CHECK LIMITS
+        const currentCountDetails = await notionClient.databases.query({
+            database_id: DS.PAYMENT_PARTICIPANTS,
+            filter: { property: schema.get('PAYMENT_PARTICIPANTS', 'EventId'), rich_text: { equals: eventId } }
+        });
+        const currentCount = currentCountDetails.results.length;
+
+        const limitCheck = checkLimit({
+            plan: userPlan || DEFAULT_PLAN,
+            resource: 'participants',
+            currentCount
+        });
+
+        if (!limitCheck.allowed) {
+            return res.status(403).json({
+                error: limitCheck.reason,
+                limitReached: true,
+                current: currentCount,
+                limit: limitCheck.limit
+            });
+        }
+
         const response = await notionClient.pages.create({
             parent: { database_id: DB.PAYMENT_PARTICIPANTS },
             properties: {
