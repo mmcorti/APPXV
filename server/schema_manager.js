@@ -178,8 +178,7 @@ class SchemaManager {
                 if (foundName) {
                     this.mappings[dbKey][internalKey] = foundName;
                 } else {
-                    console.warn(`⚠️ Property '${internalKey}' not found in ${dbKey} DB. using default '${aliases[0]}'.`);
-                    this.mappings[dbKey][internalKey] = aliases[0]; // Fallback to first alias
+                    console.warn(`⚠️ Property '${internalKey}' not found in ${dbKey} DB.`);
                 }
             }
         } catch (error) {

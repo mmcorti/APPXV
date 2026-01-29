@@ -1994,13 +1994,22 @@ app.post('/api/events/:eventId/expenses', async (req, res) => {
         const { eventId } = req.params;
         const { name, category, supplier, total, paid, status, staff } = req.body;
         const properties = {};
+        const isMapped = (dbKey, internalKey) => {
+            return schema.mappings[dbKey] && schema.mappings[dbKey][internalKey];
+        };
+
         properties[schema.get('EXPENSES', 'Name')] = { title: [{ text: { content: name || '' } }] };
         properties[schema.get('EXPENSES', 'Category')] = { rich_text: [{ text: { content: category || '' } }] };
         properties[schema.get('EXPENSES', 'Supplier')] = { rich_text: [{ text: { content: supplier || '' } }] };
         properties[schema.get('EXPENSES', 'Total')] = { number: total || 0 };
         properties[schema.get('EXPENSES', 'Paid')] = { number: paid || 0 };
-        if (status) properties[schema.get('EXPENSES', 'Status')] = { select: { name: status } };
-        if (staff) properties[schema.get('EXPENSES', 'Staff')] = { rich_text: [{ text: { content: staff } }] };
+
+        if (status && isMapped('EXPENSES', 'Status')) {
+            properties[schema.get('EXPENSES', 'Status')] = { select: { name: status } };
+        }
+        if (staff && isMapped('EXPENSES', 'Staff')) {
+            properties[schema.get('EXPENSES', 'Staff')] = { rich_text: [{ text: { content: staff } }] };
+        }
         properties[schema.get('EXPENSES', 'Event')] = { relation: [{ id: eventId }] };
 
         const newPage = await notionClient.pages.create({
@@ -2020,18 +2029,42 @@ app.put('/api/expenses/:id', async (req, res) => {
         const { id } = req.params;
         const { name, category, supplier, total, paid, status, staff } = req.body;
         const properties = {};
-        if (name !== undefined) properties[schema.get('EXPENSES', 'Name')] = { title: [{ text: { content: name } }] };
-        if (category !== undefined) properties[schema.get('EXPENSES', 'Category')] = { rich_text: [{ text: { content: category } }] };
-        if (supplier !== undefined) properties[schema.get('EXPENSES', 'Supplier')] = { rich_text: [{ text: { content: supplier } }] };
-        if (total !== undefined) properties[schema.get('EXPENSES', 'Total')] = { number: total };
-        if (paid !== undefined) properties[schema.get('EXPENSES', 'Paid')] = { number: paid };
-        if (status !== undefined) properties[schema.get('EXPENSES', 'Status')] = { select: { name: status } };
-        if (staff !== undefined) properties[schema.get('EXPENSES', 'Staff')] = { rich_text: [{ text: { content: staff } }] };
 
-        await notionClient.pages.update({ page_id: id, properties });
+        // Helper to check if a property is actually mapped (not a fallback)
+        const isMapped = (dbKey, internalKey) => {
+            return schema.mappings[dbKey] && schema.mappings[dbKey][internalKey];
+        };
+
+        if (name !== undefined && isMapped('EXPENSES', 'Name')) {
+            properties[schema.get('EXPENSES', 'Name')] = { title: [{ text: { content: name } }] };
+        }
+        if (category !== undefined && isMapped('EXPENSES', 'Category')) {
+            properties[schema.get('EXPENSES', 'Category')] = { rich_text: [{ text: { content: category } }] };
+        }
+        if (supplier !== undefined && isMapped('EXPENSES', 'Supplier')) {
+            properties[schema.get('EXPENSES', 'Supplier')] = { rich_text: [{ text: { content: supplier } }] };
+        }
+        if (total !== undefined && isMapped('EXPENSES', 'Total')) {
+            properties[schema.get('EXPENSES', 'Total')] = { number: total || 0 };
+        }
+        if (paid !== undefined && isMapped('EXPENSES', 'Paid')) {
+            properties[schema.get('EXPENSES', 'Paid')] = { number: paid || 0 };
+        }
+        if (status && isMapped('EXPENSES', 'Status')) {
+            properties[schema.get('EXPENSES', 'Status')] = { select: { name: status } };
+        }
+        // Only update staff if provided AND the column exists in the database
+        if (staff && isMapped('EXPENSES', 'Staff')) {
+            properties[schema.get('EXPENSES', 'Staff')] = { rich_text: [{ text: { content: staff } }] };
+        }
+
+        if (Object.keys(properties).length > 0) {
+            await notionClient.pages.update({ page_id: id, properties });
+        }
+
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error updating expense:", error);
+        console.error(`❌ Error updating expense ${req.params.id}:`, error);
         res.status(500).json({ error: error.message });
     }
 });
