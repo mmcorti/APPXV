@@ -56,6 +56,7 @@ const AddExpense: React.FC = () => {
     const [hasAdvance, setHasAdvance] = useState(false);
     const [saving, setSaving] = useState(false);
     const [loading, setLoading] = useState(isEditMode);
+    const [isAddingNewSupplier, setIsAddingNewSupplier] = useState(false);
 
     useEffect(() => {
         if (eventId) {
@@ -146,6 +147,7 @@ const AddExpense: React.FC = () => {
     const handleCategoryChange = (newCategory: string) => {
         setCategory(newCategory);
         setSupplier(''); // Reset supplier selection
+        setIsAddingNewSupplier(false);
     };
 
     const addPayment = () => {
@@ -182,21 +184,6 @@ const AddExpense: React.FC = () => {
         return 'Pendiente';
     };
 
-    const uploadReceipt = async (base64Image: string): Promise<string> => {
-        try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:10000'}/api/upload-image`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: base64Image })
-            });
-            if (!res.ok) throw new Error('Failed to upload receipt');
-            const data = await res.json();
-            return data.url;
-        } catch (error) {
-            console.error('Error uploading receipt:', error);
-            return '';
-        }
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -230,10 +217,16 @@ const AddExpense: React.FC = () => {
 
             // Save payments
             if (expenseIdToUse) {
-                for (const payment of payments.filter(p => p.amount > 0 && p.participantId)) {
+                const paymentsToSave = payments.filter(p => p.amount > 0 && p.participantId);
+                for (const payment of paymentsToSave) {
                     let finalReceiptUrl = payment.receiptUrl;
                     if (payment.receiptUrl && payment.receiptUrl.startsWith('data:image')) {
-                        finalReceiptUrl = await uploadReceipt(payment.receiptUrl);
+                        try {
+                            finalReceiptUrl = await notionService.uploadImage(payment.receiptUrl);
+                        } catch (err) {
+                            console.error('Receipt upload failed:', err);
+                            finalReceiptUrl = '';
+                        }
                     }
 
                     await notionService.createPayment(expenseIdToUse, {
@@ -288,10 +281,17 @@ const AddExpense: React.FC = () => {
                     {/* Supplier Select */}
                     <div className="space-y-2">
                         <label className="block text-sm font-semibold text-slate-600 dark:text-slate-400 px-1">Proveedor</label>
-                        {filteredSuppliers.length > 0 ? (
+                        {!isAddingNewSupplier && filteredSuppliers.length > 0 ? (
                             <select
                                 value={supplier}
-                                onChange={(e) => setSupplier(e.target.value)}
+                                onChange={(e) => {
+                                    if (e.target.value === '__new__') {
+                                        setIsAddingNewSupplier(true);
+                                        setSupplier('');
+                                    } else {
+                                        setSupplier(e.target.value);
+                                    }
+                                }}
                                 disabled={!category}
                                 className="w-full h-14 bg-white dark:bg-[#193324] border border-slate-200 dark:border-[#326748] rounded-xl px-4 text-base focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all disabled:opacity-50"
                             >
@@ -302,23 +302,26 @@ const AddExpense: React.FC = () => {
                                 <option value="__new__">+ Agregar nuevo proveedor</option>
                             </select>
                         ) : (
-                            <input
-                                type="text"
-                                value={supplier}
-                                onChange={(e) => setSupplier(e.target.value)}
-                                className="w-full h-14 bg-white dark:bg-[#193324] border border-slate-200 dark:border-[#326748] rounded-xl px-4 text-base focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-[#92c9a9]/50"
-                                placeholder={category ? "No hay proveedores - Ingresa el nombre" : "Primero selecciona una categoría"}
-                                disabled={!category}
-                            />
-                        )}
-                        {supplier === '__new__' && (
-                            <input
-                                type="text"
-                                onChange={(e) => setSupplier(e.target.value)}
-                                className="w-full h-14 bg-white dark:bg-[#193324] border border-slate-200 dark:border-[#326748] rounded-xl px-4 text-base focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-[#92c9a9]/50 mt-2"
-                                placeholder="Nombre del nuevo proveedor"
-                                autoFocus
-                            />
+                            <div className="space-y-2">
+                                <input
+                                    type="text"
+                                    value={supplier}
+                                    onChange={(e) => setSupplier(e.target.value)}
+                                    className="w-full h-14 bg-white dark:bg-[#193324] border border-slate-200 dark:border-[#326748] rounded-xl px-4 text-base focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-[#92c9a9]/50"
+                                    placeholder={category ? "Ingresa el nombre del proveedor" : "Primero selecciona una categoría"}
+                                    disabled={!category}
+                                    autoFocus={isAddingNewSupplier}
+                                />
+                                {isAddingNewSupplier && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsAddingNewSupplier(false)}
+                                        className="text-xs text-primary font-bold uppercase ml-2"
+                                    >
+                                        Volver a la lista
+                                    </button>
+                                )}
+                            </div>
                         )}
                     </div>
 

@@ -1,0 +1,68 @@
+{
+  "Date": {
+    "id": "%3BPz%60",
+    "type": "date",
+    "date": null
+  },
+  "ParticipantId": {
+    "id": "OP%5DR",
+    "type": "rich_text",
+    "rich_text": [
+      {
+        "type": "text",
+        "text": {
+          "content": "2efff613-0900-8178-a199-fac6886e94b2",
+          "link": null
+        },
+        "annotations": {
+          "bold": false,
+          "italic": false,
+          "strikethrough": false,
+          "underline": false,
+          "code": false,
+          "color": "default"
+        },
+        "plain_text": "2efff613-0900-8178-a199-fac6886e94b2",
+        "href": null
+      }
+    ]
+  },
+  "Amount": {
+    "id": "QRm%3B",
+    "type": "number",
+    "number": 75725
+  },
+  "ExpenseId": {
+    "id": "g%5DIn",
+    "type": "rich_text",
+    "rich_text": [
+      {
+        "type": "text",
+        "text": {
+          "content": "2efff613-0900-81b9-b56f-d0ff7d86c754",
+          "link": null
+        },
+        "annotations": {
+          "bold": false,
+          "italic": false,
+          "strikethrough": false,
+          "underline": false,
+          "code": false,
+          "color": "default"
+        },
+        "plain_text": "2efff613-0900-81b9-b56f-d0ff7d86c754",
+        "href": null
+      }
+    ]
+  },
+  "ReceiptURL": {
+    "id": "uqF%3B",
+    "type": "url",
+    "url": null
+  },
+  "Name": {
+    "id": "title",
+    "type": "title",
+    "title": []
+  }
+}

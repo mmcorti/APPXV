@@ -1,0 +1,100 @@
+{
+  "Total": {
+    "id": "UhOx",
+    "type": "number",
+    "number": 8879932
+  },
+  "Category": {
+    "id": "ZhB%3D",
+    "type": "rich_text",
+    "rich_text": [
+      {
+        "type": "text",
+        "text": {
+          "content": "Catering",
+          "link": null
+        },
+        "annotations": {
+          "bold": false,
+          "italic": false,
+          "strikethrough": false,
+          "underline": false,
+          "code": false,
+          "color": "default"
+        },
+        "plain_text": "Catering",
+        "href": null
+      }
+    ]
+  },
+  "Status": {
+    "id": "bkDs",
+    "type": "select",
+    "select": {
+      "id": "LyPs",
+      "name": "Adelanto",
+      "color": "brown"
+    }
+  },
+  "Paid": {
+    "id": "jWIT",
+    "type": "number",
+    "number": 2753382
+  },
+  "Event": {
+    "id": "l%5B%3Bq",
+    "type": "relation",
+    "relation": [
+      {
+        "id": "2daff613-0900-8155-8c60-d393353503e9"
+      }
+    ],
+    "has_more": false
+  },
+  "Supplier": {
+    "id": "ljAO",
+    "type": "rich_text",
+    "rich_text": [
+      {
+        "type": "text",
+        "text": {
+          "content": "Casona Amelie",
+          "link": null
+        },
+        "annotations": {
+          "bold": false,
+          "italic": false,
+          "strikethrough": false,
+          "underline": false,
+          "code": false,
+          "color": "default"
+        },
+        "plain_text": "Casona Amelie",
+        "href": null
+      }
+    ]
+  },
+  "Name": {
+    "id": "title",
+    "type": "title",
+    "title": [
+      {
+        "type": "text",
+        "text": {
+          "content": "Casona Amelie",
+          "link": null
+        },
+        "annotations": {
+          "bold": false,
+          "italic": false,
+          "strikethrough": false,
+          "underline": false,
+          "code": false,
+          "color": "default"
+        },
+        "plain_text": "Casona Amelie",
+        "href": null
+      }
+    ]
+  }
+}
