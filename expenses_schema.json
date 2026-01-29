@@ -1,0 +1,81 @@
+{
+  "Total": {
+    "id": "UhOx",
+    "name": "Total",
+    "description": "",
+    "type": "number",
+    "number": {
+      "format": "number"
+    }
+  },
+  "Category": {
+    "id": "ZhB%3D",
+    "name": "Category",
+    "description": "",
+    "type": "rich_text",
+    "rich_text": {}
+  },
+  "Status": {
+    "id": "bkDs",
+    "name": "Status",
+    "description": "",
+    "type": "select",
+    "select": {
+      "options": [
+        {
+          "id": "ef<]",
+          "name": "Pagado",
+          "color": "pink",
+          "description": null
+        },
+        {
+          "id": "LyPs",
+          "name": "Adelanto",
+          "color": "brown",
+          "description": null
+        },
+        {
+          "id": "UYdQ",
+          "name": "Pendiente",
+          "color": "orange",
+          "description": null
+        }
+      ]
+    }
+  },
+  "Paid": {
+    "id": "jWIT",
+    "name": "Paid",
+    "description": "",
+    "type": "number",
+    "number": {
+      "format": "number"
+    }
+  },
+  "Event": {
+    "id": "l%5B%3Bq",
+    "name": "Event",
+    "description": "Related event",
+    "type": "relation",
+    "relation": {
+      "database_id": "8a693908-f427-4002-9902-4ac86b2e21d4",
+      "data_source_id": "7ff87dfd-fc2c-4065-9c3c-8534f84e8183",
+      "type": "single_property",
+      "single_property": {}
+    }
+  },
+  "Supplier": {
+    "id": "ljAO",
+    "name": "Supplier",
+    "description": "",
+    "type": "rich_text",
+    "rich_text": {}
+  },
+  "Name": {
+    "id": "title",
+    "name": "Name",
+    "description": null,
+    "type": "title",
+    "title": {}
+  }
+}

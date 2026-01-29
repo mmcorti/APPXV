@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { notionService } from '../services/notion';
+import { User } from '../types';
+
+interface AddExpenseProps {
+    user: User | null;
+}
 
 interface ExpenseCategory {
     id: string;
@@ -38,7 +43,7 @@ interface StaffAssignment {
     staffId: string;
 }
 
-const AddExpense: React.FC = () => {
+const AddExpense: React.FC<AddExpenseProps> = ({ user }) => {
     const { id: eventId, expenseId } = useParams<{ id: string; expenseId?: string }>();
     const navigate = useNavigate();
     const isEditMode = !!expenseId;
@@ -198,7 +203,8 @@ const AddExpense: React.FC = () => {
                 total: totalAmount,
                 paid: totalPaid,
                 status: getStatus(),
-                staff: staff
+                staff: staff,
+                userPlan: user?.plan || 'freemium'
             };
 
             let expenseIdToUse = expenseId;
@@ -240,9 +246,15 @@ const AddExpense: React.FC = () => {
             }
 
             navigate(`/costs/${eventId}`);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving expense:', error);
-            alert('Error al guardar el gasto');
+            const message = error.message || 'Error al guardar el gasto';
+
+            if (error.limitReached) {
+                alert(`Límite alcanzado: ${error.message}. Tu plan permite hasta ${error.limit} ${error.resource || 'elementos'}.`);
+            } else {
+                alert(`Error al guardar el gasto: ${message}`);
+            }
         } finally {
             setSaving(false);
         }

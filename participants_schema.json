@@ -1,0 +1,25 @@
+{
+  "Weight": {
+    "id": "H%60nZ",
+    "name": "Weight",
+    "description": null,
+    "type": "number",
+    "number": {
+      "format": "number"
+    }
+  },
+  "EventId": {
+    "id": "S%3A%3Bx",
+    "name": "EventId",
+    "description": null,
+    "type": "rich_text",
+    "rich_text": {}
+  },
+  "Name": {
+    "id": "title",
+    "name": "Name",
+    "description": null,
+    "type": "title",
+    "title": {}
+  }
+}
