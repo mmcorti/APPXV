@@ -88,7 +88,22 @@ export const DEFAULT_PLAN = 'freemium';
  * @returns {Object} The plan limits
  */
 export const getPlanLimits = (planName) => {
-    const normalizedPlan = (planName || DEFAULT_PLAN).toLowerCase();
+    // Normalize aliases
+    let normalizedPlan = (planName || DEFAULT_PLAN).toLowerCase().trim();
+
+    // Map aliases
+    const aliases = {
+        'invitado especial': 'premium',
+        'invitado_especial': 'premium',
+        'special': 'premium',
+        'free': 'freemium',
+        'general': 'freemium'
+    };
+
+    if (aliases[normalizedPlan]) {
+        normalizedPlan = aliases[normalizedPlan];
+    }
+
     return PLAN_LIMITS[normalizedPlan] || PLAN_LIMITS[DEFAULT_PLAN];
 };
 
