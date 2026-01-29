@@ -1,0 +1,46 @@
+{
+  "Date": {
+    "id": "%3BPz%60",
+    "name": "Date",
+    "description": null,
+    "type": "date",
+    "date": {}
+  },
+  "ParticipantId": {
+    "id": "OP%5DR",
+    "name": "ParticipantId",
+    "description": null,
+    "type": "rich_text",
+    "rich_text": {}
+  },
+  "Amount": {
+    "id": "QRm%3B",
+    "name": "Amount",
+    "description": null,
+    "type": "number",
+    "number": {
+      "format": "number"
+    }
+  },
+  "ExpenseId": {
+    "id": "g%5DIn",
+    "name": "ExpenseId",
+    "description": null,
+    "type": "rich_text",
+    "rich_text": {}
+  },
+  "ReceiptURL": {
+    "id": "uqF%3B",
+    "name": "ReceiptURL",
+    "description": null,
+    "type": "url",
+    "url": {}
+  },
+  "Name": {
+    "id": "title",
+    "name": "Name",
+    "description": null,
+    "type": "title",
+    "title": {}
+  }
+}

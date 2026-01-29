@@ -215,7 +215,15 @@ export const notionService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(expense)
         });
-        if (!res.ok) throw new Error('Failed to create expense');
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            const error = new Error(errorData.error || 'Failed to create expense');
+            (error as any).limitReached = errorData.limitReached;
+            (error as any).current = errorData.current;
+            (error as any).limit = errorData.limit;
+            (error as any).resource = 'gastos';
+            throw error;
+        }
         return await res.json();
     },
     async updateExpense(id: string, expense: Partial<{ name: string; category: string; supplier: string; total: number; paid: number; status: string; staff: string }>) {
@@ -224,7 +232,10 @@ export const notionService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(expense)
         });
-        if (!res.ok) throw new Error('Failed to update expense');
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to update expense');
+        }
         return await res.json();
     },
     async deleteExpense(id: string) {
@@ -335,7 +346,10 @@ export const notionService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payment)
         });
-        if (!res.ok) throw new Error('Failed to create payment');
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to create payment');
+        }
         return await res.json();
     },
     async deletePayment(id: string) {

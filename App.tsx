@@ -572,11 +572,11 @@ const App: React.FC = () => {
           />
           <Route
             path="/costs/:id/add"
-            element={user ? <AddExpense /> : <Navigate to="/login" />}
+            element={user ? <AddExpense user={user} /> : <Navigate to="/login" />}
           />
           <Route
             path="/costs/:id/edit/:expenseId"
-            element={user ? <AddExpense /> : <Navigate to="/login" />}
+            element={user ? <AddExpense user={user} /> : <Navigate to="/login" />}
           />
           <Route
             path="/costs/:id/suppliers"
