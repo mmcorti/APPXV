@@ -50,46 +50,39 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
           setCompanionNames(existingGuest.companionNames || { adults: [], teens: [], kids: [], infants: [] });
           setSubmitted(true);
         } else {
-          // Default for pending existing guest - use their allotted values and existing companion names
+          // Helper to find the main category of the guest
+          const getMainCategory = (allotted: GuestAllotment) => {
+            if (allotted.adults > 0) return 'adults';
+            if (allotted.teens > 0) return 'teens';
+            if (allotted.kids > 0) return 'kids';
+            if (allotted.infants > 0) return 'infants';
+            return 'adults';
+          };
+
+          const mainCategory = getMainCategory(existingGuest.allotted);
           const a = existingGuest.allotted;
           const existingNames = existingGuest.companionNames || { adults: [], teens: [], kids: [], infants: [] };
 
-          // Set allotment from what was assigned
-          setConfirmedAllotment({
-            adults: a.adults || 0,
-            teens: a.teens || 0,
-            kids: a.kids || 0,
-            infants: a.infants || 0
-          });
-
-          // Pre-fill companion names from existing data
-          // First slot is always the main guest, subsequent slots are companions
-          // For adults: slot 0 = main guest name, slots 1+ = companion names from existingNames
+          // Build names with slots ensuring the main guest occupies their correct category slot
           const buildNamesWithSlots = (category: 'adults' | 'teens' | 'kids' | 'infants', allottedCount: number) => {
             if (allottedCount <= 0) return [];
-
             const result: string[] = [];
+            const isMainCategory = category === mainCategory;
             const existingCompanions = existingNames[category] || [];
 
-            // For adults: slot 0 = main guest name, slots 1+ = companion names from existingNames
-            // Companions are stored in existingCompanions[0], existingCompanions[1], etc.
-            // So slot 1 -> existingCompanions[0], slot 2 -> existingCompanions[1], etc.
-            if (category === 'adults') {
-              result.push(existingGuest.name); // Main guest always first
-              // Remaining slots are for companions
+            if (isMainCategory) {
+              // Priority category: slot 0 is the main guest
+              result.push(existingGuest.name);
               for (let i = 1; i < allottedCount; i++) {
-                // Companion at slot i corresponds to existingCompanions[i - 1]
-                const companionName = existingCompanions[i - 1] || '';
-                // If the companion name equals the main guest name, it was incorrectly stored, use empty
+                const companionName = existingCompanions[i] || ''; // Use the same index from data if available
                 result.push(companionName === existingGuest.name ? '' : companionName);
               }
             } else {
-              // For teens, kids, infants - just use existing names or empty slots
+              // Other categories: all slots are companions
               for (let i = 0; i < allottedCount; i++) {
                 result.push(existingCompanions[i] || '');
               }
             }
-
             return result;
           };
 
@@ -152,10 +145,19 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
     }
   };
 
+  // Helper to find the main category of the guest
+  const getMainCategory = (allotted: GuestAllotment) => {
+    if (allotted.adults > 0) return 'adults';
+    if (allotted.teens > 0) return 'teens';
+    if (allotted.kids > 0) return 'kids';
+    if (allotted.infants > 0) return 'infants';
+    return 'adults';
+  };
+
   const updateConfirmed = (key: keyof GuestAllotment, delta: number) => {
-    // if (!foundGuest) return; // Allow even if new guest
-    const maxVal = foundGuest?.allotted[key] ?? 10; // Default max for new guests
+    const maxVal = foundGuest?.allotted[key] ?? 10;
     const newVal = Math.min(maxVal, Math.max(0, confirmedAllotment[key] + delta));
+    const mainCategory = foundGuest ? getMainCategory(foundGuest.allotted) : 'adults';
 
     setConfirmedAllotment(prev => ({
       ...prev,
@@ -167,11 +169,9 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
       const originals = originalCompanionNames[key] || [];
 
       if (delta > 0) {
-        // When adding slots, restore original names if available
         while (currentNames.length < newVal) {
           const idx = currentNames.length;
-          // For adults, first slot is always the main guest
-          if (key === 'adults' && idx === 0 && foundGuest) {
+          if (key === mainCategory && idx === 0 && foundGuest) {
             currentNames.push(foundGuest.name);
           } else {
             const originalName = originals[idx] || '';
@@ -179,7 +179,6 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
           }
         }
       } else {
-        // When removing slots, never remove the main guest (first adult)
         while (currentNames.length > newVal) {
           currentNames.pop();
         }
@@ -359,9 +358,10 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
 
                     {Object.keys(companionNames).map((key) => {
                       const groupKey = key as keyof GuestCompanionNames;
+                      const mainCategory = foundGuest ? getMainCategory(foundGuest.allotted) : 'adults';
+
                       return companionNames[groupKey].map((n, i) => {
-                        // For adults, first slot (i=0) is the main guest (read-only)
-                        const isMainGuest = groupKey === 'adults' && i === 0;
+                        const isMainGuest = groupKey === mainCategory && i === 0;
                         const labelName = groupKey === 'adults' ? 'Adulto' : groupKey === 'teens' ? 'Adolescente' : groupKey === 'kids' ? 'Niño' : 'Bebé';
 
                         return (
