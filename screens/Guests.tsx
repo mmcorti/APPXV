@@ -218,21 +218,20 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
       else if (countSource.infants > 0) mainGuestLabel = "Bebé";
 
       return (
-        <div key={g.id} className="relative bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden mb-4 animate-in slide-in-from-bottom-2 duration-300">
-          <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${g.status === 'confirmed' ? 'bg-green-500' : g.status === 'declined' ? 'bg-red-500' : 'bg-slate-300'}`}></div>
-          <div className="p-4 space-y-3">
+        <div key={g.id} className="relative bg-white/5 backdrop-blur-xl rounded-[32px] border border-white/10 overflow-hidden mb-4 transition-all hover:bg-white/[0.08] hover:border-white/20 group">
+          <div className="p-6 space-y-4">
             <div className="flex justify-between items-start">
-              <div className="flex gap-3">
-                <div className={`size-10 rounded-full flex items-center justify-center text-white font-black shadow-inner ${g.status === 'confirmed' ? 'bg-green-500' : g.status === 'declined' ? 'bg-red-500' : 'bg-slate-400'}`}>{g.name[0]}</div>
+              <div className="flex gap-4">
+                <div className={`size-12 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-xl transition-transform group-hover:scale-110 ${g.status === 'confirmed' ? 'bg-gradient-to-br from-emerald-400 to-teal-600' : g.status === 'declined' ? 'bg-gradient-to-br from-red-400 to-rose-600' : 'bg-gradient-to-br from-slate-600 to-slate-800'}`}>{g.name[0]}</div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-bold text-sm">{g.name}</p>
-                    {isSent && <span className="text-[8px] bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded font-black border border-blue-100 uppercase">Enviada</span>}
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="font-black italic text-lg tracking-tight">{g.name}</p>
+                    {isSent && <span className="text-[9px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full font-black border border-blue-500/20 uppercase tracking-widest">Enviada</span>}
                   </div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">Cupo total: {gAllottedTotal}</p>
+                  <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Cupos: {gAllottedTotal}</p>
                 </div>
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-1.5">
                 <button onClick={() => {
                   setEditingId(g.id);
                   setCurrentGuest({
@@ -240,51 +239,48 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                     companionNames: g.companionNames || { adults: [], teens: [], kids: [], infants: [] }
                   });
                   setShowModal('edit');
-                }} className="p-1.5 text-slate-300 hover:text-primary transition-colors"><span className="material-symbols-outlined text-lg">edit</span></button>
-                <button onClick={() => handleDelete(g.id)} className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"><span className="material-symbols-outlined text-lg">delete</span></button>
+                }} className="size-10 flex items-center justify-center rounded-xl bg-white/5 text-slate-400 hover:text-primary hover:bg-white/10 transition-all"><span className="material-symbols-outlined text-lg">edit</span></button>
+                <button onClick={() => handleDelete(g.id)} className="size-10 flex items-center justify-center rounded-xl bg-white/5 text-slate-400 hover:text-red-500 hover:bg-white/10 transition-all"><span className="material-symbols-outlined text-lg">delete</span></button>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-2 text-[10px] font-bold">
-                <div className="bg-slate-50 dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-700">
-                  <p className="text-slate-400 uppercase mb-1">Cupo Asignado</p>
-                  <p>Ad: {allotted.adults} | Adol: {allotted.teens} | Ni: {allotted.kids} | Be: {allotted.infants}</p>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white/5 p-3 rounded-2xl border border-white/5">
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">CUPO ASIGNADO</p>
+                  <p className="text-[10px] font-bold text-slate-300">AD {allotted.adults} | TE {allotted.teens} | NI {allotted.kids} | BE {allotted.infants}</p>
                 </div>
                 {g.status === 'confirmed' ? (
-                  <div className="bg-green-50 dark:bg-green-900/20 p-2 rounded-xl border border-green-100 dark:border-green-800/50">
-                    <p className="text-green-600 dark:text-green-400 uppercase mb-1">Confirmados</p>
-                    <p>Ad: {confirmed.adults} | Adol: {confirmed.teens} | Ni: {confirmed.kids} | Be: {confirmed.infants}</p>
+                  <div className="bg-emerald-500/5 p-3 rounded-2xl border border-emerald-500/10">
+                    <p className="text-[9px] font-black text-emerald-500/60 uppercase tracking-widest mb-1.5">CONFIRMADOS</p>
+                    <p className="text-[10px] font-bold text-emerald-400">AD {confirmed.adults} | TE {confirmed.teens} | NI {confirmed.kids} | BE {confirmed.infants}</p>
                   </div>
                 ) : (
-                  <div className={`bg-slate-50 dark:bg-slate-900 p-2 rounded-xl border border-slate-100 dark:border-slate-700 italic flex items-center justify-center ${g.status === 'declined' ? 'text-red-500 font-bold bg-red-50/50 border-red-100' : 'text-slate-400'}`}>
-                    {g.status === 'declined' ? 'Informó que NO asiste' : 'Pendiente'}
+                  <div className={`p-3 rounded-2xl border flex items-center justify-center ${g.status === 'declined' ? 'bg-red-500/5 border-red-500/10 text-red-500 font-black italic uppercase text-[10px] tracking-tighter' : 'bg-white/5 border-white/5 text-slate-500 font-bold text-[10px]'}`}>
+                    {g.status === 'declined' ? 'NO ASISTIRÁ' : 'PENDIENTE'}
                   </div>
                 )}
               </div>
 
-              {/* Ausentes dentro del mismo cuadrante */}
-              {(g.status === 'confirmed' && diffTotal > 0) || (g.status === 'declined' && gAllottedTotal > 0) ? (
-                <div className="p-2.5 bg-red-50/30 dark:bg-red-900/10 rounded-xl border border-red-50 dark:border-red-900/20">
-                  <p className="text-[9px] font-black text-red-500 uppercase flex items-center gap-1.5 mb-1">
-                    <span className="material-symbols-outlined text-[14px]">person_off</span>
-                    {g.status === 'declined' ? `Todo el grupo ausente: ${gAllottedTotal}` : `Ausencias en el grupo: ${diffTotal}`}
+              {/* Ausentes */}
+              {((g.status === 'confirmed' && diffTotal > 0) || (g.status === 'declined' && gAllottedTotal > 0)) && (
+                <div className="bg-red-500/5 p-3 rounded-2xl border border-red-500/10 flex items-center justify-between">
+                  <p className="text-[10px] font-black text-red-500/80 uppercase tracking-tighter flex items-center gap-2">
+                    <span className="material-symbols-outlined text-sm">person_off</span>
+                    {g.status === 'declined' ? 'GRUPO AUSENTE' : `${diffTotal} AUSENTES`}
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    {allotted.adults - confirmed.adults > 0 && <span className="text-[8px] font-bold bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-red-100/50 text-red-400">-{allotted.adults - confirmed.adults} Adultos</span>}
-                    {allotted.teens - confirmed.teens > 0 && <span className="text-[8px] font-bold bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-red-100/50 text-red-400">-{allotted.teens - confirmed.teens} Adol.</span>}
-                    {allotted.kids - confirmed.kids > 0 && <span className="text-[8px] font-bold bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-red-100/50 text-red-400">-{allotted.kids - confirmed.kids} Niños</span>}
-                    {allotted.infants - confirmed.infants > 0 && <span className="text-[8px] font-bold bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-red-100/50 text-red-400">-{allotted.infants - confirmed.infants} Bebés</span>}
+                  <div className="flex gap-1.5">
+                    {allotted.adults - confirmed.adults > 0 && <span className="bg-white/5 px-2 py-0.5 rounded-lg text-[9px] font-black text-red-400">-{allotted.adults - confirmed.adults} AD</span>}
+                    {allotted.teens - confirmed.teens > 0 && <span className="bg-white/5 px-2 py-0.5 rounded-lg text-[9px] font-black text-red-400">-{allotted.teens - confirmed.teens} TE</span>}
                   </div>
                 </div>
-              ) : null}
+              )}
 
-              {/* Lista de invitados que asisten - Solo si hay confirmados reales */}
+              {/* Lista invitados que asisten */}
               {g.status === 'confirmed' && gConfirmedTotal > 0 && (
-                <div className="pt-2 border-t border-slate-50 dark:border-slate-700">
-                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1.5 font-sans">Invitados que asisten:</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {/* Determine display name for main guest: prefer confirmed name from slots if available */}
+                <div className="pt-3 border-t border-white/5">
+                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">LISTA DE ASISTENCIA:</p>
+                  <div className="flex flex-wrap gap-2">
                     {(() => {
                       const getMainCategory = (alloted: GuestAllotment) => {
                         if (alloted.adults > 0) return 'adults';
@@ -298,10 +294,10 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                       const displayName = (confirmedName && confirmedName.trim()) ? confirmedName : g.name;
 
                       return (
-                        <span className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-1.5">
-                          <span className="size-1.5 bg-green-500 rounded-full"></span>
+                        <span className="bg-white/5 px-3 py-1.5 rounded-xl text-[10px] font-black italic border border-white/5 flex items-center gap-2">
+                          <span className="size-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
                           {displayName}
-                          <span className="text-[8px] text-slate-400 uppercase ml-0.5">({mainGuestLabel})</span>
+                          <span className="text-[8px] text-slate-500 uppercase not-italic">({mainGuestLabel})</span>
                         </span>
                       );
                     })()}
@@ -318,23 +314,21 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                       const mainCategory = getMainCategory(allotted);
 
                       return g.companionNames && [
-                        { list: (g.companionNames.adults || []).slice(0, confirmed.adults), label: "Adulto", key: 'adults' },
-                        { list: (g.companionNames.teens || []).slice(0, confirmed.teens), label: "Adol.", key: 'teens' },
-                        { list: (g.companionNames.kids || []).slice(0, confirmed.kids), label: "Niño", key: 'kids' },
-                        { list: (g.companionNames.infants || []).slice(0, confirmed.infants), label: "Bebé", key: 'infants' },
+                        { list: (g.companionNames.adults || []).slice(0, confirmed.adults), label: "AD", key: 'adults' },
+                        { list: (g.companionNames.teens || []).slice(0, confirmed.teens), label: "TE", key: 'teens' },
+                        { list: (g.companionNames.kids || []).slice(0, confirmed.kids), label: "NI", key: 'kids' },
+                        { list: (g.companionNames.infants || []).slice(0, confirmed.infants), label: "BE", key: 'infants' },
                       ].map(type =>
                         type.list.filter((n, idx) => {
                           if (!n || n.trim() === "") return false;
-                          // Skip the main guest slot (always slot 0 of their category)
                           if (type.key === mainCategory && idx === 0) return false;
-                          // Secondary check: if name matches main guest exactly (case-insensitive)
                           if (n.toLowerCase() === g.name.toLowerCase()) return false;
                           return true;
                         }).map((name, idx) => (
-                          <span key={`${type.label}-${idx}`} className="bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-1.5">
-                            <span className="size-1.5 bg-green-500 rounded-full"></span>
+                          <span key={`${type.label}-${idx}`} className="bg-white/5 px-3 py-1.5 rounded-xl text-[10px] font-black italic border border-white/5 flex items-center gap-2">
+                            <span className="size-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
                             {name}
-                            <span className="text-[8px] text-slate-400 uppercase ml-0.5">({type.label})</span>
+                            <span className="text-[8px] text-slate-500 uppercase not-italic">({type.label})</span>
                           </span>
                         ))
                       );
@@ -344,11 +338,11 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
               )}
             </div>
 
-            <div className="flex gap-2 pt-2 border-t border-slate-50 dark:border-slate-700">
-              <button onClick={() => handleSendWhatsApp(g)} className="flex-1 py-3 rounded-xl bg-green-50 text-green-600 font-bold text-[10px] flex items-center justify-center gap-1.5 shadow-sm hover:bg-green-100 transition-colors">
-                <span className="material-symbols-outlined text-base">chat</span> ENVIAR INVITACIÓN
+            <div className="flex gap-2 pt-4 border-t border-white/5">
+              <button onClick={() => handleSendWhatsApp(g)} className="flex-1 py-3.5 rounded-2xl bg-primary/10 text-primary font-black italic uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 shadow-sm hover:bg-primary hover:text-white transition-all transform active:scale-95 group/btn">
+                <span className="material-symbols-outlined text-base transition-transform group-hover/btn:rotate-12">chat</span> ENVIAR WhatsApp
               </button>
-              <button onClick={() => navigate(`/rsvp/${id}?guest=${encodeURIComponent(g.name)}`)} className="px-5 py-3 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-[10px] shadow-sm hover:bg-slate-200 transition-colors flex items-center gap-1.5">
+              <button onClick={() => navigate(`/rsvp/${id}?guest=${encodeURIComponent(g.name)}`)} className="px-6 py-3.5 rounded-2xl bg-white/5 font-black italic uppercase tracking-widest text-[10px] text-slate-300 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2 transform active:scale-95">
                 <span className="material-symbols-outlined text-base">visibility</span> VISTA
               </button>
             </div>
@@ -393,12 +387,22 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
   };
 
   return (
-    <div className="bg-background-light dark:bg-background-dark min-h-screen pb-24 max-w-[480px] md:max-w-6xl mx-auto text-slate-900 dark:text-white font-display">
-      <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-        <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-          <span className="material-symbols-outlined">arrow_back</span>
-        </button>
-        <h1 className="text-base font-bold">Invitados & Confirmaciones</h1>
+    <div className="bg-slate-950 min-h-screen pb-24 max-w-6xl mx-auto text-white font-display relative overflow-x-hidden">
+      {/* Visual background accents */}
+      <div className="fixed top-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none"></div>
+      <div className="fixed bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/5 blur-[100px] rounded-full pointer-events-none"></div>
+
+      <header className="sticky top-0 z-40 bg-slate-950/60 backdrop-blur-xl border-b border-white/5 px-6 py-5 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button onClick={() => navigate('/dashboard')} className="size-10 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-all">
+            <span className="material-symbols-outlined">arrow_back</span>
+          </button>
+          <div>
+            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest leading-none mb-1">Evento Activo</p>
+            <h1 className="text-lg font-black italic tracking-tight">{invitation.eventName}</h1>
+          </div>
+        </div>
+
         <button
           onClick={() => {
             if (!limitCheck.allowed) return;
@@ -410,13 +414,14 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
             });
             setShowModal('add');
           }}
-          className={`font-bold text-xs uppercase px-3 py-1.5 rounded-lg border transition-all ${limitCheck.allowed
-            ? 'text-primary bg-primary/5 border-primary/10 hover:bg-primary/10'
-            : 'text-slate-400 bg-slate-100 border-slate-200 cursor-not-allowed'
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all ${limitCheck.allowed
+            ? 'bg-primary text-white shadow-[0_10px_20px_rgba(19,91,236,0.2)] hover:scale-105'
+            : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50'
             }`}
           disabled={!limitCheck.allowed}
         >
-          {limitCheck.allowed ? 'NUEVO' : 'LÍMITE ALCANZADO'}
+          <span className="material-symbols-outlined text-[18px]">person_add</span>
+          {limitCheck.allowed ? 'Nuevo Invitado' : 'Límite'}
         </button>
       </header>
 
@@ -430,12 +435,21 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
         />
       </div>
 
-      <div className="p-4 space-y-6">
-        <div className="grid grid-cols-4 gap-2">
-          <StatBtn label="TOTAL" val={stats.total} active={filter === 'all'} onClick={() => { setFilter('all'); setCatFilter('all'); }} color="primary" />
-          <StatBtn label="SI" val={stats.si} active={filter === 'confirmed'} onClick={() => { setFilter('confirmed'); setCatFilter('all'); }} color="green-500" />
-          <StatBtn label="NO" val={stats.no} active={filter === 'declined'} onClick={() => { setFilter('declined'); setCatFilter('all'); }} color="red-500" />
-          <StatBtn label="PEND." val={stats.pend} active={filter === 'pending'} onClick={() => { setFilter('pending'); setCatFilter('all'); }} color="slate-400" />
+      <div className="p-6 space-y-8 relative z-10">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-1">
+            <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter">
+              Invitados & <span className="text-primary">Confirmaciones</span>
+            </h2>
+            <p className="text-slate-500 font-medium">Gestioná el acceso y la distribución de tus invitados.</p>
+          </div>
+
+          <div className="grid grid-cols-4 gap-3 md:w-auto">
+            <StatBtn label="TOTAL" val={stats.total} active={filter === 'all'} onClick={() => { setFilter('all'); setCatFilter('all'); }} color="primary" />
+            <StatBtn label="SÍ" val={stats.si} active={filter === 'confirmed'} onClick={() => { setFilter('confirmed'); setCatFilter('all'); }} color="emerald-500" />
+            <StatBtn label="NO" val={stats.no} active={filter === 'declined'} onClick={() => { setFilter('declined'); setCatFilter('all'); }} color="red-500" />
+            <StatBtn label="PEND." val={stats.pend} active={filter === 'pending'} onClick={() => { setFilter('pending'); setCatFilter('all'); }} color="slate-400" />
+          </div>
         </div>
 
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
@@ -455,15 +469,14 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
           })()}
         </div>
 
-        {/* Search Input */}
-        <div className="relative">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+        <div className="relative group">
+          <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors">search</span>
           <input
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Buscar invitado..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            placeholder="Buscar por nombre..."
+            className="w-full pl-12 pr-4 py-4 rounded-[20px] bg-white/5 border border-white/10 text-sm font-bold placeholder:text-slate-600 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all backdrop-blur-md"
           />
         </div>
 
@@ -478,38 +491,53 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-5 animate-in zoom-in duration-200 max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl">
+          <div className="bg-slate-900 w-full max-w-lg rounded-[40px] p-8 border border-white/10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] space-y-6 animate-in zoom-in-95 duration-300 max-h-[90vh] flex flex-col overflow-hidden">
             <div className="flex justify-between items-center shrink-0">
-              <h3 className="text-lg font-bold">{showModal === 'add' ? 'Nuevo Invitado' : 'Editar Cupos'}</h3>
-              <button onClick={() => setShowModal(null)} className="size-10 flex items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-full"><span className="material-symbols-outlined">close</span></button>
+              <h3 className="text-2xl font-black italic uppercase tracking-tighter">{showModal === 'add' ? 'Nuevo Invitado' : 'Editar Cupos'}</h3>
+              <button onClick={() => setShowModal(null)} className="size-10 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-full transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
             </div>
-            <div className="space-y-4 overflow-y-auto no-scrollbar pb-2">
-              <input required type="text" value={currentGuest.name} onChange={e => setCurrentGuest({ ...currentGuest, name: e.target.value })} className="w-full h-14 rounded-2xl border-slate-200 dark:border-slate-700 dark:bg-slate-900 px-4 font-bold outline-none focus:ring-2 focus:ring-primary/20" placeholder="Nombre del invitado principal" />
+
+            <div className="space-y-6 overflow-y-auto no-scrollbar pb-6 px-1">
+              <div className="space-y-2">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Información General</p>
+                <input
+                  required
+                  type="text"
+                  value={currentGuest.name}
+                  onChange={e => setCurrentGuest({ ...currentGuest, name: e.target.value })}
+                  className="w-full h-14 rounded-2xl bg-white/5 border border-white/10 px-6 font-bold text-white outline-none focus:ring-4 focus:ring-primary/20 transition-all"
+                  placeholder="Nombre completo"
+                />
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <AllotmentInput label="Adultos (18+)" val={currentGuest.allotted!.adults} onDelta={d => updateAllotted('adults', d)} />
-                <AllotmentInput label="Adolesc. (11-17)" val={currentGuest.allotted!.teens} onDelta={d => updateAllotted('teens', d)} />
-                <AllotmentInput label="Niños (3-11)" val={currentGuest.allotted!.kids} onDelta={d => updateAllotted('kids', d)} />
-                <AllotmentInput label="Bebés (0-3)" val={currentGuest.allotted!.infants} onDelta={d => updateAllotted('infants', d)} />
+                <AllotmentInput label="Adultos (18+)" val={currentGuest.allotted!.adults} onDelta={(d: number) => updateAllotted('adults', d)} />
+                <AllotmentInput label="Adolesc. (11-17)" val={currentGuest.allotted!.teens} onDelta={(d: number) => updateAllotted('teens', d)} />
+                <AllotmentInput label="Niños (3-11)" val={currentGuest.allotted!.kids} onDelta={(d: number) => updateAllotted('kids', d)} />
+                <AllotmentInput label="Bebés (0-3)" val={currentGuest.allotted!.infants} onDelta={(d: number) => updateAllotted('infants', d)} />
               </div>
 
               {/* Status toggle for editing */}
               {showModal === 'edit' && currentGuest.status && currentGuest.status !== 'pending' && (
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
-                  <p className="text-[10px] font-black text-slate-400 uppercase mb-2">Estado de Confirmación</p>
-                  <div className="flex gap-2">
-                    <div className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 ${currentGuest.status === 'confirmed' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+                <div className="pt-6 border-t border-white/5">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Estado de Confirmación</p>
+                  <div className="flex gap-3">
+                    <div className={`flex-1 px-4 py-3 rounded-2xl text-xs font-black uppercase flex items-center gap-3 border ${currentGuest.status === 'confirmed'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      : 'bg-red-500/10 text-red-400 border-red-500/20'
                       }`}>
-                      <span className={`size-2 rounded-full ${currentGuest.status === 'confirmed' ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                      {currentGuest.status === 'confirmed' ? 'Confirmado' : 'No asiste'}
+                      <span className={`size-2.5 rounded-full ${currentGuest.status === 'confirmed' ? 'bg-emerald-500' : 'bg-red-500'} animate-pulse`}></span>
+                      {currentGuest.status === 'confirmed' ? 'Confirmado' : 'Cancelado'}
                     </div>
                     <button
                       type="button"
                       onClick={() => setCurrentGuest({ ...currentGuest, status: 'pending' })}
-                      className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+                      className="px-6 py-3 rounded-2xl text-[10px] font-black uppercase bg-white/5 hover:bg-white/10 text-slate-400 transition-all"
                     >
-                      Quitar estado
+                      Resetear
                     </button>
                   </div>
                 </div>
@@ -519,18 +547,17 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                 currentGuest.companionNames?.teens.length! > 0 ||
                 currentGuest.companionNames?.kids.length! > 0 ||
                 currentGuest.companionNames?.infants.length! > 0) && (
-                  <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-700">
-                    <p className="text-[10px] font-black text-slate-400 uppercase">Nombres de acompañantes (opcional)</p>
+                  <div className="space-y-4 pt-6 border-t border-white/5">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Nombres de acompañantes</p>
 
-                    {/* Adults - First adult is the main guest (read-only), rest are companions */}
                     {currentGuest.allotted!.adults > 0 && (
                       <div className="relative">
-                        <label className="absolute -top-2 left-3 px-1 bg-white dark:bg-slate-800 text-[9px] font-black text-slate-400 uppercase">Adulto 1 (Principal)</label>
+                        <label className="absolute -top-2 left-4 px-1.5 bg-slate-900 text-[8px] font-black text-slate-500 uppercase tracking-widest z-10">Principal</label>
                         <input
                           type="text"
                           value={currentGuest.name}
                           disabled
-                          className="w-full h-12 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 px-4 text-sm bg-slate-50 cursor-not-allowed opacity-60"
+                          className="w-full h-14 rounded-2xl bg-white/5 border border-white/10 px-6 text-sm font-bold text-slate-400 opacity-50 cursor-not-allowed"
                         />
                       </div>
                     )}
@@ -549,7 +576,13 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                   </div>
                 )}
             </div>
-            <button onClick={handleSaveGuest} className="w-full h-14 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/20 active:scale-[0.98] transition-all shrink-0">Guardar Cambios</button>
+
+            <button
+              onClick={handleSaveGuest}
+              className="w-full h-16 bg-primary text-white font-black italic uppercase tracking-widest rounded-3xl shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all shrink-0 mt-auto"
+            >
+              Guardar Cambios
+            </button>
           </div>
         </div>
       )}
@@ -565,40 +598,65 @@ interface CompanionNameInputProps {
 }
 
 const CompanionNameInput = ({ label, value, onChange }: CompanionNameInputProps) => (
-  <div className="relative">
-    <label className="absolute -top-2 left-3 px-1 bg-white dark:bg-slate-800 text-[9px] font-black text-slate-400 uppercase">{label}</label>
+  <div className="relative group">
+    <label className="absolute -top-2 left-4 px-1.5 bg-slate-900 text-[8px] font-black text-slate-500 uppercase tracking-widest z-10 group-focus-within:text-primary transition-colors">{label}</label>
     <input
       type="text"
       value={value || ""}
       onChange={e => onChange(e.target.value)}
-      className="w-full h-12 rounded-xl border border-slate-100 dark:border-slate-700 dark:bg-slate-900 px-4 text-sm font-bold outline-none focus:border-primary/50"
-      placeholder="Ingrese nombre..."
+      className="w-full h-14 rounded-2xl bg-white/5 border border-white/10 px-6 text-sm font-black italic text-white outline-none focus:ring-4 focus:ring-primary/10 transition-all placeholder:text-slate-700"
+      placeholder="Escribir nombre..."
     />
   </div>
 );
 
 
 const StatBtn = ({ label, val, active, onClick, color }: any) => (
-  <button onClick={onClick} className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all ${active ? (color === 'primary' ? 'bg-primary text-white shadow-lg' : `bg-${color} text-white shadow-lg`) : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800'}`}>
-    <span className="text-xl font-black leading-none mb-1">{val}</span>
-    <span className="text-[8px] font-bold uppercase tracking-widest">{label}</span>
+  <button
+    onClick={onClick}
+    className={`flex flex-col items-center justify-center p-4 rounded-[24px] border transition-all ${active
+        ? `${color === 'primary' ? 'bg-primary' : `bg-${color}`} text-white shadow-xl shadow-primary/20 scale-105 z-10 border-white/20`
+        : 'bg-white/5 backdrop-blur-md border-white/5 text-slate-400 hover:bg-white/10'
+      }`}
+  >
+    <span className="text-2xl font-black italic leading-none mb-1 tracking-tighter">{val}</span>
+    <span className="text-[7px] font-black uppercase tracking-[0.2em]">{label}</span>
   </button>
 );
 
 const CategoryBadge = ({ label, val, dotColor, active, onClick }: { label: string, val: number, dotColor: string, active?: boolean, onClick?: () => void }) => (
-  <button onClick={onClick} className={`flex items-center gap-2 px-3 py-2 rounded-full border transition-all shrink-0 shadow-sm ${active ? 'bg-primary border-primary text-white' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800'}`}>
-    <span className={`size-2 rounded-full ${active ? 'bg-white' : dotColor}`}></span>
-    <span className={`text-[10px] font-bold ${active ? 'text-white' : 'text-slate-600 dark:text-slate-400'}`}>{label}: <span className={active ? 'text-white' : 'text-slate-900 dark:text-white'}>{val}</span></span>
+  <button
+    onClick={onClick}
+    className={`flex items-center gap-3 px-5 py-2.5 rounded-full border transition-all shrink-0 shadow-lg ${active
+        ? 'bg-white text-slate-950 border-white font-black italic'
+        : 'bg-white/5 backdrop-blur-md border-white/10 text-slate-400 hover:border-white/20'
+      }`}
+  >
+    <span className={`size-1.5 rounded-full ${active ? 'bg-primary animate-pulse' : dotColor}`}></span>
+    <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
+    <span className={`text-xs ${active ? 'text-slate-950' : 'text-white'}`}>{val}</span>
   </button>
 );
 
 const AllotmentInput = ({ label, val, onDelta }: any) => (
-  <div className="space-y-1">
-    <p className="text-[9px] font-black text-slate-400 uppercase ml-2">{label}</p>
-    <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-700">
-      <button type="button" onClick={() => onDelta(-1)} className="size-9 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-slate-500">-</button>
-      <span className="flex-1 text-center font-bold">{val}</span>
-      <button type="button" onClick={() => onDelta(1)} className="size-9 rounded-xl bg-primary text-white flex items-center justify-center shadow-sm">+</button>
+  <div className="space-y-2">
+    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-3">{label}</p>
+    <div className="flex items-center gap-1 bg-white/5 p-1.5 rounded-[24px] border border-white/10 backdrop-blur-md">
+      <button
+        type="button"
+        onClick={() => onDelta(-1)}
+        className="size-10 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-black transition-all flex items-center justify-center border border-white/5"
+      >
+        <span className="material-symbols-outlined text-sm">remove</span>
+      </button>
+      <span className="flex-1 text-center font-black italic text-lg tracking-tighter">{val}</span>
+      <button
+        type="button"
+        onClick={() => onDelta(1)}
+        className="size-10 rounded-2xl bg-primary text-white font-black flex items-center justify-center shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+      >
+        <span className="material-symbols-outlined text-sm text-[20px]">add</span>
+      </button>
     </div>
   </div>
 );
