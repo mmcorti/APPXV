@@ -301,7 +301,6 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                       );
                     })()}
 
-                    {/* Acompañantes */}
                     {(() => {
                       const getMainCategory = (allotted: GuestAllotment) => {
                         if (allotted.adults > 0) return 'adults';
@@ -314,24 +313,31 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                       const mainGuestName = g.name.toLowerCase().trim();
 
                       return g.companionNames && [
-                        { list: (g.companionNames.adults || []).slice(0, confirmed.adults), label: "AD", key: 'adults' },
-                        { list: (g.companionNames.teens || []).slice(0, confirmed.teens), label: "TE", key: 'teens' },
-                        { list: (g.companionNames.kids || []).slice(0, confirmed.kids), label: "NI", key: 'kids' },
-                        { list: (g.companionNames.infants || []).slice(0, confirmed.infants), label: "BE", key: 'infants' },
-                      ].map(type =>
-                        type.list.filter((n, idx) => {
-                          if (!n || n.trim() === "") return false;
-                          // Check if this name is the Main Guest
-                          if (n.toLowerCase().trim() === mainGuestName) return false;
-                          return true;
-                        }).map((name, idx) => (
+                        { key: 'adults', label: "AD", count: confirmed.adults },
+                        { key: 'teens', label: "TE", count: confirmed.teens },
+                        { key: 'kids', label: "NI", count: confirmed.kids },
+                        { key: 'infants', label: "BE", count: confirmed.infants },
+                      ].map(type => {
+                        const rawList = g.companionNames![type.key as keyof GuestCompanionNames] || [];
+
+                        // Filter out Main Guest Name first
+                        const filtered = rawList.filter(n => n && n.trim().toLowerCase() !== mainGuestName);
+
+                        // Determine display limit. 
+                        // If this is the main category, we subtract 1 because the Main Guest is already shown in the first pill.
+                        const limit = (type.key === mainCategory) ? Math.max(0, type.count - 1) : type.count;
+
+                        // Slice to limit
+                        const itemsToShow = filtered.slice(0, limit);
+
+                        return itemsToShow.map((name, idx) => (
                           <span key={`${type.label}-${idx}`} className="bg-white/5 px-3 py-1.5 rounded-xl text-[10px] font-black italic border border-white/5 flex items-center gap-2">
                             <span className="size-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
                             {name}
                             <span className="text-[8px] text-slate-500 uppercase not-italic">({type.label})</span>
                           </span>
-                        ))
-                      );
+                        ));
+                      });
                     })()}
                   </div>
                 </div>
