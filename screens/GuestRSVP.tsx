@@ -118,12 +118,28 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
     if (attending === null || submitting) return;
 
     setSubmitting(true);
+
+    const mainCategory = getMainCategory(foundGuest?.allotted || confirmedAllotment);
+
     try {
+      // FORCE Main Guest Name into the first slot of the main category if attending
+      const finalCompanionNames = { ...companionNames };
+      if (attending) {
+        const currentMainList = [...finalCompanionNames[mainCategory]];
+        if (currentMainList.length > 0) {
+          currentMainList[0] = name; // Ensure slot 0 is the main guest name
+          finalCompanionNames[mainCategory] = currentMainList;
+        } else {
+          // Should not happen if count > 0, but safety check
+          finalCompanionNames[mainCategory] = [name];
+        }
+      }
+
       await onRsvpSubmit(invitation.id, {
         name: name,
         status: attending ? 'confirmed' : 'declined',
         confirmed: attending ? confirmedAllotment : { adults: 0, teens: 0, kids: 0, infants: 0 },
-        companionNames: attending ? companionNames : undefined
+        companionNames: attending ? finalCompanionNames : undefined
       });
 
       setSubmitted(true);
@@ -160,11 +176,14 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
       if (delta > 0) {
         while (currentNames.length < newVal) {
           const idx = currentNames.length;
-          if (key === mainCategory && idx === 0 && foundGuest) {
-            currentNames.push(foundGuest.name);
+          // Logic: Slot 0 of Main Category is ALWAYS the current Guest Name
+          if (key === mainCategory && idx === 0) {
+            currentNames.push(name);
           } else {
+            // Otherwise, try to restore original name or empty
+            // FIX: If original name was the main guest name (and we are not in slot 0), don't restore it to avoid dupes!
             const originalName = originals[idx] || '';
-            currentNames.push(originalName);
+            currentNames.push(originalName === name ? '' : originalName);
           }
         }
       } else {
@@ -336,8 +355,8 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
                 type="button"
                 onClick={() => setAttending(true)}
                 className={`flex-1 py-5 rounded-[24px] font-black italic uppercase tracking-widest text-[11px] border transition-all flex flex-col items-center gap-1 ${attending === true
-                    ? 'bg-emerald-500 text-white border-emerald-400 shadow-[0_10px_20px_rgba(16,185,129,0.2)]'
-                    : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10'
+                  ? 'bg-emerald-500 text-white border-emerald-400 shadow-[0_10px_20px_rgba(16,185,129,0.2)]'
+                  : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10'
                   }`}
               >
                 <span className="material-symbols-outlined text-2xl mb-1">done_all</span>
@@ -347,8 +366,8 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
                 type="button"
                 onClick={() => setAttending(false)}
                 className={`flex-1 py-5 rounded-[24px] font-black italic uppercase tracking-widest text-[11px] border transition-all flex flex-col items-center gap-1 ${attending === false
-                    ? 'bg-rose-500 text-white border-rose-400 shadow-[0_10px_20px_rgba(244,63,94,0.2)]'
-                    : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10'
+                  ? 'bg-rose-500 text-white border-rose-400 shadow-[0_10px_20px_rgba(244,63,94,0.2)]'
+                  : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10'
                   }`}
               >
                 <span className="material-symbols-outlined text-2xl mb-1">close</span>
@@ -440,8 +459,8 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
 
 const RSVPCount = ({ label, val, max, onDelta }: any) => (
   <div className={`p-4 rounded-[24px] border transition-all flex flex-col justify-between h-28 ${max === 0
-      ? 'opacity-20 grayscale pointer-events-none'
-      : 'bg-white/5 backdrop-blur-md border-white/5'
+    ? 'opacity-20 grayscale pointer-events-none'
+    : 'bg-white/5 backdrop-blur-md border-white/5'
     }`}>
     <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">{label}</p>
     <div className="flex items-center justify-between">
