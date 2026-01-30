@@ -282,16 +282,15 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">LISTA DE ASISTENCIA:</p>
                   <div className="flex flex-wrap gap-2">
                     {(() => {
-                      const getMainCategory = (alloted: GuestAllotment) => {
-                        if (alloted.adults > 0) return 'adults';
-                        if (alloted.teens > 0) return 'teens';
-                        if (alloted.kids > 0) return 'kids';
-                        if (alloted.infants > 0) return 'infants';
+                      const getMainCategory = (allotted: GuestAllotment) => {
+                        if (allotted.adults > 0) return 'adults';
+                        if (allotted.teens > 0) return 'teens';
+                        if (allotted.kids > 0) return 'kids';
+                        if (allotted.infants > 0) return 'infants';
                         return 'adults';
                       };
-                      const mainCat = getMainCategory(allotted);
-                      const confirmedName = g.status === 'confirmed' && g.companionNames?.[mainCat]?.[0];
-                      const displayName = (confirmedName && confirmedName.trim()) ? confirmedName : g.name;
+                      const mainCategory = getMainCategory(allotted);
+                      const displayName = g.name;
 
                       return (
                         <span className="bg-white/5 px-3 py-1.5 rounded-xl text-[10px] font-black italic border border-white/5 flex items-center gap-2">
@@ -312,10 +311,7 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                         return 'adults';
                       };
                       const mainCategory = getMainCategory(allotted);
-
-                      // Determine the name we displayed for the main guest so we can filter it out
-                      const confirmedName = g.status === 'confirmed' && g.companionNames?.[mainCategory]?.[0];
-                      const mainGuestDisplayName = (confirmedName && confirmedName.trim()) ? confirmedName : g.name;
+                      const mainGuestName = g.name.toLowerCase().trim();
 
                       return g.companionNames && [
                         { list: (g.companionNames.adults || []).slice(0, confirmed.adults), label: "AD", key: 'adults' },
@@ -325,12 +321,8 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                       ].map(type =>
                         type.list.filter((n, idx) => {
                           if (!n || n.trim() === "") return false;
-                          // Skip the slot that technically belongs to the main guest
-                          if (type.key === mainCategory && idx === 0) return false;
-                          // Skip if name matches the Main Guest's Real Name
-                          if (n.toLowerCase() === g.name.toLowerCase()) return false;
-                          // Skip if name matches the Displayed Main Name (prevent duplications if main guest renamed)
-                          if (n.toLowerCase() === mainGuestDisplayName.toLowerCase()) return false;
+                          // Check if this name is the Main Guest
+                          if (n.toLowerCase().trim() === mainGuestName) return false;
                           return true;
                         }).map((name, idx) => (
                           <span key={`${type.label}-${idx}`} className="bg-white/5 px-3 py-1.5 rounded-xl text-[10px] font-black italic border border-white/5 flex items-center gap-2">
