@@ -313,6 +313,10 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                       };
                       const mainCategory = getMainCategory(allotted);
 
+                      // Determine the name we displayed for the main guest so we can filter it out
+                      const confirmedName = g.status === 'confirmed' && g.companionNames?.[mainCategory]?.[0];
+                      const mainGuestDisplayName = (confirmedName && confirmedName.trim()) ? confirmedName : g.name;
+
                       return g.companionNames && [
                         { list: (g.companionNames.adults || []).slice(0, confirmed.adults), label: "AD", key: 'adults' },
                         { list: (g.companionNames.teens || []).slice(0, confirmed.teens), label: "TE", key: 'teens' },
@@ -321,8 +325,12 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                       ].map(type =>
                         type.list.filter((n, idx) => {
                           if (!n || n.trim() === "") return false;
+                          // Skip the slot that technically belongs to the main guest
                           if (type.key === mainCategory && idx === 0) return false;
+                          // Skip if name matches the Main Guest's Real Name
                           if (n.toLowerCase() === g.name.toLowerCase()) return false;
+                          // Skip if name matches the Displayed Main Name (prevent duplications if main guest renamed)
+                          if (n.toLowerCase() === mainGuestDisplayName.toLowerCase()) return false;
                           return true;
                         }).map((name, idx) => (
                           <span key={`${type.label}-${idx}`} className="bg-white/5 px-3 py-1.5 rounded-xl text-[10px] font-black italic border border-white/5 flex items-center gap-2">
@@ -615,8 +623,8 @@ const StatBtn = ({ label, val, active, onClick, color }: any) => (
   <button
     onClick={onClick}
     className={`flex flex-col items-center justify-center p-4 rounded-[24px] border transition-all ${active
-        ? `${color === 'primary' ? 'bg-primary' : `bg-${color}`} text-white shadow-xl shadow-primary/20 scale-105 z-10 border-white/20`
-        : 'bg-white/5 backdrop-blur-md border-white/5 text-slate-400 hover:bg-white/10'
+      ? `${color === 'primary' ? 'bg-primary' : `bg-${color}`} text-white shadow-xl shadow-primary/20 scale-105 z-10 border-white/20`
+      : 'bg-white/5 backdrop-blur-md border-white/5 text-slate-400 hover:bg-white/10'
       }`}
   >
     <span className="text-2xl font-black italic leading-none mb-1 tracking-tighter">{val}</span>
@@ -628,8 +636,8 @@ const CategoryBadge = ({ label, val, dotColor, active, onClick }: { label: strin
   <button
     onClick={onClick}
     className={`flex items-center gap-3 px-5 py-2.5 rounded-full border transition-all shrink-0 shadow-lg ${active
-        ? 'bg-white text-slate-950 border-white font-black italic'
-        : 'bg-white/5 backdrop-blur-md border-white/10 text-slate-400 hover:border-white/20'
+      ? 'bg-white text-slate-950 border-white font-black italic'
+      : 'bg-white/5 backdrop-blur-md border-white/10 text-slate-400 hover:border-white/20'
       }`}
   >
     <span className={`size-1.5 rounded-full ${active ? 'bg-primary animate-pulse' : dotColor}`}></span>

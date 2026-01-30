@@ -176,11 +176,10 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
         const catNames = namesObj[cat] || [];
 
         for (let i = 0; i < effectiveCount; i++) {
-          // Detect storage format: RSVP puts main guest at adults[0], Guests.tsx doesn't
-          // If adults[0] matches main guest name, we need to offset by 1 to skip it
-          const mainGuestInArray = cat === 'adults' && catNames.length > 0 &&
-            catNames[0]?.toLowerCase().trim() === g.name.toLowerCase().trim();
-          const nameIndex = mainGuestInArray ? i + 1 : i;
+          // Detect storage format: RSVP puts main guest at adults[0] (or main category [0])
+          // We always skip index 0 for the main category because that slot is the Main Guest (processed in Step 1)
+          const isMainCategory = cat === mainCategory;
+          const nameIndex = isMainCategory ? i + 1 : i;
           const suppliedName = catNames[nameIndex] || "";
 
           // Determine display Name

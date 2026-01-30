@@ -178,7 +178,11 @@ class SchemaManager {
                 if (foundName) {
                     this.mappings[dbKey][internalKey] = foundName;
                 } else {
-                    console.warn(`⚠️ Property '${internalKey}' not found in ${dbKey} DB.`);
+                    // Suppress warnings for known optional properties
+                    const OPTIONAL = ['Capacity', 'Guests', 'Staff']; // Guests in TABLES, Staff in EXPENSES
+                    if (!OPTIONAL.includes(internalKey)) {
+                        console.warn(`⚠️ Property '${internalKey}' not found in ${dbKey} DB.`);
+                    }
                 }
             }
         } catch (error) {
