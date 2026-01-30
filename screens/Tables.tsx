@@ -174,13 +174,11 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
         const effectiveCount = (cat === mainCategory) ? Math.max(0, count - 1) : count;
 
         const catNames = namesObj[cat] || [];
+        // Filter out the Main Guest Name from the list of potential companions
+        const validNames = catNames.filter(n => n && n.trim().toLowerCase() !== g.name.trim().toLowerCase());
 
         for (let i = 0; i < effectiveCount; i++) {
-          // Detect storage format: RSVP puts main guest at adults[0] (or main category [0])
-          // We always skip index 0 for the main category because that slot is the Main Guest (processed in Step 1)
-          const isMainCategory = cat === mainCategory;
-          const nameIndex = isMainCategory ? i + 1 : i;
-          const suppliedName = catNames[nameIndex] || "";
+          const suppliedName = validNames[i] || "";
 
           // Determine display Name
           const categoryLabel = getCategoryLabel(cat);
