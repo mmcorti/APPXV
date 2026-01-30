@@ -236,7 +236,7 @@ const WelcomeScreen: React.FC = () => {
           <div className="space-y-2">
             <p className="text-white text-sm font-black tracking-[0.3em] uppercase opacity-40">by Madiba Tech</p>
             <p className="text-white/30 text-xs font-bold">© 2026 APPXV. Todos los derechos reservados.</p>
-            <p className="text-primary text-xs font-bold hover:underline cursor-pointer mt-2">tech@madib.com.ar</p>
+            <p className="text-primary text-xs font-bold hover:underline cursor-pointer mt-2">tech@madiba.com.ar</p>
           </div>
         </div>
       </footer >
