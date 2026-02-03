@@ -203,10 +203,10 @@ const App: React.FC = () => {
           if (guestAssignments.length > 0) {
             // Build updated names list from guest's companionNames
             const allNames = guest.companionNames ? [
-              ...guest.companionNames.adults,
-              ...guest.companionNames.teens,
-              ...guest.companionNames.kids,
-              ...guest.companionNames.infants
+              ...(guest.companionNames.adults || []),
+              ...(guest.companionNames.teens || []),
+              ...(guest.companionNames.kids || []),
+              ...(guest.companionNames.infants || [])
             ] : [];
 
             const newAssignments = table.guests.map(a => {
@@ -700,11 +700,11 @@ const App: React.FC = () => {
                     } else {
                       // Update names and status for confirmed guest
                       const allNames = guestData.companionNames ? [
-                        ...guestData.companionNames.adults,
-                        ...guestData.companionNames.teens,
-                        ...guestData.companionNames.kids,
-                        ...guestData.companionNames.infants
-                      ].filter(n => n.trim()) : [];
+                        ...(guestData.companionNames.adults || []),
+                        ...(guestData.companionNames.teens || []),
+                        ...(guestData.companionNames.kids || []),
+                        ...(guestData.companionNames.infants || [])
+                      ].filter(n => n?.trim()) : [];
 
                       newAssignments = table.guests.map(a => {
                         if (a.guestId === guest.id?.toString()) {

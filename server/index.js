@@ -745,7 +745,10 @@ app.get('/api/guests', async (req, res) => {
             const companionNamesStr = getText(findProp(props, KNOWN_PROPERTIES.GUESTS.CompanionNames));
             let companionNames = { adults: [], teens: [], kids: [], infants: [] };
             try {
-                if (companionNamesStr) companionNames = JSON.parse(companionNamesStr);
+                if (companionNamesStr) {
+                    const parsed = JSON.parse(companionNamesStr);
+                    companionNames = { ...companionNames, ...parsed };
+                }
             } catch (e) { }
 
             const guest = {

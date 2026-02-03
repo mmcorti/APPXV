@@ -209,7 +209,7 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
       // Main guest has index -1, companions 0+
       return (a.companionIndex || -1) - (b.companionIndex || -1);
     });
-  }, [invitation.guests, invitation.tables]);
+  }, [invitation?.guests, invitation?.tables]);
 
   const handleAddTable = (e: React.FormEvent) => {
     e.preventDefault();

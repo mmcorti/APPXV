@@ -98,7 +98,7 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
     const total = si + no + pend;
 
     return { total, si, no, pend, catTotal, catSi, catNo, catPend };
-  }, [invitation.guests]);
+  }, [invitation?.guests]);
 
   const limitCheck = checkLimit('maxGuestsPerEvent', stats.total);
 
@@ -234,9 +234,13 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
               <div className="flex gap-1.5">
                 <button onClick={() => {
                   setEditingId(g.id);
+                  const defaultAllotted = { adults: 0, teens: 0, kids: 0, infants: 0 };
+                  const defaultCompanionNames = { adults: [], teens: [], kids: [], infants: [] };
+
                   setCurrentGuest({
                     ...g,
-                    companionNames: g.companionNames || { adults: [], teens: [], kids: [], infants: [] }
+                    allotted: { ...defaultAllotted, ...(g.allotted || {}) },
+                    companionNames: { ...defaultCompanionNames, ...(g.companionNames || {}) }
                   });
                   setShowModal('edit');
                 }} className="size-10 flex items-center justify-center rounded-xl bg-white/5 text-slate-400 hover:text-primary hover:bg-white/10 transition-all"><span className="material-symbols-outlined text-lg">edit</span></button>
@@ -360,10 +364,12 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
 
   const updateAllotted = (key: keyof GuestAllotment, delta: number) => {
     setCurrentGuest(prev => {
-      const newVal = Math.max(0, (prev.allotted![key] || 0) + delta);
-      const newAllotted = { ...prev.allotted!, [key]: newVal };
+      const currentAllotted = prev.allotted || { adults: 0, teens: 0, kids: 0, infants: 0 };
+      const newVal = Math.max(0, (currentAllotted[key] || 0) + delta);
+      const newAllotted = { ...currentAllotted, [key]: newVal };
 
-      const newCompanionNames = { ...(prev.companionNames || { adults: [], teens: [], kids: [], infants: [] }) };
+      const defaultCompanionNames = { adults: [], teens: [], kids: [], infants: [] };
+      const newCompanionNames = { ...(prev.companionNames || defaultCompanionNames) };
       const targetLen = key === 'adults' ? Math.max(0, newVal - 1) : newVal;
 
       const currentArr = [...(newCompanionNames[key] || [])];
@@ -384,7 +390,8 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
 
   const updateCompanionName = (key: keyof GuestCompanionNames, index: number, name: string) => {
     setCurrentGuest(prev => {
-      const newCompanionNames = { ...prev.companionNames! };
+      const defaultCompanionNames = { adults: [], teens: [], kids: [], infants: [] };
+      const newCompanionNames = { ...(prev.companionNames || defaultCompanionNames) };
       const currentArr = [...(newCompanionNames[key] || [])];
       currentArr[index] = name;
       newCompanionNames[key] = currentArr;
@@ -520,10 +527,10 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <AllotmentInput label="Adultos (18+)" val={currentGuest.allotted!.adults} onDelta={(d: number) => updateAllotted('adults', d)} />
-                <AllotmentInput label="Adolesc. (11-17)" val={currentGuest.allotted!.teens} onDelta={(d: number) => updateAllotted('teens', d)} />
-                <AllotmentInput label="Niños (3-11)" val={currentGuest.allotted!.kids} onDelta={(d: number) => updateAllotted('kids', d)} />
-                <AllotmentInput label="Bebés (0-3)" val={currentGuest.allotted!.infants} onDelta={(d: number) => updateAllotted('infants', d)} />
+                <AllotmentInput label="Adultos (18+)" val={currentGuest.allotted?.adults || 0} onDelta={(d: number) => updateAllotted('adults', d)} />
+                <AllotmentInput label="Adolesc. (11-17)" val={currentGuest.allotted?.teens || 0} onDelta={(d: number) => updateAllotted('teens', d)} />
+                <AllotmentInput label="Niños (3-11)" val={currentGuest.allotted?.kids || 0} onDelta={(d: number) => updateAllotted('kids', d)} />
+                <AllotmentInput label="Bebés (0-3)" val={currentGuest.allotted?.infants || 0} onDelta={(d: number) => updateAllotted('infants', d)} />
               </div>
 
               {/* Status toggle for editing */}
@@ -549,14 +556,14 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                 </div>
               )}
 
-              {(currentGuest.companionNames?.adults.length! > 0 ||
-                currentGuest.companionNames?.teens.length! > 0 ||
-                currentGuest.companionNames?.kids.length! > 0 ||
-                currentGuest.companionNames?.infants.length! > 0) && (
+              {((currentGuest.companionNames?.adults?.length || 0) > 0 ||
+                (currentGuest.companionNames?.teens?.length || 0) > 0 ||
+                (currentGuest.companionNames?.kids?.length || 0) > 0 ||
+                (currentGuest.companionNames?.infants?.length || 0) > 0) && (
                   <div className="space-y-4 pt-6 border-t border-white/5">
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Nombres de acompañantes</p>
 
-                    {currentGuest.allotted!.adults > 0 && (
+                    {(currentGuest.allotted?.adults || 0) > 0 && (
                       <div className="relative">
                         <label className="absolute -top-2 left-4 px-1.5 bg-slate-900 text-[8px] font-black text-slate-500 uppercase tracking-widest z-10">Principal</label>
                         <input
@@ -567,16 +574,16 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                         />
                       </div>
                     )}
-                    {currentGuest.companionNames?.adults.slice(0, currentGuest.allotted!.adults - 1).map((name, i) => (
+                    {currentGuest.companionNames?.adults?.slice(0, Math.max(0, (currentGuest.allotted?.adults || 0) - 1)).map((name, i) => (
                       <CompanionNameInput key={`a-${i}`} label={`Adulto ${i + 2}`} value={name} onChange={val => updateCompanionName('adults', i, val)} />
                     ))}
-                    {currentGuest.companionNames?.teens.map((name, i) => (
+                    {currentGuest.companionNames?.teens?.map((name, i) => (
                       <CompanionNameInput key={`t-${i}`} label={`Adolescente ${i + 1}`} value={name} onChange={val => updateCompanionName('teens', i, val)} />
                     ))}
-                    {currentGuest.companionNames?.kids.map((name, i) => (
+                    {currentGuest.companionNames?.kids?.map((name, i) => (
                       <CompanionNameInput key={`k-${i}`} label={`Niño ${i + 1}`} value={name} onChange={val => updateCompanionName('kids', i, val)} />
                     ))}
-                    {currentGuest.companionNames?.infants.map((name, i) => (
+                    {currentGuest.companionNames?.infants?.map((name, i) => (
                       <CompanionNameInput key={`i-${i}`} label={`Bebé ${i + 1}`} value={name} onChange={val => updateCompanionName('infants', i, val)} />
                     ))}
                   </div>
