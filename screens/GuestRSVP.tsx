@@ -87,6 +87,14 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
 
           setCompanionNames(namesWithSlots);
           setOriginalCompanionNames(JSON.parse(JSON.stringify(namesWithSlots)));
+
+          // AUTO-INITIALIZE confirmedAllotment to 1 for the main category
+          setConfirmedAllotment({
+            adults: mainCategory === 'adults' ? 1 : 0,
+            teens: mainCategory === 'teens' ? 1 : 0,
+            kids: mainCategory === 'kids' ? 1 : 0,
+            infants: mainCategory === 'infants' ? 1 : 0
+          });
         }
       } else {
         setConfirmedAllotment({ adults: 1, teens: 0, kids: 0, infants: 0 });
@@ -161,37 +169,36 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
 
   const updateConfirmed = (key: keyof GuestAllotment, delta: number) => {
     const maxVal = foundGuest?.allotted[key] ?? 10;
-    const newVal = Math.min(maxVal, Math.max(0, confirmedAllotment[key] + delta));
     const mainCategory = foundGuest ? getMainCategory(foundGuest.allotted) : 'adults';
 
-    setConfirmedAllotment(prev => ({
-      ...prev,
-      [key]: newVal
-    }));
+    setConfirmedAllotment(prev => {
+      const currentVal = prev[key] || 0;
+      const nextVal = Math.min(maxVal, Math.max(0, currentVal + delta));
 
-    setCompanionNames(prev => {
-      const currentNames = [...prev[key]];
-      const originals = originalCompanionNames[key] || [];
+      // Update companion names in sync with the new value
+      setCompanionNames(prevNames => {
+        const currentNames = [...(prevNames[key] || [])];
+        const originals = originalCompanionNames[key] || [];
 
-      if (delta > 0) {
-        while (currentNames.length < newVal) {
-          const idx = currentNames.length;
-          // Logic: Slot 0 of Main Category is ALWAYS the current Guest Name
-          if (key === mainCategory && idx === 0) {
-            currentNames.push(name);
-          } else {
-            // Otherwise, try to restore original name or empty
-            // FIX: If original name was the main guest name (and we are not in slot 0), don't restore it to avoid dupes!
-            const originalName = originals[idx] || '';
-            currentNames.push(originalName === name ? '' : originalName);
+        if (delta > 0) {
+          while (currentNames.length < nextVal) {
+            const idx = currentNames.length;
+            if (key === mainCategory && idx === 0) {
+              currentNames.push(name);
+            } else {
+              const originalName = originals[idx] || '';
+              currentNames.push(originalName === name ? '' : originalName);
+            }
+          }
+        } else {
+          while (currentNames.length > nextVal) {
+            currentNames.pop();
           }
         }
-      } else {
-        while (currentNames.length > newVal) {
-          currentNames.pop();
-        }
-      }
-      return { ...prev, [key]: currentNames };
+        return { ...prevNames, [key]: currentNames };
+      });
+
+      return { ...prev, [key]: nextVal };
     });
   };
 
@@ -353,7 +360,15 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
             <div className="flex gap-4">
               <button
                 type="button"
-                onClick={() => setAttending(true)}
+                onClick={() => {
+                  setAttending(true);
+                  // Ensure at least 1 person is confirmed (the main guest) if everything is 0
+                  const total = confirmedAllotment.adults + confirmedAllotment.teens + confirmedAllotment.kids + confirmedAllotment.infants;
+                  if (total === 0) {
+                    const mainCat = foundGuest ? getMainCategory(foundGuest.allotted) : 'adults';
+                    updateConfirmed(mainCat, 1);
+                  }
+                }}
                 className={`flex-1 py-5 rounded-[24px] font-black italic uppercase tracking-widest text-[11px] border transition-all flex flex-col items-center gap-1 ${attending === true
                   ? 'bg-emerald-500 text-white border-emerald-400 shadow-[0_10px_20px_rgba(16,185,129,0.2)]'
                   : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10'
