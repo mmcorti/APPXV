@@ -233,45 +233,64 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
             </main>
 
             {/* FAB Buttons */}
-            <div className="fixed bottom-24 right-6 flex flex-col items-end gap-4 z-50">
-                <button
-                    onClick={() => navigate(`/costs/${id}/balances`)}
-                    className="size-12 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-lg"
-                    title="Cuentas Parejas"
-                >
-                    <span className="material-symbols-outlined">calculate</span>
-                </button>
-                <button
-                    onClick={() => navigate(`/costs/${id}/participants`)}
-                    className="size-12 rounded-full bg-white dark:bg-[#193324] text-slate-700 dark:text-white flex items-center justify-center shadow-lg border border-slate-200 dark:border-white/10"
-                    title="Participantes"
-                >
-                    <span className="material-symbols-outlined">groups</span>
-                </button>
-                <button
-                    onClick={() => navigate(`/costs/${id}/suppliers`)}
-                    className="size-12 rounded-full bg-white dark:bg-[#193324] text-slate-700 dark:text-white flex items-center justify-center shadow-lg border border-slate-200 dark:border-white/10"
-                    title="Proveedores"
-                >
-                    <span className="material-symbols-outlined">group</span>
-                </button>
-                <button
-                    onClick={() => navigate(`/costs/${id}/categories`)}
-                    className="size-12 rounded-full bg-white dark:bg-[#193324] text-slate-700 dark:text-white flex items-center justify-center shadow-lg border border-slate-200 dark:border-white/10"
-                    title="Categorías"
-                >
-                    <span className="material-symbols-outlined">category</span>
-                </button>
-                <button
-                    onClick={() => {
-                        if (!limitCheck.allowed) alert(`Límite de ${limitCheck.limit} gastos alcanzado. Mejora tu plan.`);
-                        else navigate(`/costs/${id}/add`);
-                    }}
-                    className={`size-16 rounded-full flex items-center justify-center shadow-xl transition-transform ${limitCheck.allowed ? 'bg-primary text-[#102218] hover:scale-105' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}
-                    title="Agregar Gasto"
-                >
-                    <span className="material-symbols-outlined text-3xl font-bold">add</span>
-                </button>
+            <div className="fixed bottom-24 right-6 flex flex-col items-end gap-3 z-50">
+                <div className="flex items-center gap-3 group">
+                    <span className="bg-slate-800/80 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl border border-white/10 uppercase tracking-widest">Cuentas Parejas</span>
+                    <button
+                        onClick={() => navigate(`/costs/${id}/balances`)}
+                        className="size-12 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+                        title="Cuentas Parejas"
+                    >
+                        <span className="material-symbols-outlined">calculate</span>
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-3 group">
+                    <span className="bg-slate-800/80 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl border border-white/10 uppercase tracking-widest">Participantes</span>
+                    <button
+                        onClick={() => navigate(`/costs/${id}/participants`)}
+                        className="size-12 rounded-full bg-white dark:bg-[#193324] text-slate-700 dark:text-white flex items-center justify-center shadow-lg border border-slate-200 dark:border-white/10 active:scale-95 transition-transform"
+                        title="Participantes"
+                    >
+                        <span className="material-symbols-outlined">groups</span>
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-3 group">
+                    <span className="bg-slate-800/80 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl border border-white/10 uppercase tracking-widest">Proveedores</span>
+                    <button
+                        onClick={() => navigate(`/costs/${id}/suppliers`)}
+                        className="size-12 rounded-full bg-white dark:bg-[#193324] text-slate-700 dark:text-white flex items-center justify-center shadow-lg border border-slate-200 dark:border-white/10 active:scale-95 transition-transform"
+                        title="Proveedores"
+                    >
+                        <span className="material-symbols-outlined">group</span>
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-3 group">
+                    <span className="bg-slate-800/80 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl border border-white/10 uppercase tracking-widest">Categorías</span>
+                    <button
+                        onClick={() => navigate(`/costs/${id}/categories`)}
+                        className="size-12 rounded-full bg-white dark:bg-[#193324] text-slate-700 dark:text-white flex items-center justify-center shadow-lg border border-slate-200 dark:border-white/10 active:scale-95 transition-transform"
+                        title="Categorías"
+                    >
+                        <span className="material-symbols-outlined">category</span>
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-3 group">
+                    <span className="bg-slate-800/80 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl border border-white/10 uppercase tracking-widest">Agregar Gasto</span>
+                    <button
+                        onClick={() => {
+                            if (!limitCheck.allowed) alert(`Límite de ${limitCheck.limit} gastos alcanzado. Mejora tu plan.`);
+                            else navigate(`/costs/${id}/add`);
+                        }}
+                        className={`size-16 rounded-full flex items-center justify-center shadow-xl transition-all ${limitCheck.allowed ? 'bg-primary text-[#102218] hover:scale-105 active:scale-95' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}
+                        title="Agregar Gasto"
+                    >
+                        <span className="material-symbols-outlined text-3xl font-bold">add</span>
+                    </button>
+                </div>
             </div>
         </div >
     );

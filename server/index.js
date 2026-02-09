@@ -2173,17 +2173,28 @@ app.post('/api/events/:eventId/suppliers', async (req, res) => {
         properties[schema.get('SUPPLIERS', 'Name')] = { title: [{ text: { content: name || '' } }] };
         properties[schema.get('SUPPLIERS', 'Category')] = { rich_text: [{ text: { content: category || '' } }] };
         properties[schema.get('SUPPLIERS', 'Phone')] = { rich_text: [{ text: { content: phone || '' } }] };
-        properties[schema.get('SUPPLIERS', 'Email')] = { email: email || null };
+
+        // Only add email if it's a valid string to avoid Notion validation errors
+        if (email && email.trim()) {
+            properties[schema.get('SUPPLIERS', 'Email')] = { email: email.trim() };
+        }
+
         properties[schema.get('SUPPLIERS', 'Event')] = { relation: [{ id: eventId }] };
 
+        console.log('📝 Creating new supplier in Notion...', { name, category });
         const newPage = await notionClient.pages.create({
             parent: { database_id: DB.SUPPLIERS },
             properties
         });
+        console.log('✅ Supplier created successfully:', newPage.id);
         res.json({ success: true, id: newPage.id });
     } catch (error) {
         console.error("❌ Error creating supplier:", error);
-        res.status(500).json({ error: error.message });
+        // Return a more descriptive error if it's a Notion validation error
+        res.status(500).json({
+            error: error.message,
+            detail: error.body ? JSON.parse(error.body) : undefined
+        });
     }
 });
 

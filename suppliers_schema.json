@@ -1,0 +1,42 @@
+{
+  "Category": {
+    "id": "%3Avf~",
+    "name": "Category",
+    "description": "",
+    "type": "rich_text",
+    "rich_text": {}
+  },
+  "Email": {
+    "id": "UaUN",
+    "name": "Email",
+    "description": "",
+    "type": "email",
+    "email": {}
+  },
+  "Phone": {
+    "id": "fOqn",
+    "name": "Phone",
+    "description": "",
+    "type": "rich_text",
+    "rich_text": {}
+  },
+  "Event": {
+    "id": "%7BMiO",
+    "name": "Event",
+    "description": "Related event in APP XV - Events",
+    "type": "relation",
+    "relation": {
+      "database_id": "8a693908-f427-4002-9902-4ac86b2e21d4",
+      "data_source_id": "7ff87dfd-fc2c-4065-9c3c-8534f84e8183",
+      "type": "single_property",
+      "single_property": {}
+    }
+  },
+  "Name": {
+    "id": "title",
+    "name": "Name",
+    "description": null,
+    "type": "title",
+    "title": {}
+  }
+}

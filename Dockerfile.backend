@@ -1,0 +1,21 @@
+# Dockerfile para el Backend (Node.js + Express)
+FROM node:20-slim
+
+WORKDIR /app
+
+# Instalar dependencias primero para aprovechar el caché de capas
+COPY package*.json ./
+RUN npm install --omit=dev
+
+# Copiar el código del servidor y archivos de configuración necesarios
+COPY server/ ./server/
+COPY debug_pkg.js ./
+COPY .env.local* .env* ./
+
+# Puerto estándar para Cloud Run
+# Cloud Run inyecta la variable PORT, pero definimos un default
+ENV PORT=8080
+EXPOSE 8080
+
+# Ejecutar el servidor usando node directamente
+CMD ["node", "server/index.js"]

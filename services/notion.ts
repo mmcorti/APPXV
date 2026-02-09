@@ -250,13 +250,16 @@ export const notionService = {
         if (!res.ok) throw new Error('Failed to fetch suppliers');
         return await res.json();
     },
-    async createSupplier(eventId: string, supplier: { name: string; category: string; phone: string; email: string }) {
+    async createSupplier(eventId: string, supplier: { name: string; category: string; phone: string; email: string }, options?: { userPlan?: string }) {
         const res = await fetch(`${API_URL}/events/${eventId}/suppliers`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(supplier)
+            body: JSON.stringify({ ...supplier, userPlan: options?.userPlan })
         });
-        if (!res.ok) throw new Error('Failed to create supplier');
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to create supplier');
+        }
         return await res.json();
     },
     async updateSupplier(id: string, supplier: Partial<{ name: string; category: string; phone: string; email: string }>) {

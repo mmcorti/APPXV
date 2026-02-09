@@ -23,7 +23,7 @@ const Suppliers: React.FC = () => {
     const { id: eventId } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-    const { checkLimit } = usePlan();
+    const { checkLimit, currentPlan } = usePlan();
     const limitCheck = checkLimit('maxSuppliers', suppliers.length);
     const [categories, setCategories] = useState<ExpenseCategory[]>([]);
     const [loading, setLoading] = useState(true);
@@ -76,7 +76,7 @@ const Suppliers: React.FC = () => {
             if (editingId) {
                 await notionService.updateSupplier(editingId, formData);
             } else {
-                await notionService.createSupplier(eventId, formData);
+                await notionService.createSupplier(eventId, formData, { userPlan: currentPlan });
             }
             setShowForm(false);
             setFormData({ name: '', category: '', phone: '', email: '' });
