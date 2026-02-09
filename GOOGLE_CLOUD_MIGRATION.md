@@ -8,23 +8,28 @@ Esta guía detalla los pasos para migrar APPXV de Render a Google Cloud Run para
 - Haber creado un proyecto en Google Cloud (ej: `appxv-project`).
 
 ## 2. Preparación del Proyecto
-He creado un archivo `Dockerfile` en la raíz del proyecto. Este archivo le dice a Google Cloud cómo empaquetar tu aplicación:
-- Construye el frontend (Vite).
-- Configura el servidor Node.js.
-- Expone el puerto `8080` (estándar de Cloud Run).
+He creado dos archivos Dockerfile específicos para separar responsabilidades:
 
-## 3. Despliegue (Línea de Comandos)
-Abre una terminal en la carpeta raíz del proyecto y ejecuta:
+1.  **`Dockerfile.backend`**: Empaqueta el servidor Node.js/Express.
+2.  **`Dockerfile.frontend`**: Construye la App React y la sirve usando Nginx (más eficiente para contenido estático).
+
+## 3. Despliegue a Cloud Run
+
+### Paso 1: Desplegar el Backend
+Primero necesitamos la URL del backend para que el frontend sepa a dónde conectarse.
 
 ```bash
-# 1. Login en Google Cloud
-gcloud auth login
+# Desplegar backend
+gcloud run deploy appxv-backend --source . --file Dockerfile.backend --env-vars-file .env.production
+```
+*Nota: Asegúrate de tener tus variables de Notion, Cloudinary, etc., listas.*
 
-# 2. Configurar el proyecto
-gcloud config set project TU_ID_DE_PROYECTO
+### Paso 2: Desplegar el Frontend
+Una vez tengas la URL del backend (ej: `https://appxv-backend-xyz.a.run.app`), despliega el frontend inyectando esa URL:
 
-# 3. Desplegar
-gcloud run deploy appxv --source .
+```bash
+# Desplegar frontend
+gcloud run deploy appxv-frontend --source . --file Dockerfile.frontend --set-build-envs VITE_API_URL=https://TU-URL-BACKEND/api
 ```
 
 Durante el despliegue, elige:
