@@ -4,6 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { InvitationData, Guest, GuestAllotment, GuestCompanionNames, User } from '../types';
 import { UpgradePrompt } from '../components/UpgradePrompt';
 import { usePlan } from '../hooks/usePlan';
+import * as XLSX from 'xlsx';
+
 
 interface GuestsScreenProps {
   invitations: InvitationData[];
@@ -107,6 +109,53 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
     const url = `${window.location.origin}${window.location.pathname}#/rsvp/${id}?guest=${encodeURIComponent(guest.name)}`;
     const message = `¡Hola ${guest.name}! Estás invitado a ${invitation.eventName}. Confirma aquí: ${url}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const handleDownloadExcel = () => {
+    const data = (invitation.guests || []).map(g => {
+      const confirmed = getEffectiveConfirmed(g);
+      const allotted = g.allotted || { adults: 0, teens: 0, kids: 0, infants: 0 };
+
+      const companions = g.companionNames || {};
+      const allCompanionNames = [
+        ...(companions.adults || []),
+        ...(companions.teens || []),
+        ...(companions.kids || []),
+        ...(companions.infants || [])
+      ].filter(n => n && n.trim() !== "").join(', ');
+
+      return {
+        'Invitado Principal': g.name,
+        'Estado': g.status === 'confirmed' ? 'Confirmado' : g.status === 'declined' ? 'No asistirá' : 'Pendiente',
+        'Adultos (Conf/Total)': `${confirmed.adults} / ${allotted.adults}`,
+        'Adolescentes (Conf/Total)': `${confirmed.teens} / ${allotted.teens}`,
+        'Niños (Conf/Total)': `${confirmed.kids} / ${allotted.kids}`,
+        'Bebés (Conf/Total)': `${confirmed.infants} / ${allotted.infants}`,
+        'Total Confirmados': confirmed.adults + confirmed.teens + confirmed.kids + confirmed.infants,
+        'Total Asignados': allotted.adults + allotted.teens + allotted.kids + allotted.infants,
+        'Nombres Acompañantes': allCompanionNames
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Lista de Invitados");
+
+    // Auto-size columns
+    const max_width = data.reduce((w, r) => Math.max(w, r['Invitado Principal'].length), 20);
+    worksheet["!cols"] = [
+      { wch: max_width + 5 }, // Invitado Principal
+      { wch: 15 }, // Estado
+      { wch: 20 }, // Adultos
+      { wch: 20 }, // Adolescentes
+      { wch: 20 }, // Niños
+      { wch: 20 }, // Bebés
+      { wch: 18 }, // Total Confirmados
+      { wch: 18 }, // Total Asignados
+      { wch: 50 }, // Nombres Acompañantes
+    ];
+
+    XLSX.writeFile(workbook, `Invitados_${invitation.eventName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.xlsx`);
   };
 
   const handleSaveGuest = (e: React.FormEvent) => {
@@ -416,26 +465,45 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
           </div>
         </div>
 
-        <button
-          onClick={() => {
-            if (!limitCheck.allowed) return;
-            setEditingId(null);
-            setCurrentGuest({
-              name: '',
-              allotted: { adults: 0, teens: 0, kids: 0, infants: 0 },
-              companionNames: { adults: [], teens: [], kids: [], infants: [] }
-            });
-            setShowModal('add');
-          }}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all ${limitCheck.allowed
-            ? 'bg-primary text-white shadow-[0_10px_20px_rgba(19,91,236,0.2)] hover:scale-105'
-            : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50'
-            }`}
-          disabled={!limitCheck.allowed}
-        >
-          <span className="material-symbols-outlined text-[18px]">person_add</span>
-          {limitCheck.allowed ? 'Nuevo Invitado' : 'Límite'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDownloadExcel}
+            className="hidden md:flex items-center gap-2 px-6 py-2.5 rounded-[18px] text-[11px] font-black uppercase tracking-widest bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all border border-white/5"
+            title="Descargar Excel"
+          >
+            <span className="material-symbols-outlined text-[18px]">download</span>
+            Excel
+          </button>
+
+          <button
+            onClick={handleDownloadExcel}
+            className="md:hidden size-10 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-all"
+            title="Descargar Excel"
+          >
+            <span className="material-symbols-outlined">download</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (!limitCheck.allowed) return;
+              setEditingId(null);
+              setCurrentGuest({
+                name: '',
+                allotted: { adults: 0, teens: 0, kids: 0, infants: 0 },
+                companionNames: { adults: [], teens: [], kids: [], infants: [] }
+              });
+              setShowModal('add');
+            }}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all ${limitCheck.allowed
+              ? 'bg-primary text-white shadow-[0_10px_20px_rgba(19,91,236,0.2)] hover:scale-105'
+              : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50'
+              }`}
+            disabled={!limitCheck.allowed}
+          >
+            <span className="material-symbols-outlined text-[18px]">person_add</span>
+            {limitCheck.allowed ? 'Nuevo Invitado' : 'Límite'}
+          </button>
+        </div>
       </header>
 
       {/* Plan Upgrade Banner for Guests */}
