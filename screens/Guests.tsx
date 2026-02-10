@@ -149,8 +149,13 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
 
       catKeys.forEach(cat => {
         const count = counts[cat] || 0;
-        // Filter out the main guest name if it was saved in the companions array to avoid duplicates
-        const filteredNames = (companions[cat] || []).filter(n => n && n.trim() !== "" && n.trim().toLowerCase() !== mainGuestName);
+        // Filter out the main guest name with extra robustness against invisible chars/spaces
+        const filteredNames = (companions[cat] || []).filter(n => {
+          if (!n || n.trim() === "") return false;
+          const cleanN = n.replace(/\s+/g, ' ').trim().toLowerCase();
+          const cleanMain = g.name.replace(/\s+/g, ' ').trim().toLowerCase();
+          return cleanN !== cleanMain;
+        });
 
         const limit = cat === mainCatKey ? Math.max(0, count - 1) : count;
 
@@ -406,8 +411,13 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                       ].map(type => {
                         const rawList = g.companionNames![type.key as keyof GuestCompanionNames] || [];
 
-                        // Filter out Main Guest Name first
-                        const filtered = rawList.filter(n => n && n.trim().toLowerCase() !== mainGuestName);
+                        // Filter out the main guest name with extra robustness against invisible chars/spaces
+                        const filtered = rawList.filter(n => {
+                          if (!n || n.trim() === "") return false;
+                          const cleanN = n.replace(/\s+/g, ' ').trim().toLowerCase();
+                          const cleanMain = g.name.replace(/\s+/g, ' ').trim().toLowerCase();
+                          return cleanN !== cleanMain;
+                        });
 
                         // Determine display limit. 
                         // If this is the main category, we subtract 1 because the Main Guest is already shown in the first pill.
