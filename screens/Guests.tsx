@@ -144,16 +144,19 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
       });
 
       const companions = g.companionNames || {};
+      const mainGuestName = g.name.toLowerCase().trim();
       const catKeys: (keyof GuestAllotment)[] = ['adults', 'teens', 'kids', 'infants'];
 
       catKeys.forEach(cat => {
         const count = counts[cat] || 0;
-        const names = (companions[cat] || []).filter(n => n && n.trim() !== "");
+        // Filter out the main guest name if it was saved in the companions array to avoid duplicates
+        const filteredNames = (companions[cat] || []).filter(n => n && n.trim() !== "" && n.trim().toLowerCase() !== mainGuestName);
+
         const limit = cat === mainCatKey ? Math.max(0, count - 1) : count;
 
         for (let i = 0; i < limit; i++) {
           flattenedData.push({
-            'Nombre': names[i] || `${categoryLabels[cat]} Acomp.`,
+            'Nombre': filteredNames[i] || `${categoryLabels[cat]} Acomp.`,
             'Categoría': categoryLabels[cat],
             'Estado': status,
             'Grupo / Invitado Principal': g.name,
