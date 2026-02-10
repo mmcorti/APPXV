@@ -62,19 +62,23 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
             if (allottedCount <= 0) return [];
             const result: string[] = [];
             const isMainCategory = category === mainCategory;
-            const existingCompanions = existingNames[category] || [];
+
+            // Clean titular name for comparison
+            const titularName = existingGuest.name.trim().toLowerCase();
+
+            // Get all unique valid names that are NOT the titular from this category
+            const otherNames = (existingNames[category] || []).filter(n =>
+              n && n.trim() !== "" && n.trim().toLowerCase() !== titularName
+            );
 
             if (isMainCategory) {
               result.push(existingGuest.name);
-              for (let i = 1; i < allottedCount; i++) {
-                const companionName = existingCompanions[i] || '';
-                result.push(companionName === existingGuest.name ? '' : companionName);
-              }
-            } else {
-              for (let i = 0; i < allottedCount; i++) {
-                result.push(existingCompanions[i] || '');
-              }
             }
+
+            while (result.length < allottedCount) {
+              result.push(otherNames.shift() || '');
+            }
+
             return result;
           };
 
@@ -130,17 +134,37 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
     const mainCategory = getMainCategory(foundGuest?.allotted || confirmedAllotment);
 
     try {
-      // FORCE Main Guest Name into the first slot of the main category if attending
       const finalCompanionNames = { ...companionNames };
       if (attending) {
-        const currentMainList = [...finalCompanionNames[mainCategory]];
-        if (currentMainList.length > 0) {
-          currentMainList[0] = name; // Ensure slot 0 is the main guest name
-          finalCompanionNames[mainCategory] = currentMainList;
-        } else {
-          // Should not happen if count > 0, but safety check
-          finalCompanionNames[mainCategory] = [name];
-        }
+        // Double check we don't have the titular name duplicated in subsequent slots
+        const titularClean = name.trim().toLowerCase();
+
+        Object.keys(finalCompanionNames).forEach(cat => {
+          const key = cat as keyof GuestCompanionNames;
+          const isMain = key === mainCategory;
+
+          if (isMain) {
+            // Force titular into index 0
+            const list = [...finalCompanionNames[key]];
+            if (list.length === 0) {
+              list.push(name);
+            } else {
+              list[0] = name;
+              // Remove titular from other slots in main category
+              for (let i = 1; i < list.length; i++) {
+                if (list[i] && list[i].trim().toLowerCase() === titularClean) {
+                  list[i] = '';
+                }
+              }
+            }
+            finalCompanionNames[key] = list;
+          } else {
+            // Remove titular from other categories if it accidentally slipped in
+            finalCompanionNames[key] = finalCompanionNames[key].map(n =>
+              (n && n.trim().toLowerCase() === titularClean) ? '' : n
+            );
+          }
+        });
       }
 
       await onRsvpSubmit(invitation.id, {
@@ -178,7 +202,6 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
       // Update companion names in sync with the new value
       setCompanionNames(prevNames => {
         const currentNames = [...(prevNames[key] || [])];
-        const originals = originalCompanionNames[key] || [];
 
         if (delta > 0) {
           while (currentNames.length < nextVal) {
@@ -186,8 +209,14 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
             if (key === mainCategory && idx === 0) {
               currentNames.push(name);
             } else {
-              const originalName = originals[idx] || '';
-              currentNames.push(originalName === name ? '' : originalName);
+              // Try to find an original name that wasn't used yet and isn't the titular
+              const titularClean = name.trim().toLowerCase();
+              const unusedOriginal = (originalCompanionNames[key] || []).find(on =>
+                on && on.trim() !== "" &&
+                on.trim().toLowerCase() !== titularClean &&
+                !currentNames.includes(on)
+              );
+              currentNames.push(unusedOriginal || '');
             }
           }
         } else {

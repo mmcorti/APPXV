@@ -112,50 +112,88 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
   };
 
   const handleDownloadExcel = () => {
-    const data = (invitation.guests || []).map(g => {
+    const flattenedData: any[] = [];
+
+    (invitation.guests || []).forEach(g => {
+      const status = g.status === 'confirmed' ? 'Confirmado' : g.status === 'declined' ? 'No asistirá' : 'Pendiente';
       const confirmed = getEffectiveConfirmed(g);
       const allotted = g.allotted || { adults: 0, teens: 0, kids: 0, infants: 0 };
 
-      const companions = g.companionNames || {};
-      const allCompanionNames = [
-        ...(companions.adults || []),
-        ...(companions.teens || []),
-        ...(companions.kids || []),
-        ...(companions.infants || [])
-      ].filter(n => n && n.trim() !== "").join(', ');
+      const counts = g.status === 'confirmed' ? confirmed : allotted;
+      const totalInGroup = counts.adults + counts.teens + counts.kids + counts.infants;
 
-      return {
-        'Invitado Principal': g.name,
-        'Estado': g.status === 'confirmed' ? 'Confirmado' : g.status === 'declined' ? 'No asistirá' : 'Pendiente',
-        'Adultos (Conf/Total)': `${confirmed.adults} / ${allotted.adults}`,
-        'Adolescentes (Conf/Total)': `${confirmed.teens} / ${allotted.teens}`,
-        'Niños (Conf/Total)': `${confirmed.kids} / ${allotted.kids}`,
-        'Bebés (Conf/Total)': `${confirmed.infants} / ${allotted.infants}`,
-        'Total Confirmados': confirmed.adults + confirmed.teens + confirmed.kids + confirmed.infants,
-        'Total Asignados': allotted.adults + allotted.teens + allotted.kids + allotted.infants,
-        'Nombres Acompañantes': allCompanionNames
+      if (totalInGroup === 0) return;
+
+      const getMainCategory = (allotted: GuestAllotment) => {
+        if (allotted.adults > 0) return 'adults';
+        if (allotted.teens > 0) return 'teens';
+        if (allotted.kids > 0) return 'kids';
+        if (allotted.infants > 0) return 'infants';
+        return 'adults';
       };
+
+      const mainCatKey = getMainCategory(allotted);
+      const categoryLabels: Record<string, string> = { adults: 'Adulto', teens: 'Adolescente', kids: 'Niño', infants: 'Bebé' };
+
+      flattenedData.push({
+        'Nombre': g.name,
+        'Categoría': categoryLabels[mainCatKey] || 'Adulto',
+        'Estado': status,
+        'Grupo / Invitado Principal': g.name,
+        'Relación': 'Titular'
+      });
+
+      const companions = g.companionNames || {};
+      const mainGuestName = g.name.toLowerCase().trim();
+      const catKeys: (keyof GuestAllotment)[] = ['adults', 'teens', 'kids', 'infants'];
+
+      catKeys.forEach(cat => {
+        const count = counts[cat] || 0;
+        // Filter out the main guest name with extra robustness against invisible chars/spaces
+        const filteredNames = (companions[cat] || []).filter(n => {
+          if (!n || n.trim() === "") return false;
+          const cleanN = n.replace(/\s+/g, ' ').trim().toLowerCase();
+          const cleanMain = g.name.replace(/\s+/g, ' ').trim().toLowerCase();
+          return cleanN !== cleanMain;
+        });
+
+        const limit = cat === mainCatKey ? Math.max(0, count - 1) : count;
+
+        for (let i = 0; i < limit; i++) {
+          flattenedData.push({
+            'Nombre': filteredNames[i] || `${categoryLabels[cat]} Acomp.`,
+            'Categoría': categoryLabels[cat],
+            'Estado': status,
+            'Grupo / Invitado Principal': g.name,
+            'Relación': 'Acompañante'
+          });
+        }
+      });
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Lista de Invitados");
+    flattenedData.sort((a, b) => {
+      const statusPriority: Record<string, number> = { 'Confirmado': 0, 'Pendiente': 1, 'No asistirá': 2 };
+      const statusDiff = (statusPriority[a.Estado] || 0) - (statusPriority[b.Estado] || 0);
+      if (statusDiff !== 0) return statusDiff;
 
-    // Auto-size columns
-    const max_width = data.reduce((w, r) => Math.max(w, r['Invitado Principal'].length), 20);
+      const groupDiff = a['Grupo / Invitado Principal'].localeCompare(b['Grupo / Invitado Principal']);
+      if (groupDiff !== 0) return groupDiff;
+
+      if (a.Relación === 'Titular' && b.Relación !== 'Titular') return -1;
+      if (a.Relación !== 'Titular' && b.Relación === 'Titular') return 1;
+
+      return 0;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(flattenedData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Padrón Total");
+
     worksheet["!cols"] = [
-      { wch: max_width + 5 }, // Invitado Principal
-      { wch: 15 }, // Estado
-      { wch: 20 }, // Adultos
-      { wch: 20 }, // Adolescentes
-      { wch: 20 }, // Niños
-      { wch: 20 }, // Bebés
-      { wch: 18 }, // Total Confirmados
-      { wch: 18 }, // Total Asignados
-      { wch: 50 }, // Nombres Acompañantes
+      { wch: 35 }, { wch: 15 }, { wch: 15 }, { wch: 35 }, { wch: 15 },
     ];
 
-    XLSX.writeFile(workbook, `Invitados_${invitation.eventName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.xlsx`);
+    XLSX.writeFile(workbook, `Padron_Invitados_${invitation.eventName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.xlsx`);
   };
 
   const handleSaveGuest = (e: React.FormEvent) => {
@@ -373,8 +411,13 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
                       ].map(type => {
                         const rawList = g.companionNames![type.key as keyof GuestCompanionNames] || [];
 
-                        // Filter out Main Guest Name first
-                        const filtered = rawList.filter(n => n && n.trim().toLowerCase() !== mainGuestName);
+                        // Filter out the main guest name with extra robustness against invisible chars/spaces
+                        const filtered = rawList.filter(n => {
+                          if (!n || n.trim() === "") return false;
+                          const cleanN = n.replace(/\s+/g, ' ').trim().toLowerCase();
+                          const cleanMain = g.name.replace(/\s+/g, ' ').trim().toLowerCase();
+                          return cleanN !== cleanMain;
+                        });
 
                         // Determine display limit. 
                         // If this is the main category, we subtract 1 because the Main Guest is already shown in the first pill.
