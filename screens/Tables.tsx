@@ -1,7 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { InvitationData, Table, SeatedGuest, Guest } from '../types';
+import { InvitationData, Table, SeatedGuest, Guest, GuestAllotment } from '../types';
+import * as XLSX from 'xlsx';
+
 
 interface TablesScreenProps {
   invitations: InvitationData[];
@@ -289,6 +291,93 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
     onUpdateSeating(invitation.id, tableId, newAssignments);
   };
 
+  const handleDownloadExcel = () => {
+    const data: any[] = [];
+    const guestList = invitation.guests || [];
+    const tableList = invitation.tables || [];
+
+    // Map to quickly find table assignment
+    const seatingMap = new Map<string, string>();
+    tableList.forEach(t => {
+      (t.guests || []).forEach(sg => {
+        seatingMap.set(`${sg.guestId}-${sg.companionIndex ?? -1}`, t.name);
+      });
+    });
+
+    const getCategoryLabel = (key: string) => {
+      switch (key) {
+        case 'adults': return 'Adulto';
+        case 'teens': return 'Adolescente';
+        case 'kids': return 'Niño';
+        case 'infants': return 'Bebé';
+        default: return 'Invitado';
+      }
+    };
+
+    guestList.forEach(g => {
+      if (g.status === 'declined') return;
+
+      const isConfirmed = g.status === 'confirmed';
+      const counts = isConfirmed ? g.confirmed : g.allotted;
+      const namesObj = g.companionNames || { adults: [], teens: [], kids: [], infants: [] };
+
+      // 1. MAIN GUEST
+      const mainSeated = seatingMap.get(`${g.id}--1`);
+      const getMainCategory = (allotted: GuestAllotment) => {
+        if (allotted.adults > 0) return 'adults';
+        if (allotted.teens > 0) return 'teens';
+        if (allotted.kids > 0) return 'kids';
+        if (allotted.infants > 0) return 'infants';
+        return 'adults';
+      };
+      const mainCat = getMainCategory(g.allotted);
+
+      data.push({
+        'Invitado Principal': g.name,
+        'Nombre': g.name,
+        'Categoría': getCategoryLabel(mainCat),
+        'Estado': isConfirmed ? 'Confirmado' : 'Pendiente',
+        'Mesa Asignada': mainSeated || 'SIN ASIGNAR'
+      });
+
+      // 2. COMPANIONS
+      const categories = ['adults', 'teens', 'kids', 'infants'] as const;
+      let flatIndex = 0;
+
+      categories.forEach(cat => {
+        const count = counts?.[cat] || 0;
+        const effectiveCount = (cat === mainCat) ? Math.max(0, count - 1) : count;
+        const validNames = (namesObj[cat] || []).filter(n => n && n.trim().toLowerCase() !== g.name.trim().toLowerCase());
+
+        for (let i = 0; i < effectiveCount; i++) {
+          const suppliedName = validNames[i] || "";
+          const displayName = suppliedName.trim() ? suppliedName : `${getCategoryLabel(cat)} ${i + 1} - ${g.name}`;
+          const seated = seatingMap.get(`${g.id}-${flatIndex}`);
+
+          data.push({
+            'Invitado Principal': g.name,
+            'Nombre': displayName,
+            'Categoría': getCategoryLabel(cat),
+            'Estado': isConfirmed ? 'Confirmado' : 'Pendiente',
+            'Mesa Asignada': seated || 'SIN ASIGNAR'
+          });
+          flatIndex++;
+        }
+      });
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Asignacion de Mesas");
+
+    // Auto-size
+    worksheet["!cols"] = [
+      { wch: 30 }, { wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 25 }
+    ];
+
+    XLSX.writeFile(workbook, `Mesas_${invitation.eventName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.xlsx`);
+  };
+
   return (
     <div className="bg-background-light dark:bg-background-dark min-h-screen pb-24 max-w-[480px] md:max-w-6xl mx-auto text-slate-900 dark:text-white font-display">
       <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -296,9 +385,14 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
         <h1 className="text-base font-bold">Armado de Mesas</h1>
-        <button onClick={() => setShowAddTableModal(true)} className="flex items-center gap-1 text-primary font-bold text-xs uppercase bg-primary/5 px-3 py-1.5 rounded-lg border border-primary/10">
-          <span className="material-symbols-outlined text-sm">add_circle</span> MESA
-        </button>
+        <div className="flex items-center gap-1">
+          <button onClick={handleDownloadExcel} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-400" title="Descargar Planilla">
+            <span className="material-symbols-outlined">download</span>
+          </button>
+          <button onClick={() => setShowAddTableModal(true)} className="flex items-center gap-1 text-primary font-bold text-xs uppercase bg-primary/5 px-3 py-1.5 rounded-lg border border-primary/10">
+            <span className="material-symbols-outlined text-sm">add_circle</span> MESA
+          </button>
+        </div>
       </header>
 
       <div className="p-4 space-y-6">
