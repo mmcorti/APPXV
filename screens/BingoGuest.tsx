@@ -47,10 +47,10 @@ const BingoGuest: React.FC = () => {
                     setHasSubmitted(true);
                 }
             }
-        }, savedPlayerId || undefined);
+        }, playerId || savedPlayerId || undefined);
 
         return unsubscribe;
-    }, [eventId]);
+    }, [eventId, playerId]);
 
     // Update card when playerId is set
     useEffect(() => {
