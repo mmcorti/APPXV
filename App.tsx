@@ -512,7 +512,11 @@ const App: React.FC = () => {
   }, [invitations.length, user]);
 
   return (
-    <PlanProvider userPlan={user?.plan}>
+    <PlanProvider userPlan={
+      (user?.role === 'staff' || user?.role === 'event_staff')
+        ? (invitations[0]?.ownerPlan || user?.plan)
+        : user?.plan
+    }>
       <HashRouter>
         <Routes>
           <Route path="/" element={<WelcomeScreen />} />
