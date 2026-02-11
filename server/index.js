@@ -3146,11 +3146,28 @@ app.get('/api/bingo/:eventId/stream', (req, res) => {
 
     // Send current state immediately
     const state = getBingoState(eventId);
-    res.write(`data: ${JSON.stringify(state)}\n\n`);
+
+    // Update player presence if they are a participant
+    if (clientId && state.players[clientId]) {
+        state.players[clientId].lastSeen = Date.now();
+        state.players[clientId].online = true;
+        // If they were offline, broadcast their return immediately
+        broadcastBingoState(eventId);
+    }
+
+    res.write(`data: ${JSON.stringify(createLightweightState(state))}\n\n`);
 
     // Keep-alive ping every 30 seconds
     const keepAlive = setInterval(() => {
         res.write(': ping\n\n');
+        // Update presence if player exists
+        if (clientId && state.players[clientId]) {
+            state.players[clientId].lastSeen = Date.now();
+            if (!state.players[clientId].online) {
+                state.players[clientId].online = true;
+                broadcastBingoState(eventId);
+            }
+        }
     }, 30000);
 
     // Remove client on disconnect
@@ -3167,6 +3184,35 @@ app.get('/api/bingo/:eventId/stream', (req, res) => {
         }
     });
 });
+
+// Garbage Collector: Cleanup inactive bingo players every minute
+setInterval(() => {
+    Object.keys(bingoGames).forEach(eventId => {
+        const state = bingoGames[eventId];
+        if (!state.players) return;
+
+        const now = Date.now();
+        let changed = false;
+
+        Object.keys(state.players).forEach(playerId => {
+            const player = state.players[playerId];
+            // Remove players inactive for more than 10 minutes
+            if (player.lastSeen && (now - player.lastSeen > 10 * 60 * 1000)) {
+                console.log(`🧹 [BINGO GC] Removing inactive player ${player.name} (${playerId})`);
+                delete state.players[playerId];
+                // Also remove their card
+                if (state.cards[playerId]) {
+                    delete state.cards[playerId];
+                }
+                changed = true;
+            }
+        });
+
+        if (changed) {
+            broadcastBingoState(eventId);
+        }
+    });
+}, 60 * 1000); // Run every minute
 
 // --- GET BINGO STATE ---
 app.get('/api/bingo/:eventId', (req, res) => {
@@ -3357,6 +3403,7 @@ app.post('/api/bingo/:eventId/join', (req, res) => {
         id: playerId,
         name: name || 'Jugador Anónimo',
         joinedAt: Date.now(),
+        lastSeen: Date.now(),
         online: true
     };
 

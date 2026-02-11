@@ -401,7 +401,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
         <div className="px-6 pt-8 pb-4 flex items-center justify-between">
           <div>
             <button
-              onClick={() => navigate(`/games/${id}`)}
+              onClick={() => navigate('/dashboard')}
               className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-bold text-sm mb-4 hover:text-primary transition-colors"
             >
               <span className="material-symbols-outlined text-lg">arrow_back</span>

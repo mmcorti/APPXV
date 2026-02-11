@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { confessionsService } from '../services/confessionsService';
 
 const ConfessionsGuest: React.FC = () => {
     const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
     const [text, setText] = useState('');
     const [author, setAuthor] = useState('');
     const [submitted, setSubmitted] = useState(false);
@@ -43,9 +44,9 @@ const ConfessionsGuest: React.FC = () => {
                         Enviar Otro
                     </button>
                     <button
-                        onClick={() => window.close()}
+                        onClick={() => navigate(`/rsvp/${id}`)}
                         className="w-full bg-white/5 text-white font-medium py-4 rounded-xl hover:bg-white/10 transition-colors">
-                        Close
+                        Finalizar
                     </button>
                 </div>
             </div>
