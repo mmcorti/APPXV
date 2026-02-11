@@ -577,6 +577,21 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
         </div>
 
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+          {invitation.giftDetail && (
+            <div className="bg-white/5 border border-white/5 rounded-2xl px-4 py-2 flex items-center gap-3 shrink-0">
+              <span className="material-symbols-outlined text-[18px] text-primary">redeem</span>
+              <div className="flex flex-col">
+                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{invitation.giftType === 'alias' ? 'Alias / CBU' : 'Lista'}</span>
+                <span className="text-[10px] font-bold text-slate-300">{invitation.giftDetail}</span>
+              </div>
+              <button
+                onClick={() => { navigator.clipboard.writeText(invitation.giftDetail); alert('Copiado!'); }}
+                className="ml-2 p-1 hover:bg-white/5 rounded-lg transition-colors"
+              >
+                <span className="material-symbols-outlined text-[14px] text-slate-500">content_copy</span>
+              </button>
+            </div>
+          )}
           {(() => {
             const currentCatStats = filter === 'all' ? stats.catTotal :
               filter === 'confirmed' ? stats.catSi :
