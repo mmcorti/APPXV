@@ -291,6 +291,37 @@ app.post('/api/login', async (req, res) => {
                 const dbPassword = getText(rosterPage.properties.Password);
                 if (dbPassword && dbPassword.trim() === password) {
                     console.log(`✅ Event Staff login successful: ${email}`);
+
+                    // Fetch staff assignments to get real permissions and eventId
+                    let staffPermissions = {};
+                    let staffEventId = undefined;
+
+                    if (DS.STAFF_ASSIGNMENTS) {
+                        try {
+                            const assignRes = await notionClient.databases.query({
+                                database_id: DS.STAFF_ASSIGNMENTS,
+                                filter: { property: 'StaffId', rich_text: { equals: rosterPage.id } }
+                            });
+                            if (assignRes.results.length > 0) {
+                                const firstAssign = assignRes.results[0];
+                                staffEventId = getText(firstAssign.properties.EventId);
+                                staffPermissions = {
+                                    access_invitados: findProp(firstAssign.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessInvitados)?.checkbox || false,
+                                    access_mesas: findProp(firstAssign.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessMesas)?.checkbox || false,
+                                    access_link: findProp(firstAssign.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessLink)?.checkbox || false,
+                                    access_fotowall: findProp(firstAssign.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessFotowall)?.checkbox || false,
+                                    access_games: findProp(firstAssign.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessGames)?.checkbox || false,
+                                };
+                                console.log(`📋 [Staff Login] Permissions loaded for ${email}:`, staffPermissions);
+                                console.log(`📋 [Staff Login] Assigned to event: ${staffEventId}`);
+                            } else {
+                                console.log(`⚠️ [Staff Login] No assignments found for ${email}`);
+                            }
+                        } catch (assignErr) {
+                            console.warn('⚠️ Could not fetch staff assignments:', assignErr.message);
+                        }
+                    }
+
                     return res.json({
                         success: true,
                         user: {
@@ -298,8 +329,8 @@ app.post('/api/login', async (req, res) => {
                             email: getText(rosterPage.properties.Email),
                             name: getText(rosterPage.properties.Name),
                             role: 'staff',
-                            // Assignments must be fetched separately
-                            permissions: {}
+                            permissions: staffPermissions,
+                            eventId: staffEventId
                         }
                     });
                 }

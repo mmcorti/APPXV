@@ -351,15 +351,17 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <motion.button
-                              whileHover={{ scale: 1.1, rotate: -5 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => navigate(`/edit/${inv.id}`)}
-                              className="p-3 rounded-2xl bg-white/5 border border-white/10 text-primary hover:bg-primary/10 transition-all"
-                              title="Editar Evento"
-                            >
-                              <span className="material-symbols-outlined text-xl italic font-black">edit_note</span>
-                            </motion.button>
+                            {user.role !== 'staff' && user.role !== 'event_staff' && (
+                              <motion.button
+                                whileHover={{ scale: 1.1, rotate: -5 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => navigate(`/edit/${inv.id}`)}
+                                className="p-3 rounded-2xl bg-white/5 border border-white/10 text-primary hover:bg-primary/10 transition-all"
+                                title="Editar Evento"
+                              >
+                                <span className="material-symbols-outlined text-xl italic font-black">edit_note</span>
+                              </motion.button>
+                            )}
                             {user.role !== 'staff' && user.role !== 'event_staff' && (
                               <motion.button
                                 whileHover={{ scale: 1.1, rotate: 5 }}
@@ -385,7 +387,7 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                             { label: 'Link', icon: 'send', color: 'text-indigo-400', bg: 'bg-primary', path: 'share', perm: inv.permissions?.access_link || user.permissions?.access_link },
                             { label: 'FotoWall', icon: 'photo_size_select_actual', color: 'text-pink-400', bg: 'bg-pink-400/10', path: `/fotowall/${inv.id}`, perm: inv.permissions?.access_fotowall || user.permissions?.access_fotowall },
                             { label: 'Juegos', icon: 'videogame_asset', color: 'text-orange-400', bg: 'bg-orange-400/10', path: `/games/${inv.id}`, perm: inv.permissions?.access_games || user.permissions?.access_games },
-                            { label: 'Gestión', icon: 'more_horiz', color: 'text-slate-400', bg: 'bg-white/5', path: 'more' }
+                            { label: 'Gestión', icon: 'more_horiz', color: 'text-slate-400', bg: 'bg-white/5', path: 'more', perm: !(user.role === 'staff' || user.role === 'event_staff') }
                           ].map((btn, idx) => {
                             const isAction = btn.path === 'share' || btn.path === 'more';
                             const disabled = (user.role === 'staff' || user.role === 'event_staff') && btn.perm === false;
