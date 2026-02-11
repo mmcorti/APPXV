@@ -302,6 +302,30 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
               )}
             </div>
 
+            <div className="bg-white/5 backdrop-blur-xl p-8 rounded-[40px] border border-white/10 shadow-sm text-center space-y-6 mt-8">
+              <div className="space-y-1">
+                <h3 className="text-xs font-black uppercase text-slate-500 tracking-[0.3em]">Mesa de Regalos</h3>
+                <div className="flex justify-center"><div className="h-px w-8 bg-white/10"></div></div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-white/5 p-4 rounded-3xl border border-white/5 inline-block">
+                  <span className="material-symbols-outlined text-primary text-3xl">redeem</span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{invitation.giftType === 'alias' ? 'Alias Bancario (CBU)' : 'Lista de Bodas'}</p>
+                  <p className="text-lg font-black italic text-white break-all leading-tight">{invitation.giftDetail}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { navigator.clipboard.writeText(invitation.giftDetail); alert('¡Copiado!'); }}
+                  className="px-6 py-2.5 rounded-full bg-white/5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/10 transition-all border border-white/5"
+                >
+                  Copiar Datos
+                </button>
+              </div>
+            </div>
+
             <div className="flex flex-col gap-3 pt-4">
               {attending && (
                 <button onClick={() => navigate('/location/' + invitation.id)} className="w-full h-16 bg-primary text-white font-black italic uppercase tracking-widest rounded-3xl shadow-[0_15px_30px_rgba(19,91,236,0.2)] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
