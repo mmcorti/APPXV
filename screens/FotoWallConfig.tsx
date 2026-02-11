@@ -79,7 +79,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
 
   // Use hook for limits
   const { checkLimit } = usePlan();
-  const limitCheck = checkLimit('maxPhotos', approvedCount);
+  const limitCheck = checkLimit('maxPhotosPerEvent', approvedCount);
   const isAtPhotoLimit = !limitCheck.allowed;
   const photoLimit = limitCheck.limit;
 
