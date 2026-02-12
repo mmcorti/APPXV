@@ -234,26 +234,53 @@ export async function generateImpostorTasks(theme) {
             model: TEXT_MODEL,
             generationConfig: {
                 responseMimeType: "application/json",
+                responseSchema: {
+                    type: "object",
+                    properties: {
+                        mainPrompt: { type: "string", description: "Instructions for regular players (Civilians)" },
+                        impostorPrompt: { type: "string", description: "Instructions for the Impostor" }
+                    },
+                    required: ["mainPrompt", "impostorPrompt"]
+                }
             }
         });
 
         const prompt = `Generate a pair of tasks for the game "The Impostor" based on the theme: "${theme}".
-        Return ONLY a JSON object with this structure:
-        {
-            "mainPrompt": "Instructions for regular players (Civilians). They must take a photo of something specific related to the theme.",
-            "impostorPrompt": "Instructions for the Impostor. It must be slightly different/vague but plausible so they fit in, OR explicitly telling them to fake it."
-        }
+        Return a JSON object with exactly these two keys:
+        - "mainPrompt": Instructions for regular players (Civilians). They must take a photo of something specific related to the theme.
+        - "impostorPrompt": Instructions for the Impostor. It must be slightly different/vague but plausible so they fit in, OR explicitly telling them to fake it.
+        
         Example for "Wedding":
-        Civilians: "Take a photo of the bride smiling."
-        Impostor: "Take a photo of someone in a white dress."
+        mainPrompt: "Toma una foto de la novia sonriendo."
+        impostorPrompt: "Toma una foto de alguien con vestido blanco."
         
         Use the theme provided. Language: Español Latino.`;
 
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
-        console.log('[GeminiService] AI Impostor Response received');
+        console.log('[GeminiService] AI Impostor raw response:', responseText);
 
-        return JSON.parse(responseText);
+        const parsed = JSON.parse(responseText);
+        console.log('[GeminiService] AI Impostor parsed keys:', Object.keys(parsed));
+
+        // Defensive key mapping: handle alternative key names the AI might use
+        const normalized = {
+            mainPrompt: parsed.mainPrompt || parsed.civilianPrompt || parsed.civilian || parsed.main || parsed.consignaCivil || parsed.consignaPrincipal || '',
+            impostorPrompt: parsed.impostorPrompt || parsed.impostorTask || parsed.impostor || parsed.consignaImpostor || ''
+        };
+
+        // If both are still empty, try to extract from the first two values
+        if (!normalized.mainPrompt && !normalized.impostorPrompt) {
+            const values = Object.values(parsed).filter(v => typeof v === 'string');
+            if (values.length >= 2) {
+                normalized.mainPrompt = values[0];
+                normalized.impostorPrompt = values[1];
+                console.log('[GeminiService] Used positional fallback for keys');
+            }
+        }
+
+        console.log('[GeminiService] AI Impostor final result:', JSON.stringify(normalized));
+        return normalized;
     } catch (error) {
         console.error('[GeminiService] Impostor generation error:', error.message);
         throw error;
