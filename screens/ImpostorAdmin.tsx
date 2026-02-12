@@ -140,11 +140,18 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
         setIsGenerating(true);
         try {
             const result = await impostorService.generateTasks(aiTheme);
+            console.log('[ImpostorAdmin] AI generate result:', result);
+
+            if (!result.mainPrompt || !result.impostorPrompt) {
+                console.error('[ImpostorAdmin] Missing keys in result:', Object.keys(result));
+                throw new Error('La IA devolvió un formato inválido');
+            }
+
             setMainPrompt(result.mainPrompt);
             setImpostorPrompt(result.impostorPrompt);
         } catch (error) {
-            console.error(error);
-            alert('Error al generar consignas');
+            console.error('[ImpostorAdmin] Generate error:', error);
+            alert('Error al generar consignas: ' + (error instanceof Error ? error.message : 'Error desconocido'));
         } finally {
             setIsGenerating(false);
         }

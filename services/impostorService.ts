@@ -55,6 +55,10 @@ export const impostorService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ theme })
         });
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({ error: 'Error del servidor' }));
+            throw new Error(errorData.error || `Server error: ${res.status}`);
+        }
         return res.json();
     },
 

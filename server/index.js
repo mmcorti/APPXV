@@ -3272,6 +3272,14 @@ app.post('/api/impostor/generate-tasks', async (req, res) => {
         if (!theme) return res.status(400).json({ error: 'Theme is required' });
 
         const tasks = await geminiService.generateImpostorTasks(theme);
+
+        // Validate response has required fields
+        if (!tasks.mainPrompt || !tasks.impostorPrompt) {
+            console.error('[Impostor] Generated tasks missing required fields:', tasks);
+            return res.status(500).json({ error: 'AI generated invalid response format' });
+        }
+
+        console.log('[Impostor] Generated tasks OK:', { mainPrompt: tasks.mainPrompt.substring(0, 50), impostorPrompt: tasks.impostorPrompt.substring(0, 50) });
         res.json(tasks);
     } catch (error) {
         console.error('Error generating impostor tasks:', error);
