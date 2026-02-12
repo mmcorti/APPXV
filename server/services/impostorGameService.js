@@ -18,8 +18,8 @@ export const impostorGameService = {
                 config: {
                     playerCount: 5,
                     impostorCount: 1,
-                    mainPrompt: "Describe a la homenajeada en una palabra",
-                    impostorPrompt: "Describe la fiesta en una palabra",
+                    mainPrompt: "Describí en una palabra lo que más te emociona de una fiesta",
+                    impostorPrompt: "Describí en una palabra lo que más te emociona de un cumpleaños",
                     knowsRole: true,
                     customImageUrl: 'https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png'
                 },
