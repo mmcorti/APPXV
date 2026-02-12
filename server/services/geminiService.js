@@ -245,16 +245,36 @@ export async function generateImpostorTasks(theme) {
             }
         });
 
-        const prompt = `Generate a pair of tasks for the game "The Impostor" based on the theme: "${theme}".
-        Return a JSON object with exactly these two keys:
-        - "mainPrompt": Instructions for regular players (Civilians). They must take a photo of something specific related to the theme.
-        - "impostorPrompt": Instructions for the Impostor. It must be slightly different/vague but plausible so they fit in, OR explicitly telling them to fake it.
+        const prompt = `Genera un par de consignas para el juego "El Impostor" basado en la temática: "${theme}".
+
+        MECÁNICA DEL JUEGO:
+        - Todos los jugadores reciben una consigna y deben responder con UNA SOLA PALABRA.
+        - Los civiles reciben la consigna principal (mainPrompt).
+        - El impostor recibe una consigna diferente (impostorPrompt).
+        - La clave es que ambas consignas deben ser lo suficientemente SIMILARES para que las respuestas se parezcan, pero lo suficientemente DISTINTAS para generar una leve diferencia que los demás puedan detectar.
+        - NO debe ser sobre fotos. Es un juego de PALABRAS.
+
+        REGLAS PARA LAS CONSIGNAS:
+        1. Ambas consignas deben pedir describir, nombrar o asociar algo con UNA PALABRA.
+        2. Las consignas deben estar relacionadas entre sí (misma categoría o campo semántico).
+        3. La diferencia debe ser SUTIL, no obvia. El impostor no debe quedar expuesto inmediatamente.
+        4. Evitar que una consigna sea demasiado genérica ni demasiado específica respecto a la otra.
         
-        Example for "Wedding":
-        mainPrompt: "Toma una foto de la novia sonriendo."
-        impostorPrompt: "Toma una foto de alguien con vestido blanco."
+        EJEMPLOS:
+        Temática "Casamiento":
+        mainPrompt: "Describí en una palabra lo que más te emociona de una boda"
+        impostorPrompt: "Describí en una palabra lo que más te emociona de una fiesta de 15"
         
-        Use the theme provided. Language: Español Latino.`;
+        Temática "Los Simpsons":
+        mainPrompt: "Decí en una palabra algo que asocies con Homero Simpson"
+        impostorPrompt: "Decí en una palabra algo que asocies con Pedro Picapiedra"
+        
+        Temática "Fútbol":
+        mainPrompt: "Nombrá en una palabra algo que veas en una cancha de fútbol"
+        impostorPrompt: "Nombrá en una palabra algo que veas en un estadio de tenis"
+
+        Devolvé un JSON con exactamente estas dos claves: "mainPrompt" y "impostorPrompt".
+        Idioma: Español Latino.`;
 
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
