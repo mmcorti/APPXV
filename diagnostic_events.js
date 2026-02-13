@@ -10,9 +10,17 @@ const DS = {
     USERS: process.env.NOTION_USERS_DB_ID || "d7a654bcdb684918aca9b2164f2bd0d0"
 };
 
+import fs from 'fs';
+
+function log(msg) {
+    console.log(msg);
+    try { fs.appendFileSync('output_clean.txt', msg + '\n'); } catch (e) { }
+}
+
 async function checkEvents() {
     try {
-        console.log(`\n🔍 Checking DB: EVENTS (${DS.EVENTS})`);
+        fs.writeFileSync('output_clean.txt', ''); // Clear file
+        log(`\n🔍 Checking DB: EVENTS (${DS.EVENTS})`);
         const db = await notion.databases.retrieve({ database_id: DS.EVENTS });
         const creatorProp = db.properties['Creator Email'] || db.properties['Email Creador'] || db.properties['CreatorEmail'] || db.properties['Email'];
 
@@ -21,6 +29,14 @@ async function checkEvents() {
         } else {
             console.log(`❌ Creator Email property NOT found. Available: ${Object.keys(db.properties).join(', ')}`);
         }
+
+        const dateProp = db.properties['Date'] || db.properties['Fecha'];
+        if (dateProp) console.log(`✅ Found Date property: "${dateProp.name}" [Type: ${dateProp.type}]`);
+        else console.log(`❌ Date property NOT found.`);
+
+        const timeProp = db.properties['Time'] || db.properties['Hora'] || db.properties['Horario'];
+        if (timeProp) console.log(`✅ Found Time property: "${timeProp.name}" [Type: ${timeProp.type}]`);
+        else console.log(`❌ Time property NOT found.`);
 
         const query = await notion.databases.query({ database_id: DS.EVENTS });
         console.log(`📄 Total Events: ${query.results.length}`);
