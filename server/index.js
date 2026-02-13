@@ -584,6 +584,8 @@ app.get('/api/events', async (req, res) => {
                 giftDetail: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.GiftDetail)),
                 capacity: findProp(props, KNOWN_PROPERTIES.EVENTS.Capacity)?.number || 0,
                 dressCode: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.DressCode)),
+                venueNotes: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.VenueNotes)),
+                arrivalTips: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.ArrivalTips)),
                 // FotoWall properties
                 fotowall: {
                     albumUrl: findProp(props, KNOWN_PROPERTIES.EVENTS.FW_AlbumUrl)?.url || '',
@@ -666,8 +668,10 @@ app.post('/api/events', async (req, res) => {
         if (giftType) properties[schema.get('EVENTS', 'GiftType')] = { select: { name: giftType } };
         properties[schema.get('EVENTS', 'GiftDetail')] = { rich_text: [{ text: { content: giftDetail || "" } }] };
 
-        const { dressCode } = req.body;
+        const { dressCode, venueNotes, arrivalTips } = req.body;
         if (dressCode !== undefined) properties[schema.get('EVENTS', 'DressCode')] = { rich_text: [{ text: { content: dressCode || "" } }] };
+        if (venueNotes !== undefined) properties[schema.get('EVENTS', 'VenueNotes')] = { rich_text: [{ text: { content: venueNotes || "" } }] };
+        if (arrivalTips !== undefined) properties[schema.get('EVENTS', 'ArrivalTips')] = { rich_text: [{ text: { content: arrivalTips || "" } }] };
 
         // FotoWall initial config (optional)
         const { fotowall } = req.body;
@@ -711,8 +715,10 @@ app.put('/api/events/:id', async (req, res) => {
         if (giftType !== undefined) properties[schema.get('EVENTS', 'GiftType')] = { select: { name: giftType } };
         if (giftDetail !== undefined) properties[schema.get('EVENTS', 'GiftDetail')] = { rich_text: [{ text: { content: giftDetail || "" } }] };
 
-        const { dressCode } = req.body;
+        const { dressCode, venueNotes, arrivalTips } = req.body;
         if (dressCode !== undefined) properties[schema.get('EVENTS', 'DressCode')] = { rich_text: [{ text: { content: dressCode || "" } }] };
+        if (venueNotes !== undefined) properties[schema.get('EVENTS', 'VenueNotes')] = { rich_text: [{ text: { content: venueNotes || "" } }] };
+        if (arrivalTips !== undefined) properties[schema.get('EVENTS', 'ArrivalTips')] = { rich_text: [{ text: { content: arrivalTips || "" } }] };
 
         // FotoWall update
         if (fotowall) {

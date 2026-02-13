@@ -1,0 +1,17 @@
+
+🔍 Checking DB: EVENTS (8a693908-f427-4002-9902-4ac86b2e21d4)
+✅ Found Creator Email property: "Creator Email" [Type: email]
+✅ Found Date property: "Date" [Type: date]
+✅ Found Time property: "Time" [Type: rich_text]
+📄 Total Events: 11
+   - "Cumpleaños 46 de Mariano" (Creator: admin@appxv.com) [Date: 2026-07-08] [Time: ]
+   - "80 de Blanca!" (Creator: mariano@gmail.com) [Date: 2025-10-29] [Time: 20:00]
+   - "Cumple 80 Blanca" (Creator: admin@appxv.com) [Date: 2026-10-29] [Time: 20:00]
+   - "Cumple XV Julia" (Creator: julitablet8@gmail.com) [Date: 2026-02-14] [Time: 20:00]
+   - "Bodas de Oro" (Creator: MLevalle@appxv.com) [Date: 2026-01-19] [Time: 20:00]
+   - "Festejo Racing Campeón RECOPA" (Creator: marianocorti@appxv.com) [Date: 2026-05-03] [Time: 20:00]
+   - "XV" (Creator: marianocorti@appxv.com) [Date: 2026-01-19] [Time: 20:00]
+   - "Bodas de Plata" (Creator: MLevalle@appxv.com) [Date: 2026-01-20] [Time: 20:00]
+   - "Casamiento 1" (Creator: osvaldo@appxv.com) [Date: 2026-01-20] [Time: 20:00]
+   - "Boda 1" (Creator: mmcorti@madiba.com.ar) [Date: 2026-01-20] [Time: 20:00]
+   - "cumple Kilo" (Creator: leo@appxv.com) [Date: 2026-01-27] [Time: 20:00]

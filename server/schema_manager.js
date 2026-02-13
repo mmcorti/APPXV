@@ -19,7 +19,9 @@ const KNOWN_PROPERTIES = {
         FW_ModerationMode: ["FotoWall Moderation Mode", "FW_ModerationMode"],
         FW_Filters: ["FotoWall Filters", "FW_Filters"],
         Capacity: ["Capacity", "Capacidad"],
-        DressCode: ["Dress Code", "DressCode", "Dresscode", "Vestimenta"]
+        DressCode: ["Dress Code", "DressCode", "Dresscode", "Vestimenta"],
+        VenueNotes: ["Venue Notes", "VenueNotes", "Indicaciones Especiales", "Indicaciones", "Notas del Lugar"],
+        ArrivalTips: ["Arrival Tips", "ArrivalTips", "Tips de Llegada", "Tips Llegada", "Consejos de Llegada"]
     },
     GUESTS: {
         Name: ["Name", "Nombre"],

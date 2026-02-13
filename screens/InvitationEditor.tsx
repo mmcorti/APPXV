@@ -401,6 +401,20 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
               <input type="text" name="dressCode" value={formData.dressCode || ''} onChange={handleChange} className="w-full rounded-xl border-slate-200 dark:border-slate-700 dark:bg-slate-900 p-4" placeholder="Ej: Elegante, Formal, Casual..." />
             </div>
           </section>
+
+          <section className="bg-white dark:bg-slate-800 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 space-y-4">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400">Detalles del Lugar</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Indicaciones Especiales</label>
+                <textarea name="venueNotes" value={formData.venueNotes || ''} onChange={handleChange} rows={3} className="w-full rounded-xl border-slate-200 dark:border-slate-700 dark:bg-slate-900 p-4" placeholder="Ej: El salón cuenta con valet parking y estacionamiento privado..." />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Tips de Llegada</label>
+                <textarea name="arrivalTips" value={formData.arrivalTips || ''} onChange={handleChange} rows={3} className="w-full rounded-xl border-slate-200 dark:border-slate-700 dark:bg-slate-900 p-4" placeholder="Ej: Se recomienda solicitar transporte privado (Uber/Cabify)..." />
+              </div>
+            </div>
+          </section>
         </div>
       </div>
 
