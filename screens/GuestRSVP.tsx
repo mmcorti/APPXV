@@ -9,6 +9,21 @@ interface GuestRSVPScreenProps {
   loading?: boolean;
 }
 
+const formatDateSpanish = (dateStr: string, timeStr?: string) => {
+  if (!dateStr) return '';
+  try {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const months = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    const timeSuffix = timeStr ? ` a las ${timeStr}hs` : '';
+    return `${day} de ${months[month - 1]} de ${year}${timeSuffix}`;
+  } catch (e) {
+    return dateStr;
+  }
+};
+
 const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSubmit, loading: parentLoading }) => {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -285,7 +300,12 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
 
               {attending && invitation.date && (
                 <div className="p-6 bg-white/5 rounded-3xl border border-white/5 space-y-4">
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Faltan:</p>
+                  <div className="space-y-1 text-center">
+                    <p className="text-[11px] font-medium text-slate-400">
+                      El <span className="text-white font-black italic">{invitation.eventName}</span> es el {formatDateSpanish(invitation.date, invitation.time)}
+                    </p>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Faltan:</p>
+                  </div>
                   <Countdown targetDate={invitation.date} targetTime={invitation.time} />
                 </div>
               )}
