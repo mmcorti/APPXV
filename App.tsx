@@ -524,7 +524,7 @@ const App: React.FC = () => {
           <Route path="/google-callback" element={<GoogleCallbackScreen onLogin={handleAuthSuccess} />} />
           <Route
             path="/register"
-            element={user?.role === 'admin' ? <RegisterScreen onRegister={(name, email) => handleAuthSuccess('', name, email)} /> : <Navigate to="/login" />}
+            element={<RegisterScreen onAuthSuccess={handleAuthSuccess} />}
           />
           <Route
             path="/dashboard"

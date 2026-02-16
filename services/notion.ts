@@ -373,5 +373,17 @@ export const notionService = {
         const res = await fetch(`${API_URL}/staff-assignments?eventId=${eventId}`);
         if (!res.ok) throw new Error('Failed to fetch staff assignments');
         return await res.json();
+    },
+
+    // === USER REGISTRATION ===
+    async register(data: { username: string; name: string; email: string; password: string; captchaToken: string }) {
+        const res = await fetch(`${API_URL}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (!result.success) throw new Error(result.message || 'Registration failed');
+        return result.user;
     }
 };

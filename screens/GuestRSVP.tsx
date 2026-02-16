@@ -301,10 +301,10 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
               {attending && invitation.date && (
                 <div className="p-6 bg-white/5 rounded-3xl border border-white/5 space-y-4">
                   <div className="space-y-1 text-center">
-                    <p className="text-[11px] font-medium text-slate-400">
+                    <p className="text-[16px] font-medium text-slate-400">
                       El <span className="text-white font-black italic">{invitation.eventName}</span> es el {formatDateSpanish(invitation.date, invitation.time)}
                     </p>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Faltan:</p>
+                    <p className="text-[18px] font-black text-slate-500 uppercase tracking-widest">Faltan:</p>
                   </div>
                   <Countdown targetDate={invitation.date} targetTime={invitation.time} />
                 </div>

@@ -346,6 +346,123 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
+// --- REGISTER ---
+app.post('/api/register', async (req, res) => {
+    const { username, name, email, password, captchaToken } = req.body;
+    console.log(`📝 Registration attempt for username: ${username}`);
+
+    try {
+        // 1. Validate required fields
+        if (!username || !name || !password) {
+            return res.status(400).json({ success: false, message: 'Todos los campos son obligatorios' });
+        }
+
+        // Validate username format (3+ chars, alphanumeric + dots/underscores)
+        const usernameRegex = /^[a-zA-Z0-9._]{3,30}$/;
+        if (!usernameRegex.test(username)) {
+            return res.status(400).json({ success: false, message: 'El usuario debe tener entre 3 y 30 caracteres (letras, números, puntos y guiones bajos)' });
+        }
+
+        // Validate password length
+        if (password.length < 8) {
+            return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 8 caracteres' });
+        }
+
+        // 2. Verify reCAPTCHA v3 token (if secret is configured)
+        const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY;
+        if (recaptchaSecret && captchaToken) {
+            try {
+                const captchaResponse = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `secret=${recaptchaSecret}&response=${captchaToken}`
+                });
+                const captchaResult = await captchaResponse.json();
+                console.log(`🤖 reCAPTCHA score: ${captchaResult.score}`);
+
+                if (!captchaResult.success || captchaResult.score < 0.5) {
+                    return res.status(403).json({ success: false, message: 'Verificación de seguridad fallida. Intenta de nuevo.' });
+                }
+            } catch (captchaError) {
+                console.warn('⚠️ reCAPTCHA verification failed, proceeding anyway:', captchaError.message);
+            }
+        }
+
+        await schema.init();
+
+        // 3. Construct the @appxv.app email
+        const appxvEmail = `${username.toLowerCase()}@appxv.app`;
+
+        // 4. Check if username already exists in SUBSCRIBERS DB
+        const existingUser = await notionClient.databases.query({
+            database_id: DS.SUBSCRIBERS,
+            filter: {
+                property: schema.get('SUBSCRIBERS', 'Email'),
+                email: { equals: appxvEmail }
+            }
+        });
+
+        if (existingUser.results.length > 0) {
+            return res.status(409).json({ success: false, message: 'Este nombre de usuario ya está registrado. Elige otro.' });
+        }
+
+        // 5. Create new subscriber in Notion
+        const properties = {
+            [schema.get('SUBSCRIBERS', 'Name')]: { title: [{ text: { content: name } }] },
+            [schema.get('SUBSCRIBERS', 'Email')]: { email: appxvEmail },
+            [schema.get('SUBSCRIBERS', 'Password')]: { rich_text: [{ text: { content: password } }] },
+            [schema.get('SUBSCRIBERS', 'Plan')]: { select: { name: 'freemium' } }
+        };
+
+        // Add Username property if it exists in the schema
+        const usernameField = schema.get('SUBSCRIBERS', 'Username');
+        if (usernameField && usernameField !== 'Username') {
+            properties[usernameField] = { rich_text: [{ text: { content: username.toLowerCase() } }] };
+        } else {
+            // Try to set it anyway
+            properties['Username'] = { rich_text: [{ text: { content: username.toLowerCase() } }] };
+        }
+
+        // Add recovery email if provided
+        if (email) {
+            properties['RecoveryEmail'] = { rich_text: [{ text: { content: email } }] };
+        }
+
+        const newUser = await notionClient.pages.create({
+            parent: { database_id: DS.SUBSCRIBERS },
+            properties
+        });
+
+        console.log(`✅ New user registered: ${appxvEmail} (ID: ${newUser.id})`);
+
+        return res.json({
+            success: true,
+            user: {
+                id: newUser.id,
+                name: name,
+                email: appxvEmail,
+                role: 'subscriber',
+                plan: 'freemium',
+                permissions: {
+                    access_invitados: false,
+                    access_mesas: false,
+                    access_link: false,
+                    access_fotowall: false,
+                    access_games: false
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error("❌ Error en Registro:", error);
+        // Handle Notion-specific errors (e.g., property doesn't exist)
+        if (error.code === 'validation_error') {
+            return res.status(400).json({ success: false, message: 'Error de configuración. Contacta al administrador.' });
+        }
+        res.status(500).json({ success: false, message: error.message || 'Error interno del servidor' });
+    }
+});
+
 // --- GOOGLE OAUTH 2.0 ---
 
 // Step 1: Redirect user to Google login
