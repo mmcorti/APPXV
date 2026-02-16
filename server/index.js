@@ -414,18 +414,14 @@ app.post('/api/register', async (req, res) => {
             [schema.get('SUBSCRIBERS', 'Plan')]: { select: { name: 'freemium' } }
         };
 
-        // Add Username property if it exists in the schema
-        const usernameField = schema.get('SUBSCRIBERS', 'Username');
-        if (usernameField && usernameField !== 'Username') {
-            properties[usernameField] = { rich_text: [{ text: { content: username.toLowerCase() } }] };
-        } else {
-            // Try to set it anyway
-            properties['Username'] = { rich_text: [{ text: { content: username.toLowerCase() } }] };
+        // Add Username property if it exists in the database
+        if (schema.exists('SUBSCRIBERS', 'Username')) {
+            properties[schema.get('SUBSCRIBERS', 'Username')] = { rich_text: [{ text: { content: username.toLowerCase() } }] };
         }
 
-        // Add recovery email if provided
-        if (email) {
-            properties['RecoveryEmail'] = { rich_text: [{ text: { content: email } }] };
+        // Add recovery email if provided and if the property exists
+        if (email && schema.exists('SUBSCRIBERS', 'RecoveryEmail')) {
+            properties[schema.get('SUBSCRIBERS', 'RecoveryEmail')] = { rich_text: [{ text: { content: email } }] };
         }
 
         const newUser = await notionClient.pages.create({
@@ -516,27 +512,40 @@ app.get('/api/auth/google/callback', async (req, res) => {
             userName = getText(findProp(userPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Name)) || profile.name;
             userPlan = (getText(findProp(userPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Plan)) || 'freemium').toLowerCase();
 
-            console.log('[GOOGLE AUTH] Existing user found, updating profile...');
-            await notionClient.pages.update({
-                page_id: userId,
-                properties: {
-                    "GoogleId": { rich_text: [{ text: { content: profile.id } }] },
-                    "AvatarUrl": { url: profile.picture || null }
-                }
-            });
+            const updateProps = {};
+            if (schema.exists('SUBSCRIBERS', 'GoogleId')) {
+                updateProps[schema.get('SUBSCRIBERS', 'GoogleId')] = { rich_text: [{ text: { content: profile.id } }] };
+            }
+            if (schema.exists('SUBSCRIBERS', 'AvatarUrl')) {
+                updateProps[schema.get('SUBSCRIBERS', 'AvatarUrl')] = { url: profile.picture || null };
+            }
+
+            if (Object.keys(updateProps).length > 0) {
+                await notionClient.pages.update({
+                    page_id: userId,
+                    properties: updateProps
+                });
+            }
         } else {
             // New user - create account
             console.log('[GOOGLE AUTH] Creating new user...');
+            const properties = {
+                [schema.get('SUBSCRIBERS', 'Name')]: { title: [{ text: { content: profile.name } }] },
+                [schema.get('SUBSCRIBERS', 'Email')]: { email: profile.email },
+                [schema.get('SUBSCRIBERS', 'Plan')]: { select: { name: "freemium" } },
+                [schema.get('SUBSCRIBERS', 'Password')]: { rich_text: [{ text: { content: '' } }] } // No password for Google users
+            };
+
+            if (schema.exists('SUBSCRIBERS', 'GoogleId')) {
+                properties[schema.get('SUBSCRIBERS', 'GoogleId')] = { rich_text: [{ text: { content: profile.id } }] };
+            }
+            if (schema.exists('SUBSCRIBERS', 'AvatarUrl')) {
+                properties[schema.get('SUBSCRIBERS', 'AvatarUrl')] = { url: profile.picture || null };
+            }
+
             const newUser = await notionClient.pages.create({
                 parent: { database_id: DS.SUBSCRIBERS },
-                properties: {
-                    "Name": { title: [{ text: { content: profile.name } }] },
-                    "Email": { email: profile.email },
-                    "Plan": { select: { name: "freemium" } },
-                    "GoogleId": { rich_text: [{ text: { content: profile.id } }] },
-                    "AvatarUrl": { url: profile.picture || null },
-                    "Password": { rich_text: [{ text: { content: '' } }] } // No password for Google users
-                }
+                properties
             });
             userId = newUser.id;
             userName = profile.name;
