@@ -421,7 +421,7 @@ app.post('/api/register', async (req, res) => {
 
         // Add recovery email if provided and if the property exists
         if (email && schema.exists('SUBSCRIBERS', 'RecoveryEmail')) {
-            properties[schema.get('SUBSCRIBERS', 'RecoveryEmail')] = { rich_text: [{ text: { content: email } }] };
+            properties[schema.get('SUBSCRIBERS', 'RecoveryEmail')] = { email: email };
         }
 
         const newUser = await notionClient.pages.create({
