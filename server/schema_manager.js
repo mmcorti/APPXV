@@ -58,7 +58,10 @@ const KNOWN_PROPERTIES = {
         AccessMesas: ["access_mesas"],
         AccessLink: ["access_link"],
         AccessFotowall: ["access_fotowall"],
-        AccessGames: ["access_games"]
+        AccessGames: ["access_games"],
+        RecoveryEmail: ["RecoveryEmail", "Recovery Email", "Email de Recuperación", "Email de Recuperacion", "Recovery"],
+        GoogleId: ["GoogleId", "Google ID", "Google_Id"],
+        AvatarUrl: ["AvatarUrl", "Avatar URL", "Avatar", "Foto de Perfil"]
     },
     STAFF_ROSTER: {
         Name: ["Name", "Nombre"],
@@ -195,6 +198,10 @@ class SchemaManager {
 
     get(dbKey, internalKey) {
         return this.mappings[dbKey]?.[internalKey] || KNOWN_PROPERTIES[dbKey]?.[internalKey]?.[0] || internalKey;
+    }
+
+    exists(dbKey, internalKey) {
+        return !!this.mappings[dbKey]?.[internalKey];
     }
 
     getAliases(dbKey, internalKey) {
