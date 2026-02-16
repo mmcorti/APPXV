@@ -51,6 +51,7 @@ const KNOWN_PROPERTIES = {
         Name: ["Name", "Nombre"],
         Email: ["Email", "Correo"],
         Password: ["Password", "Contraseña"],
+        Username: ["Username", "Usuario"],
         Event: ["Event", "Evento"],
         Plan: ["Plan", "plan", "Suscripción", "suscripcion", "Subscription", "subscription", "Tipo", "tipo", "Type"],
         AccessInvitados: ["access_invitados"],
