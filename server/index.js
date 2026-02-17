@@ -26,6 +26,25 @@ const PORT = process.env.PORT || 8080;
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); // Increased for base64 images
 
+// Startup diagnostics
+console.log('--- STARTUP DIAGNOSTICS ---');
+console.log('Node Version:', process.version);
+console.log('Environment:', process.env.NODE_ENV);
+console.log('Port:', PORT);
+console.log('Working Directory:', process.cwd());
+console.log('---------------------------');
+
+// Global Error Handlers to prevent silent crashes
+process.on('uncaughtException', (err) => {
+    console.error('🔥 CRITICAL: Uncaught Exception:', err);
+    // Don't exit immediately in Cloud Run to allow logs to flush
+    setTimeout(() => process.exit(1), 1000);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('🔥 CRITICAL: Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 // Debug helper (keep existing if needed)
 // Debug helper removed for production stability
 // import '../debug_pkg.js';
@@ -3612,7 +3631,7 @@ app.get(/.*/, (req, res) => {
 
 // Start server
 const start = async () => {
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
         console.log(`-----------------------------------------`);
         console.log(`🚀 API Server running on port: ${PORT}`);
         console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
