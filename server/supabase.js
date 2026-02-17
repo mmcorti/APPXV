@@ -7,8 +7,12 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    console.error('❌ SUPABASE_URL and SUPABASE_SERVICE_KEY are required.');
-    process.exit(1);
+    console.warn('⚠️  WARNING: SUPABASE_URL or SUPABASE_SERVICE_KEY is missing.');
+    console.warn('Current SUPABASE_URL:', SUPABASE_URL ? 'Defined' : 'UNDEFINED');
+    console.warn('Current SUPABASE_SERVICE_KEY:', SUPABASE_SERVICE_KEY ? 'Defined' : 'UNDEFINED');
+    console.warn('Application will likely fail on database requests.');
+} else {
+    console.log('✅ Supabase configuration detected.');
 }
 
 // Use the service_role key on the backend — bypasses RLS

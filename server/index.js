@@ -15,6 +15,7 @@ import { uploadImage } from './services/imageUpload.js';
 import { raffleGameService } from './services/raffleGameService.js';
 import { confessionsGameService } from './services/confessionsGameService.js';
 import { impostorGameService } from './services/impostorGameService.js';
+import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,6 +25,25 @@ const PORT = process.env.PORT || 8080;
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); // Increased for base64 images
+
+// Startup diagnostics
+console.log('--- STARTUP DIAGNOSTICS ---');
+console.log('Node Version:', process.version);
+console.log('Environment:', process.env.NODE_ENV);
+console.log('Port:', PORT);
+console.log('Working Directory:', process.cwd());
+console.log('---------------------------');
+
+// Global Error Handlers to prevent silent crashes
+process.on('uncaughtException', (err) => {
+    console.error('🔥 CRITICAL: Uncaught Exception:', err);
+    // Don't exit immediately in Cloud Run to allow logs to flush
+    setTimeout(() => process.exit(1), 1000);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('🔥 CRITICAL: Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 // Debug helper (keep existing if needed)
 // Debug helper removed for production stability
@@ -431,7 +451,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
         } else {
             // New user - create via Supabase Auth + public.users
             console.log('[GOOGLE AUTH] Creating new user...');
-            const randomPassword = require('crypto').randomBytes(32).toString('hex');
+            const randomPassword = crypto.randomBytes(32).toString('hex');
             const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
                 email: profile.email,
                 password: randomPassword,
@@ -644,14 +664,17 @@ app.post('/api/events', async (req, res) => {
         res.json({ success: true, id: newEvent.id });
     } catch (error) {
         console.error("❌ Error Creating Event:", error);
-        res.status(500).json({ error: error.message });
+        // Provide more context in error for debugging
+        const errorMessage = error.message || "Unknown error during event creation";
+        res.status(500).json({ error: errorMessage });
     }
 });
 
 
-app.put('/api/events', async (req, res) => {
+app.put('/api/events/:id?', async (req, res) => {
     try {
-        const { id, eventName, date, time, location, message, hostName, giftType, giftDetail, image } = req.body;
+        const id = req.params.id || req.body.id;
+        const { eventName, date, time, location, message, hostName, giftType, giftDetail, image } = req.body;
 
         // Update basic info
         const { error } = await supabase
@@ -699,9 +722,9 @@ app.put('/api/events', async (req, res) => {
     }
 });
 
-app.delete('/api/events', async (req, res) => {
+app.delete('/api/events/:id?', async (req, res) => {
     try {
-        const { id } = req.body; // Using body for delete? Backend usually uses params but frontend sends body
+        const id = req.params.id || req.body.id;
 
         // Notion logic used databases.delete equivalent (archiving). Supabase delete.
         const { error } = await supabase.from('events').delete().eq('id', id);
@@ -1614,34 +1637,33 @@ app.post('/api/fotowall/block-all', async (req, res) => {
 // --- STAFF ROSTER ---
 app.get('/api/staff-roster', async (req, res) => {
     try {
-        await schema.init();
-        const { ownerId } = req.query; // Filter by Owner (Subscriber)
-        console.log(`🔍 [DEBUG] GET /api/staff-roster: ownerId=${ownerId}, DS.STAFF_ROSTER=${DS.STAFF_ROSTER}`);
+        const { ownerId } = req.query; // ownerId is creator_id in users/events
 
-        if (!DS.STAFF_ROSTER) {
-            console.error("❌ DS.STAFF_ROSTER is UNDEFINED in GET");
-            return res.status(500).json({ error: "Configuración de base de datos faltante (STAFF_ROSTER)" });
-        }
+        // Profiles are stored in staff_profiles with owner_id
+        const { data: roster, error } = await supabase
+            .from('staff_profiles')
+            .select(`
+                id,
+                description,
+                user:users (
+                    name,
+                    email,
+                    username
+                )
+            `)
+            .eq('owner_id', ownerId);
 
-        const filter = ownerId ? {
-            property: 'OwnerId', // Using text field
-            rich_text: { equals: ownerId }
-        } : undefined;
+        if (error) throw error;
 
-        const response = await notionClient.databases.query({
-            database_id: DS.STAFF_ROSTER,
-            filter: filter
-        });
-
-        const roster = response.results.map(page => ({
-            id: page.id,
-            name: getText(page.properties.Name),
-            email: getText(page.properties.Email),
-            description: getText(page.properties.Description),
-            ownerId: getText(page.properties.OwnerId)
+        const formattedRoster = roster.map(item => ({
+            id: item.id,
+            name: item.user?.username || item.user?.name || item.user?.email,
+            email: item.user?.email,
+            description: item.description,
+            ownerId: ownerId
         }));
 
-        res.json(roster);
+        res.json(formattedRoster);
     } catch (error) {
         console.error("❌ Error getting staff roster:", error);
         res.status(500).json({ error: error.message });
@@ -1650,35 +1672,22 @@ app.get('/api/staff-roster', async (req, res) => {
 
 app.post('/api/staff-roster', async (req, res) => {
     try {
-        await schema.init();
         const { name, email, password, description, ownerId } = req.body;
-        console.log(`📝 [DEBUG] Creating staff roster member: ${email}, Owner: ${ownerId}`);
-        console.log(`🔍 [DEBUG] DS.STAFF_ROSTER: ${DS.STAFF_ROSTER}`);
-
-        if (!DS.STAFF_ROSTER) {
-            console.error("❌ DS.STAFF_ROSTER is UNDEFINED in POST");
-            return res.status(500).json({ error: "Configuración de base de datos faltante (STAFF_ROSTER)" });
-        }
 
         if (!email || !ownerId) {
             return res.status(400).json({ error: 'Email and OwnerId are required' });
         }
 
-        // --- PLAN LIMIT ENFORCEMENT ---
-        // 1. Get the user's plan (Subscriber)
-        const subPage = await notionClient.pages.retrieve({ page_id: ownerId });
-        const plan = (getText(subPage.properties.Plan) || 'freemium').toLowerCase();
+        // 1. Get Owner to check limits
+        const { data: owner } = await supabase.from('users').select('plan').eq('id', ownerId).single();
+        const plan = (owner?.plan || 'freemium').toLowerCase();
 
-        // 2. Get current staff count for this owner
-        const currentRoster = await notionClient.databases.query({
-            database_id: DS.STAFF_ROSTER,
-            filter: {
-                property: 'OwnerId',
-                rich_text: { equals: ownerId }
-            }
-        });
+        // 2. Count current roster members
+        const { count: currentCount } = await supabase
+            .from('staff_profiles')
+            .select('*', { count: 'exact', head: true })
+            .eq('owner_id', ownerId);
 
-        const currentCount = currentRoster.results.length;
         const limits = getPlanLimits(plan);
 
         if (currentCount >= limits.maxStaffRoster) {
@@ -1689,36 +1698,49 @@ app.post('/api/staff-roster', async (req, res) => {
                 limit: limits.maxStaffRoster
             });
         }
-        // --- END PLAN LIMIT ENFORCEMENT ---
 
-        const properties = {
-            "Name": { title: [{ text: { content: name || email.split('@')[0] } }] },
-            "Email": { email: email },
-            "Description": { rich_text: [{ text: { content: description || "" } }] },
-            "OwnerId": { rich_text: [{ text: { content: ownerId } }] }
-        };
-        if (password) {
-            properties["Password"] = { rich_text: [{ text: { content: password } }] };
+        // 3. Create or find User
+        const { data: existingUser } = await supabase.from('users').select('id').eq('email', email).single();
+        let userId = existingUser?.id;
+
+        if (!userId) {
+            const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+                email,
+                password: password || crypto.randomBytes(32).toString('hex'),
+                email_confirm: true
+            });
+            if (authError) throw authError;
+            userId = authUser.user.id;
+
+            await supabase.from('users').upsert({
+                id: userId,
+                email,
+                username: name || email.split('@')[0],
+                role: 'staff'
+            });
         }
 
-        await notionClient.pages.create({
-            parent: { database_id: DS.STAFF_ROSTER },
-            properties: properties
+        // 4. Create Profile
+        const { error: profileError } = await supabase.from('staff_profiles').upsert({
+            id: userId,
+            description,
+            owner_id: ownerId
         });
 
-        res.json({ success: true });
+        if (profileError) throw profileError;
+
+        res.json({ success: true, id: userId });
     } catch (error) {
-        console.error("❌ Error creating staff roster:", error);
+        console.error("❌ Error creating staff roster member:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.delete('/api/staff-roster/:id', async (req, res) => {
     try {
-        await notionClient.pages.update({
-            page_id: req.params.id,
-            archived: true
-        });
+        // Just delete the profile, keeping the user
+        const { error } = await supabase.from('staff_profiles').delete().eq('id', req.params.id);
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
         console.error("❌ Error deleting staff roster:", error);
@@ -1729,37 +1751,34 @@ app.delete('/api/staff-roster/:id', async (req, res) => {
 // --- STAFF ASSIGNMENTS ---
 app.get('/api/staff-assignments', async (req, res) => {
     try {
-        await schema.init();
         const { eventId, staffId } = req.query;
 
-        const filters = [];
-        if (eventId) filters.push({ property: 'EventId', rich_text: { equals: eventId } });
-        if (staffId) filters.push({ property: 'StaffId', rich_text: { equals: staffId } });
+        let query = supabase.from('staff_assignments').select(`
+            id,
+            permissions,
+            user:users (
+                id,
+                username,
+                email
+            ),
+            event_id
+        `);
 
-        const query = {
-            database_id: DS.STAFF_ASSIGNMENTS,
-        };
-        if (filters.length > 0) {
-            query.filter = { and: filters };
-        }
+        if (eventId) query = query.eq('event_id', eventId);
+        if (staffId) query = query.eq('staff_id', staffId);
 
-        const response = await notionClient.databases.query(query);
+        const { data: assignments, error } = await query;
+        if (error) throw error;
 
-        const assignments = response.results.map(page => ({
-            id: page.id,
-            name: getText(page.properties.Name),
-            staffId: getText(page.properties.StaffId),
-            eventId: getText(page.properties.EventId),
-            permissions: {
-                access_invitados: page.properties.access_invitados?.checkbox || false,
-                access_mesas: page.properties.access_mesas?.checkbox || false,
-                access_link: page.properties.access_link?.checkbox || false,
-                access_fotowall: page.properties.access_fotowall?.checkbox || false,
-                access_games: page.properties.access_games?.checkbox || false
-            }
+        const formatted = assignments.map(a => ({
+            id: a.id,
+            name: a.user?.username || a.user?.email || "Staff",
+            staffId: a.user?.id,
+            eventId: a.event_id,
+            permissions: a.permissions || {}
         }));
 
-        res.json(assignments);
+        res.json(formatted);
     } catch (error) {
         console.error("❌ Error getting assignments:", error);
         res.status(500).json({ error: error.message });
@@ -1768,26 +1787,20 @@ app.get('/api/staff-assignments', async (req, res) => {
 
 app.post('/api/staff-assignments', async (req, res) => {
     try {
-        await schema.init();
         const { name, staffId, eventId, permissions } = req.body;
 
-        const properties = {
-            "Name": { title: [{ text: { content: name || "Assignment" } }] },
-            "StaffId": { rich_text: [{ text: { content: staffId } }] },
-            "EventId": { rich_text: [{ text: { content: eventId } }] },
-            "access_invitados": { checkbox: permissions?.access_invitados || false },
-            "access_mesas": { checkbox: permissions?.access_mesas || false },
-            "access_link": { checkbox: permissions?.access_link || false },
-            "access_fotowall": { checkbox: permissions?.access_fotowall || false },
-            "access_games": { checkbox: permissions?.access_games || false }
-        };
+        const { data: newAssign, error } = await supabase
+            .from('staff_assignments')
+            .upsert({
+                staff_id: staffId,
+                event_id: eventId,
+                permissions: permissions || {}
+            })
+            .select()
+            .single();
 
-        const response = await notionClient.pages.create({
-            parent: { database_id: DS.STAFF_ASSIGNMENTS },
-            properties: properties
-        });
-
-        res.json({ success: true, id: response.id });
+        if (error) throw error;
+        res.json({ success: true, id: newAssign.id });
     } catch (error) {
         console.error("❌ Error creating assignment:", error);
         res.status(500).json({ error: error.message });
@@ -1796,10 +1809,8 @@ app.post('/api/staff-assignments', async (req, res) => {
 
 app.delete('/api/staff-assignments/:id', async (req, res) => {
     try {
-        await notionClient.pages.update({
-            page_id: req.params.id,
-            archived: true
-        });
+        const { error } = await supabase.from('staff_assignments').delete().eq('id', req.params.id);
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
         console.error("❌ Error deleting assignment:", error);
@@ -1810,45 +1821,48 @@ app.delete('/api/staff-assignments/:id', async (req, res) => {
 // --- USAGE SUMMARY ENDPOINT ---
 app.get('/api/usage-summary', async (req, res) => {
     try {
-        await schema.init();
         let { email, plan } = req.query;
 
         if (!email) {
             return res.status(400).json({ error: 'email is required' });
         }
 
-        // Always fetch the latest plan from Notion for this user to be sure
-        const subPageRes = await notionClient.databases.query({
-            database_id: DS.SUBSCRIBERS,
-            filter: {
-                property: schema.get('SUBSCRIBERS', 'Email'),
-                email: { equals: email }
-            }
-        });
+        // 1. Get user profile from Supabase
+        const { data: user, error: userError } = await supabase
+            .from('users')
+            .select('id, plan')
+            .eq('email', email)
+            .single();
 
-        let detectedPlan = plan || DEFAULT_PLAN;
-        if (subPageRes.results.length > 0) {
-            const subPage = subPageRes.results[0];
-            const planProp = findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Plan);
-            detectedPlan = planProp?.select?.name || detectedPlan;
+        if (userError || !user) {
+            console.warn(`⚠️ User profile not found for usage summary: ${email}`);
+            return res.json(getUsageSummary({ events: 0 }, plan || DEFAULT_PLAN));
         }
 
-        // Count events for this user
-        const eventsRes = await notionClient.databases.query({
-            database_id: DS.EVENTS,
-            filter: {
-                property: schema.get('EVENTS', 'CreatorEmail'),
-                email: { equals: email }
-            }
-        });
-        const eventCount = eventsRes.results.length;
+        const detectedPlan = user.plan || plan || DEFAULT_PLAN;
 
-        // Count guests and staff across all events (optional, maybe too expensive?)
-        // For now, focus on event count which is the main dashboard blocker
+        // 2. Count events for this user
+        const { count: eventCount, error: eventsError } = await supabase
+            .from('events')
+            .select('*', { count: 'exact', head: true })
+            .eq('creator_id', user.id);
 
-        // Build usage summary
+        if (eventsError) throw eventsError;
+
+        // 3. Count other resources (optional)
+        // Guests count (across all events of the user)
+        const { count: guestCount } = await supabase
+            .from('guests')
+            .select('id', { count: 'exact', head: true })
+            .in('event_id', (await supabase.from('events').select('id').eq('creator_id', user.id)).data?.map(e => e.id) || []);
+
+        // 4. Build usage summary
         const summary = getUsageSummary(
-            { events: eventCount, guests: 0, staffRoster: 0 },
+            {
+                events: eventCount || 0,
+                guests: guestCount || 0,
+                staffRoster: 0
+            },
             detectedPlan.toLowerCase()
         );
 
@@ -3617,7 +3631,7 @@ app.get(/.*/, (req, res) => {
 
 // Start server
 const start = async () => {
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
         console.log(`-----------------------------------------`);
         console.log(`🚀 API Server running on port: ${PORT}`);
         console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
