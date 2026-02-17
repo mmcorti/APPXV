@@ -3,7 +3,7 @@ name: Deploy to Google Cloud Run
 on:
   push:
     branches:
-      - main  # O la rama que quieras usar para GCloud
+      - google-cloud # Esta rama es exclusiva para Google Cloud Run
   workflow_dispatch: # Permite disparar el deploy manualmente
 
 env:
