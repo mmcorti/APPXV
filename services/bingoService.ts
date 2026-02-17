@@ -7,7 +7,7 @@ import {
     BingoPlayer,
     BingoSubmission,
     DEFAULT_BINGO_PROMPTS
-} from '../types/bingoTypes';
+} from '../game-types/bingoTypes';
 
 const API_BASE = '/api/bingo';
 

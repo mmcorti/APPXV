@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { raffleService } from '../services/raffleService';
 import { notionService } from '../services/notion';
-import { RaffleState, RaffleMode } from '../types/raffleTypes';
+import { RaffleState, RaffleMode } from '../game-types/raffleTypes';
 import { User } from '../types';
 
 interface RaffleAdminProps {

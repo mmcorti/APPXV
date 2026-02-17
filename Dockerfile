@@ -1,6 +1,6 @@
 # Multi-stage build for small image size
 # BUILD STAGE
-FROM node:20-slim AS builder
+FROM node:20 AS builder
 
 WORKDIR /app
 

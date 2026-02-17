@@ -4,7 +4,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { InvitationData } from '../types';
 
 // Use the same API URL pattern as the rest of the app
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 interface FotoWallPlayerProps {
   invitations: InvitationData[];

@@ -6,10 +6,10 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { notion as notionClient, DS, DB } from './notion.js';
-import { schema, KNOWN_PROPERTIES } from './schema_manager.js';
+import { checkLimit, isAdmin, DEFAULT_PLAN } from './planLimits.js';
+import bcrypt from 'bcryptjs';
+import { supabase, TABLES } from './supabase.js';
 import { googlePhotosService } from './services/googlePhotos.js';
-import { checkLimit, getPlanLimits, isAdmin, getUsageSummary, DEFAULT_PLAN } from './planLimits.js';
 import googleAuth from './services/googleAuth.js';
 import { uploadImage } from './services/imageUpload.js';
 import { raffleGameService } from './services/raffleGameService.js';
@@ -20,42 +20,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 8080;
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); // Increased for base64 images
 
 // Debug helper (keep existing if needed)
-import '../debug_pkg.js';
+// Debug helper removed for production stability
+// import '../debug_pkg.js';
+
 
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, '../dist')));
-
-// Helper to extract text from rich_text/title/select/etc
-const getText = (prop) => {
-    if (!prop) return '';
-    if (prop.title) return prop.title.map(t => t.plain_text).join('');
-    if (prop.rich_text) return prop.rich_text.map(t => t.plain_text).join('');
-    if (prop.select) return prop.select.name || '';
-    if (prop.email) return prop.email || '';
-    if (prop.date) return prop.date.start || '';
-    if (prop.number !== undefined && prop.number !== null) return prop.number.toString();
-    if (prop.url) return prop.url || '';
-    if (prop.checkbox !== undefined) return prop.checkbox;
-    if (prop.relation) return prop.relation.map(r => r.id);
-    return '';
-};
-
-// Robust Property Finder
-const findProp = (properties, names) => {
-    if (!properties || !names || !Array.isArray(names)) return undefined;
-    const propKeys = Object.keys(properties);
-    for (const name of names) {
-        const foundKey = propKeys.find(k => k.toLowerCase() === name.toLowerCase());
-        if (foundKey) return properties[foundKey];
-    }
-    return undefined;
-};
 
 app.get('/', (req, res) => {
     res.send('Fiesta Planner API is Running');
@@ -63,18 +39,12 @@ app.get('/', (req, res) => {
 
 app.get('/api/debug-mapping', async (req, res) => {
     try {
-        await schema.init();
-        const info = {
-            DS,
-            mappings: schema.mappings,
-            initialized: schema.initialized
-        };
-        // Optional: Get actual properties from Notion for EVENTS
-        if (DS.EVENTS) {
-            const db = await notionClient.databases.retrieve({ database_id: DS.EVENTS });
-            info.events_db_actual_properties = Object.keys(db.properties);
-        }
-        res.json(info);
+        const { data, error } = await supabase.from(TABLES.USERS).select('id').limit(1);
+        res.json({
+            supabase_connected: !error,
+            tables: Object.values(TABLES),
+            error: error?.message || null
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -189,156 +159,110 @@ app.post('/api/login', async (req, res) => {
     console.log(`🔐 Intentando login para: ${email}`);
 
     try {
-        // 1. First check Users database (Admins)
-        if (DS.USERS) {
-            const userResponse = await notionClient.databases.query({
-                database_id: DS.USERS,
-                filter: {
-                    property: "Email",
-                    email: { equals: email }
-                }
-            });
+        // 1. Find user by email in public.users
+        const { data: user, error } = await supabase
+            .from(TABLES.USERS)
+            .select('*')
+            .eq('email', email)
+            .single();
 
-            const userPage = userResponse.results[0];
-            if (userPage) {
-                const dbPassword = getText(userPage.properties.PasswordHash || userPage.properties.Password);
-                if (dbPassword.trim() === password) {
-                    console.log(`✅ Admin login successful: ${email}`);
-                    return res.json({
-                        success: true,
-                        user: {
-                            id: userPage.id,
-                            email: getText(userPage.properties.Email),
-                            name: getText(userPage.properties.Name),
-                            role: 'admin',
-                            permissions: {
-                                access_invitados: true,
-                                access_mesas: true,
-                                access_link: true,
-                                access_fotowall: true,
-                                access_games: true
-                            }
-                        }
-                    });
-                } else {
-                    return res.status(401).json({ success: false, message: 'Contraseña incorrecta' });
-                }
-            }
+        if (error || !user) {
+            return res.status(401).json({ success: false, message: 'Usuario no encontrado' });
         }
 
-        // 2. Check Staff database
-        // 2. Check Subscribers based on SUBSCRIBERS DB (Formerly Staff)
-        if (DS.SUBSCRIBERS) {
-            const subResponse = await notionClient.databases.query({
-                database_id: DS.SUBSCRIBERS,
-                filter: {
-                    property: schema.get('SUBSCRIBERS', 'Email'),
-                    email: { equals: email }
-                }
-            });
+        // 2. Verify password via Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email,
+            password
+        });
 
-            const subPage = subResponse.results[0];
-            if (subPage) {
-                const dbPassword = getText(findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Password));
-                if (dbPassword.trim() === password) {
-                    const eventRelation = findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Event);
-                    const eventId = eventRelation?.relation?.[0]?.id || null;
-
-                    // Get plan from database - with debug logging
-                    console.log(`🔍 [DEBUG] subPage.properties keys:`, Object.keys(subPage.properties));
-                    console.log(`🔍 [DEBUG] Looking for Plan with aliases:`, KNOWN_PROPERTIES.SUBSCRIBERS.Plan);
-                    const planProp = findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Plan);
-                    console.log(`🔍 [DEBUG] planProp found:`, planProp);
-                    const userPlan = planProp?.select?.name?.toLowerCase() || 'freemium';
-                    console.log(`🔍 [DEBUG] Final userPlan:`, userPlan);
-
-                    console.log(`✅ Subscriber login successful: ${email} (plan: ${userPlan})`);
-                    return res.json({
-                        success: true,
-                        user: {
-                            id: subPage.id,
-                            email: getText(findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Email)),
-                            name: getText(findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Name)),
-                            role: 'subscriber',
-                            plan: userPlan,
-                            eventId: eventId,
-                            permissions: {
-                                access_invitados: findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessInvitados)?.checkbox || false,
-                                access_mesas: findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessMesas)?.checkbox || false,
-                                access_link: findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessLink)?.checkbox || false,
-                                access_fotowall: findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessFotowall)?.checkbox || false,
-                                access_games: findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessGames)?.checkbox || false
-                            }
-                        }
-                    });
-                }
-            }
+        if (authError) {
+            console.log(`❌ Password mismatch for ${email}: ${authError.message}`);
+            return res.status(401).json({ success: false, message: 'Contraseña incorrecta' });
         }
 
-        // 3. Check Staff Roster (True Staff / DJs)
-        if (DS.STAFF_ROSTER) {
-            const rosterResponse = await notionClient.databases.query({
-                database_id: DS.STAFF_ROSTER,
-                filter: {
-                    property: 'Email', // Assuming Email is standard
-                    email: { equals: email }
-                }
-            });
-
-            const rosterPage = rosterResponse.results[0];
-            if (rosterPage) {
-                // Password is rich_text in Roster
-                const dbPassword = getText(rosterPage.properties.Password);
-                if (dbPassword && dbPassword.trim() === password) {
-                    console.log(`✅ Event Staff login successful: ${email}`);
-
-                    // Fetch staff assignments to get real permissions and eventId
-                    let staffPermissions = {};
-                    let staffEventId = undefined;
-
-                    if (DS.STAFF_ASSIGNMENTS) {
-                        try {
-                            const assignRes = await notionClient.databases.query({
-                                database_id: DS.STAFF_ASSIGNMENTS,
-                                filter: { property: 'StaffId', rich_text: { equals: rosterPage.id } }
-                            });
-                            if (assignRes.results.length > 0) {
-                                const firstAssign = assignRes.results[0];
-                                staffEventId = getText(firstAssign.properties.EventId);
-                                staffPermissions = {
-                                    access_invitados: findProp(firstAssign.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessInvitados)?.checkbox || false,
-                                    access_mesas: findProp(firstAssign.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessMesas)?.checkbox || false,
-                                    access_link: findProp(firstAssign.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessLink)?.checkbox || false,
-                                    access_fotowall: findProp(firstAssign.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessFotowall)?.checkbox || false,
-                                    access_games: findProp(firstAssign.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessGames)?.checkbox || false,
-                                };
-                                console.log(`📋 [Staff Login] Permissions loaded for ${email}:`, staffPermissions);
-                                console.log(`📋 [Staff Login] Assigned to event: ${staffEventId}`);
-                            } else {
-                                console.log(`⚠️ [Staff Login] No assignments found for ${email}`);
-                            }
-                        } catch (assignErr) {
-                            console.warn('⚠️ Could not fetch staff assignments:', assignErr.message);
-                        }
+        // 3. Handle based on role
+        if (user.role === 'admin') {
+            console.log(`✅ Admin login successful: ${email}`);
+            return res.json({
+                success: true,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    name: user.username || user.email,
+                    role: 'admin',
+                    permissions: {
+                        access_invitados: true,
+                        access_mesas: true,
+                        access_link: true,
+                        access_fotowall: true,
+                        access_games: true
                     }
-
-                    return res.json({
-                        success: true,
-                        user: {
-                            id: rosterPage.id,
-                            email: getText(rosterPage.properties.Email),
-                            name: getText(rosterPage.properties.Name),
-                            role: 'staff',
-                            permissions: staffPermissions,
-                            eventId: staffEventId
-                        }
-                    });
                 }
-            }
+            });
         }
 
-        // 3. User not found in either database
-        return res.status(401).json({ success: false, message: 'Usuario no encontrado' });
+        if (user.role === 'subscriber') {
+            console.log(`✅ Subscriber login successful: ${email} (plan: ${user.plan})`);
+            return res.json({
+                success: true,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    name: user.username || user.email,
+                    role: 'subscriber',
+                    plan: user.plan || 'freemium',
+                    permissions: {
+                        access_invitados: true,
+                        access_mesas: true,
+                        access_link: true,
+                        access_fotowall: true,
+                        access_games: true
+                    }
+                }
+            });
+        }
+
+        if (user.role === 'staff') {
+            console.log(`✅ Staff login successful: ${email}`);
+
+            // Fetch first staff assignment for permissions + eventId
+            let staffPermissions = {};
+            let staffEventId = undefined;
+            const { data: assignments } = await supabase
+                .from(TABLES.STAFF_ASSIGNMENTS)
+                .select('event_id, permissions')
+                .eq('staff_id', user.id)
+                .limit(1);
+
+            if (assignments && assignments.length > 0) {
+                const a = assignments[0];
+                staffEventId = a.event_id;
+                const p = a.permissions || {};
+                staffPermissions = {
+                    access_invitados: p.invitados || false,
+                    access_mesas: p.mesas || false,
+                    access_link: p.link || false,
+                    access_fotowall: p.fotowall || false,
+                    access_games: p.games || false
+                };
+            }
+
+            return res.json({
+                success: true,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    name: user.username || user.email,
+                    role: 'staff',
+                    permissions: staffPermissions,
+                    eventId: staffEventId
+                }
+            });
+        }
+
+        // Fallback
+        return res.status(401).json({ success: false, message: 'Rol de usuario no reconocido' });
 
     } catch (error) {
         console.error("❌ Error en Login:", error);
@@ -357,18 +281,16 @@ app.post('/api/register', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Todos los campos son obligatorios' });
         }
 
-        // Validate username format (3+ chars, alphanumeric + dots/underscores)
         const usernameRegex = /^[a-zA-Z0-9._]{3,30}$/;
         if (!usernameRegex.test(username)) {
             return res.status(400).json({ success: false, message: 'El usuario debe tener entre 3 y 30 caracteres (letras, números, puntos y guiones bajos)' });
         }
 
-        // Validate password length
         if (password.length < 8) {
             return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 8 caracteres' });
         }
 
-        // 2. Verify reCAPTCHA v3 token (if secret is configured)
+        // 2. Verify reCAPTCHA v3 token
         const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY;
         if (recaptchaSecret && captchaToken) {
             try {
@@ -379,7 +301,6 @@ app.post('/api/register', async (req, res) => {
                 });
                 const captchaResult = await captchaResponse.json();
                 console.log(`🤖 reCAPTCHA score: ${captchaResult.score}`);
-
                 if (!captchaResult.success || captchaResult.score < 0.5) {
                     return res.status(403).json({ success: false, message: 'Verificación de seguridad fallida. Intenta de nuevo.' });
                 }
@@ -388,53 +309,50 @@ app.post('/api/register', async (req, res) => {
             }
         }
 
-        await schema.init();
-
         // 3. Construct the @appxv.app email
         const appxvEmail = `${username.toLowerCase()}@appxv.app`;
 
-        // 4. Check if username already exists in SUBSCRIBERS DB
-        const existingUser = await notionClient.databases.query({
-            database_id: DS.SUBSCRIBERS,
-            filter: {
-                property: schema.get('SUBSCRIBERS', 'Email'),
-                email: { equals: appxvEmail }
-            }
-        });
+        // 4. Check if username already exists
+        const { data: existing } = await supabase
+            .from(TABLES.USERS)
+            .select('id')
+            .eq('email', appxvEmail)
+            .limit(1);
 
-        if (existingUser.results.length > 0) {
+        if (existing && existing.length > 0) {
             return res.status(409).json({ success: false, message: 'Este nombre de usuario ya está registrado. Elige otro.' });
         }
 
-        // 5. Create new subscriber in Notion
-        const properties = {
-            [schema.get('SUBSCRIBERS', 'Name')]: { title: [{ text: { content: name } }] },
-            [schema.get('SUBSCRIBERS', 'Email')]: { email: appxvEmail },
-            [schema.get('SUBSCRIBERS', 'Password')]: { rich_text: [{ text: { content: password } }] },
-            [schema.get('SUBSCRIBERS', 'Plan')]: { select: { name: 'freemium' } }
-        };
-
-        // Add Username property if it exists in the database
-        if (schema.exists('SUBSCRIBERS', 'Username')) {
-            properties[schema.get('SUBSCRIBERS', 'Username')] = { rich_text: [{ text: { content: username.toLowerCase() } }] };
-        }
-
-        // Add recovery email if provided and if the property exists
-        if (email && schema.exists('SUBSCRIBERS', 'RecoveryEmail')) {
-            properties[schema.get('SUBSCRIBERS', 'RecoveryEmail')] = { email: email };
-        }
-
-        const newUser = await notionClient.pages.create({
-            parent: { database_id: DS.SUBSCRIBERS },
-            properties
+        // 5. Create user in Supabase Auth
+        const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+            email: appxvEmail,
+            password: password,
+            email_confirm: true
         });
 
-        console.log(`✅ New user registered: ${appxvEmail} (ID: ${newUser.id})`);
+        if (authError) {
+            console.error('❌ Supabase Auth createUser error:', authError);
+            return res.status(500).json({ success: false, message: authError.message });
+        }
+
+        // 6. Create profile in public.users (trigger may do this, but ensure data)
+        await supabase
+            .from(TABLES.USERS)
+            .upsert({
+                id: authUser.user.id,
+                email: appxvEmail,
+                username: username.toLowerCase(),
+                role: 'subscriber',
+                plan: 'freemium',
+                recovery_email: email || null
+            });
+
+        console.log(`✅ New user registered: ${appxvEmail} (ID: ${authUser.user.id})`);
 
         return res.json({
             success: true,
             user: {
-                id: newUser.id,
+                id: authUser.user.id,
                 name: name,
                 email: appxvEmail,
                 role: 'subscriber',
@@ -451,10 +369,6 @@ app.post('/api/register', async (req, res) => {
 
     } catch (error) {
         console.error("❌ Error en Registro:", error);
-        // Handle Notion-specific errors (e.g., property doesn't exist)
-        if (error.code === 'validation_error') {
-            return res.status(400).json({ success: false, message: 'Error de configuración. Contacta al administrador.' });
-        }
         res.status(500).json({ success: false, message: error.message || 'Error interno del servidor' });
     }
 });
@@ -492,69 +406,58 @@ app.get('/api/auth/google/callback', async (req, res) => {
         const profile = await googleAuth.getUserProfile(tokens.access_token);
         console.log('[GOOGLE AUTH] User profile:', profile.email, profile.name);
 
-        await schema.init();
-
-        // Check if user exists in SUBSCRIBERS by email
-        const existingUser = await notionClient.databases.query({
-            database_id: DS.SUBSCRIBERS,
-            filter: {
-                property: schema.get('SUBSCRIBERS', 'Email'),
-                email: { equals: profile.email }
-            }
-        });
+        // Check if user exists in public.users by email
+        const { data: existingUser } = await supabase
+            .from(TABLES.USERS)
+            .select('*')
+            .eq('email', profile.email)
+            .single();
 
         let userId, userName, userPlan;
 
-        if (existingUser.results.length > 0) {
+        if (existingUser) {
             // User exists - update GoogleId and AvatarUrl
-            const userPage = existingUser.results[0];
-            userId = userPage.id;
-            userName = getText(findProp(userPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Name)) || profile.name;
-            userPlan = (getText(findProp(userPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Plan)) || 'freemium').toLowerCase();
+            userId = existingUser.id;
+            userName = existingUser.username || profile.name;
+            userPlan = existingUser.plan || 'freemium';
 
-            const updateProps = {};
-            if (schema.exists('SUBSCRIBERS', 'GoogleId')) {
-                updateProps[schema.get('SUBSCRIBERS', 'GoogleId')] = { rich_text: [{ text: { content: profile.id } }] };
-            }
-            if (schema.exists('SUBSCRIBERS', 'AvatarUrl')) {
-                updateProps[schema.get('SUBSCRIBERS', 'AvatarUrl')] = { url: profile.picture || null };
-            }
-
-            if (Object.keys(updateProps).length > 0) {
-                await notionClient.pages.update({
-                    page_id: userId,
-                    properties: updateProps
-                });
-            }
+            await supabase
+                .from(TABLES.USERS)
+                .update({
+                    google_id: profile.id,
+                    avatar_url: profile.picture || null
+                })
+                .eq('id', userId);
         } else {
-            // New user - create account
+            // New user - create via Supabase Auth + public.users
             console.log('[GOOGLE AUTH] Creating new user...');
-            const properties = {
-                [schema.get('SUBSCRIBERS', 'Name')]: { title: [{ text: { content: profile.name } }] },
-                [schema.get('SUBSCRIBERS', 'Email')]: { email: profile.email },
-                [schema.get('SUBSCRIBERS', 'Plan')]: { select: { name: "freemium" } },
-                [schema.get('SUBSCRIBERS', 'Password')]: { rich_text: [{ text: { content: '' } }] } // No password for Google users
-            };
-
-            if (schema.exists('SUBSCRIBERS', 'GoogleId')) {
-                properties[schema.get('SUBSCRIBERS', 'GoogleId')] = { rich_text: [{ text: { content: profile.id } }] };
-            }
-            if (schema.exists('SUBSCRIBERS', 'AvatarUrl')) {
-                properties[schema.get('SUBSCRIBERS', 'AvatarUrl')] = { url: profile.picture || null };
-            }
-
-            const newUser = await notionClient.pages.create({
-                parent: { database_id: DS.SUBSCRIBERS },
-                properties
+            const randomPassword = require('crypto').randomBytes(32).toString('hex');
+            const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+                email: profile.email,
+                password: randomPassword,
+                email_confirm: true
             });
-            userId = newUser.id;
+
+            if (authError) throw authError;
+
+            await supabase
+                .from(TABLES.USERS)
+                .upsert({
+                    id: authUser.user.id,
+                    email: profile.email,
+                    username: profile.name,
+                    role: 'subscriber',
+                    plan: 'freemium',
+                    google_id: profile.id,
+                    avatar_url: profile.picture || null
+                });
+
+            userId = authUser.user.id;
             userName = profile.name;
             userPlan = 'freemium';
         }
 
-        // Redirect to frontend with user data encoded in URL
-        // Use the frontend URL (Vercel) for production, or fallback to root for local
-        // Use state (origin) if provided, otherwise fallback to configured FRONTEND_URL
+        // Redirect to frontend with user data
         const FRONTEND_URL = state || process.env.FRONTEND_URL || '';
         const userData = encodeURIComponent(JSON.stringify({
             id: userId,
@@ -566,175 +469,110 @@ app.get('/api/auth/google/callback', async (req, res) => {
         }));
 
         console.log('[GOOGLE AUTH] Login successful, redirecting to frontend...');
-        // Use hash-based query params for HashRouter compatibility
         const redirectUrl = `${FRONTEND_URL}/#/google-callback?googleAuth=success&user=${userData}`;
         console.log('[GOOGLE AUTH] Redirect URL:', redirectUrl);
         res.redirect(redirectUrl);
 
     } catch (error) {
         console.error('[GOOGLE AUTH] Callback error:', error);
-        const FRONTEND_URL = state || process.env.FRONTEND_URL || '';
+        const FRONTEND_URL = req.query.state || process.env.FRONTEND_URL || '';
         res.redirect(`${FRONTEND_URL}/#/google-callback?error=google_auth_failed&message=` + encodeURIComponent(error.message));
     }
 });
 
 // --- EVENTS ---
+
+// Helper: Map Supabase event object to Frontend structure
+const mapEventFromSupabase = (ev) => {
+    // fotowall_configs is returned as an array by the join
+    const fw = (ev.fotowall_configs && ev.fotowall_configs.length > 0) ? ev.fotowall_configs[0] : {};
+    return {
+        id: ev.id,
+        eventName: ev.name,
+        hostName: ev.host_name,
+        date: ev.date,
+        time: ev.time,
+        location: ev.location,
+        image: ev.image_url,
+        message: ev.message,
+        giftType: ev.gift_type || 'none',
+        giftDetail: ev.gift_detail,
+        dressCode: ev.dress_code,
+        venueNotes: ev.venue_notes,
+        arrivalTips: ev.arrival_tips,
+        fotowall: {
+            albumUrl: fw.album_url || '',
+            interval: fw.interval || 5,
+            shuffle: fw.shuffle || false,
+            overlayTitle: fw.overlay_title || '',
+            mode: fw.moderation_mode || 'manual',
+            filters: fw.filters || {}
+        },
+        guests: [],
+        tables: []
+    };
+};
+
 app.get('/api/events', async (req, res) => {
     try {
-        await schema.init();
         const { email, staffId } = req.query;
+        let events = [];
 
-        let results = [];
+        if (staffId) {
+            // 1. Fetch assignments for this staff
+            const { data: assignments, error: assignError } = await supabase
+                .from('staff_assignments')
+                .select('event_id, permissions')
+                .eq('staff_id', staffId);
 
-        if (staffId && DS.STAFF_ASSIGNMENTS) {
-            // 1. Fetch assignments for this staff member
-            console.log(`🔍 [DEBUG] Fetching assignments for StaffId: ${staffId}`);
-            const assignmentRes = await notionClient.databases.query({
-                database_id: DS.STAFF_ASSIGNMENTS,
-                filter: {
-                    property: 'StaffId',
-                    rich_text: { equals: staffId }
-                }
-            });
-            const eventPromises = assignmentRes.results.map(async (r) => {
-                const id = getText(r.properties.EventId);
-                if (!id) return null;
-                try {
-                    const page = await notionClient.pages.retrieve({ page_id: id });
-                    page._permissions = {
-                        access_invitados: findProp(r.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessInvitados)?.checkbox || false,
-                        access_mesas: findProp(r.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessMesas)?.checkbox || false,
-                        access_link: findProp(r.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessLink)?.checkbox || false,
-                        access_fotowall: findProp(r.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessFotowall)?.checkbox || false,
-                        access_games: findProp(r.properties, KNOWN_PROPERTIES.STAFF_ASSIGNMENTS.AccessGames)?.checkbox || false,
+            if (assignError) throw assignError;
+
+            if (assignments && assignments.length > 0) {
+                const eventIds = assignments.map(a => a.event_id);
+                // Fetch events + FW config + owner plan
+                const { data: eventData, error: eventsError } = await supabase
+                    .from('events')
+                    .select('*, fotowall_configs(*), creator:users(plan)')
+                    .in('id', eventIds);
+
+                if (eventsError) throw eventsError;
+
+                // Merge with permissions
+                events = eventData.map(ev => {
+                    const assignment = assignments.find(a => a.event_id === ev.id);
+                    return {
+                        ...mapEventFromSupabase(ev),
+                        ownerPlan: ev.creator?.plan || DEFAULT_PLAN,
+                        permissions: assignment?.permissions || {}
                     };
+                });
+            }
+        } else if (email) {
+            // 2. Fetch own events (Owner)
+            // First get user ID
+            const { data: user } = await supabase.from('users').select('id, plan').eq('email', email).single();
 
-                    // Fetch owner's plan from CreatorEmail
-                    const creatorEmail = getText(findProp(page.properties, KNOWN_PROPERTIES.EVENTS.CreatorEmail));
+            if (user) {
+                const { data: eventData, error: eventsError } = await supabase
+                    .from('events')
+                    .select('*, fotowall_configs(*)')
+                    .eq('creator_id', user.id);
 
-                    // Check if the creator is an admin (exists in DS.USERS) - if so, staff inherits VIP
-                    let isCreatorAdmin = false;
-                    if (creatorEmail && DS.USERS) {
-                        try {
-                            const adminCheck = await notionClient.databases.query({
-                                database_id: DS.USERS,
-                                filter: {
-                                    property: schema.get('USERS', 'Email'),
-                                    email: { equals: creatorEmail }
-                                }
-                            });
-                            isCreatorAdmin = adminCheck.results.length > 0;
-                        } catch (e) {
-                            console.warn('Could not check admin status:', e.message);
-                        }
+                if (eventsError) throw eventsError;
+
+                events = eventData.map(ev => ({
+                    ...mapEventFromSupabase(ev),
+                    ownerPlan: user.plan || DEFAULT_PLAN,
+                    permissions: {
+                        access_invitados: true,
+                        access_mesas: true,
+                        access_link: true,
+                        access_fotowall: true,
+                        access_games: true
                     }
-
-                    if (isCreatorAdmin) {
-                        page._ownerPlan = 'vip';
-                        console.log(`📋 [Staff] Event owner ${creatorEmail} is ADMIN - staff gets VIP plan`);
-                    } else if (creatorEmail && DS.SUBSCRIBERS) {
-                        try {
-                            const subscriberRes = await notionClient.databases.query({
-                                database_id: DS.SUBSCRIBERS,
-                                filter: {
-                                    property: schema.get('SUBSCRIBERS', 'Email'),
-                                    email: { equals: creatorEmail }
-                                }
-                            });
-                            if (subscriberRes.results.length > 0) {
-                                const subPage = subscriberRes.results[0];
-                                const planProp = findProp(subPage.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Plan);
-                                page._ownerPlan = planProp?.select?.name?.toLowerCase() || 'freemium';
-                                console.log(`📋 [Staff] Event owner ${creatorEmail} has plan: ${page._ownerPlan}`);
-                            } else {
-                                page._ownerPlan = 'freemium';
-                            }
-                        } catch (e) {
-                            console.warn('Could not fetch owner plan:', e.message);
-                            page._ownerPlan = 'freemium';
-                        }
-                    } else {
-                        page._ownerPlan = 'freemium';
-                    }
-
-                    return page;
-                } catch (e) {
-                    return null;
-                }
-            });
-            results = (await Promise.all(eventPromises)).filter(p => p);
-        } else {
-            // Standard filter by Creator Email (or all if undefined?)
-            // Existing logic:
-            const filter = email ? {
-                property: schema.get('EVENTS', 'CreatorEmail'),
-                email: { equals: email }
-            } : undefined;
-
-            console.log(`🔍 [DEBUG] Querying Events DB: ${DS.EVENTS}`);
-            const queryFilterProp = schema.get('EVENTS', 'CreatorEmail');
-            console.log(`🔍 [DEBUG] Filter Property: ${queryFilterProp}, Email: ${email}`);
-
-            const response = await notionClient.databases.query({
-                database_id: DS.EVENTS,
-                filter
-            });
-            results = response.results;
-            console.log(`🔍 [DEBUG] Query returned ${results.length} results`);
-
-            if (results.length === 0 && DS.EVENTS) {
-                try {
-                    const db = await notionClient.databases.retrieve({ database_id: DS.EVENTS });
-                    console.log(`🔍 [DIAGNOSTIC] DB Properties found in Notion:`, Object.keys(db.properties).join(', '));
-                    console.log(`🔍 [DIAGNOSTIC] Current Mapping for EVENTS:`, JSON.stringify(schema.mappings.EVENTS, null, 2));
-                } catch (err) {
-                    console.error("❌ Failed to retrieve DB schema for diagnostic:", err.message);
-                }
-            } else if (results.length > 0) {
-                console.log(`🔍 [DEBUG] First event properties:`, Object.keys(results[0].properties).join(', '));
+                }));
             }
         }
-
-        const events = results.map((page, index) => {
-            const props = page.properties;
-            const event = {
-                id: page.id,
-                eventName: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Name)),
-                hostName: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Host)),
-                date: findProp(props, KNOWN_PROPERTIES.EVENTS.Date)?.date?.start || '',
-                time: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Time)),
-                location: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Location)),
-                image: findProp(props, KNOWN_PROPERTIES.EVENTS.Image)?.url || '',
-                message: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.Message)),
-                giftType: findProp(props, KNOWN_PROPERTIES.EVENTS.GiftType)?.select?.name || 'none',
-                giftDetail: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.GiftDetail)),
-                capacity: findProp(props, KNOWN_PROPERTIES.EVENTS.Capacity)?.number || 0,
-                dressCode: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.DressCode)),
-                venueNotes: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.VenueNotes)),
-                arrivalTips: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.ArrivalTips)),
-                // FotoWall properties
-                fotowall: {
-                    albumUrl: findProp(props, KNOWN_PROPERTIES.EVENTS.FW_AlbumUrl)?.url || '',
-                    interval: findProp(props, KNOWN_PROPERTIES.EVENTS.FW_Interval)?.number || 5,
-                    shuffle: findProp(props, KNOWN_PROPERTIES.EVENTS.FW_Shuffle)?.checkbox || false,
-                    overlayTitle: getText(findProp(props, KNOWN_PROPERTIES.EVENTS.FW_OverlayTitle)),
-                    mode: findProp(props, KNOWN_PROPERTIES.EVENTS.FW_ModerationMode)?.select?.name || 'manual',
-                    filters: (() => {
-                        try {
-                            return JSON.parse(getText(findProp(props, KNOWN_PROPERTIES.EVENTS.FW_Filters)) || '{}');
-                        } catch {
-                            return {};
-                        }
-                    })()
-                },
-                // Client-side fields
-                guests: [],
-                tables: [],
-                permissions: page._permissions, // Pass mapped permissions
-                ownerPlan: page._ownerPlan // Pass owner's plan for staff permission inheritance
-            };
-            return event;
-        });
 
         res.json(events);
     } catch (error) {
@@ -743,148 +581,135 @@ app.get('/api/events', async (req, res) => {
     }
 });
 
-
 app.post('/api/events', async (req, res) => {
     try {
-        await schema.init();
         const { eventName, date, location, message, image, userEmail, time, hostName, giftType, giftDetail, userPlan, userRole } = req.body;
-        console.log(`📝 [DEBUG] Creating event: ${eventName}`);
+        console.log(`📝 [DEBUG] Creating event: ${eventName} for ${userEmail}`);
 
-        // --- PLAN LIMIT CHECK ---
-        // Admins bypass limits
+        // 1. Get User ID
+        const { data: user } = await supabase.from('users').select('id, plan').eq('email', userEmail).single();
+        if (!user) throw new Error("User not found");
+
+        // 2. Check Limits
         if (!isAdmin(userRole)) {
-            // Count existing events for this user
-            const existingEventsRes = await notionClient.databases.query({
-                database_id: DS.EVENTS,
-                filter: {
-                    property: schema.get('EVENTS', 'CreatorEmail'),
-                    email: { equals: userEmail }
-                }
-            });
-            const currentEventCount = existingEventsRes.results.length;
+            const { count, error: countError } = await supabase
+                .from('events')
+                .select('*', { count: 'exact', head: true })
+                .eq('creator_id', user.id);
+
+            if (countError) throw countError;
 
             const limitCheck = checkLimit({
-                plan: userPlan || DEFAULT_PLAN,
+                plan: user.plan || DEFAULT_PLAN,
                 resource: 'events',
-                currentCount: currentEventCount
+                currentCount: count || 0
             });
 
             if (!limitCheck.allowed) {
-                console.log(`⛔ Event limit reached for ${userEmail}: ${currentEventCount}/${limitCheck.limit}`);
                 return res.status(403).json({
                     error: limitCheck.reason,
                     limitReached: true,
-                    current: currentEventCount,
+                    current: count,
                     limit: limitCheck.limit
                 });
             }
-            console.log(`✅ Event limit check passed: ${currentEventCount}/${limitCheck.limit}`);
-        }
-        // --- END PLAN LIMIT CHECK ---
-
-        const properties = {};
-        properties[schema.get('EVENTS', 'Name')] = { title: [{ text: { content: eventName || "Nuevo Evento" } }] };
-        properties[schema.get('EVENTS', 'CreatorEmail')] = { email: userEmail };
-        properties[schema.get('EVENTS', 'Date')] = { date: { start: date || new Date().toISOString().split('T')[0] } };
-        properties[schema.get('EVENTS', 'Location')] = { rich_text: [{ text: { content: location || "" } }] };
-        properties[schema.get('EVENTS', 'Message')] = { rich_text: [{ text: { content: message || "" } }] };
-        properties[schema.get('EVENTS', 'Image')] = { url: image || null };
-        properties[schema.get('EVENTS', 'Time')] = { rich_text: [{ text: { content: time || "" } }] };
-        properties[schema.get('EVENTS', 'Host')] = { rich_text: [{ text: { content: hostName || "" } }] };
-        if (giftType) properties[schema.get('EVENTS', 'GiftType')] = { select: { name: giftType } };
-        properties[schema.get('EVENTS', 'GiftDetail')] = { rich_text: [{ text: { content: giftDetail || "" } }] };
-
-        const { dressCode, venueNotes, arrivalTips } = req.body;
-        if (dressCode !== undefined) properties[schema.get('EVENTS', 'DressCode')] = { rich_text: [{ text: { content: dressCode || "" } }] };
-        if (venueNotes !== undefined) properties[schema.get('EVENTS', 'VenueNotes')] = { rich_text: [{ text: { content: venueNotes || "" } }] };
-        if (arrivalTips !== undefined) properties[schema.get('EVENTS', 'ArrivalTips')] = { rich_text: [{ text: { content: arrivalTips || "" } }] };
-
-        // FotoWall initial config (optional)
-        const { fotowall } = req.body;
-        if (fotowall) {
-            properties[schema.get('EVENTS', 'FW_AlbumUrl')] = { url: fotowall.albumUrl || null };
-            properties[schema.get('EVENTS', 'FW_Interval')] = { number: Number(fotowall.interval) || 5 };
-            properties[schema.get('EVENTS', 'FW_Shuffle')] = { checkbox: !!fotowall.shuffle };
-            properties[schema.get('EVENTS', 'FW_OverlayTitle')] = { rich_text: [{ text: { content: fotowall.overlayTitle || "" } }] };
-            properties[schema.get('EVENTS', 'FW_ModerationMode')] = { select: { name: fotowall.mode || 'manual' } };
-            properties[schema.get('EVENTS', 'FW_Filters')] = { rich_text: [{ text: { content: JSON.stringify(fotowall.filters || {}) } }] };
         }
 
-        const newPage = await notionClient.pages.create({
-            parent: { database_id: DB.EVENTS },
-            properties
-        });
+        // 3. Create Event
+        const { data: newEvent, error: insertError } = await supabase
+            .from('events')
+            .insert({
+                creator_id: user.id,
+                name: eventName || "Nuevo Evento",
+                date: date || new Date().toISOString().split('T')[0],
+                time,
+                location,
+                message,
+                image_url: image,
+                host_name: hostName,
+                gift_type: giftType,
+                gift_detail: giftDetail,
+                dress_code: req.body.dressCode,
+                venue_notes: req.body.venueNotes,
+                arrival_tips: req.body.arrivalTips
+            })
+            .select()
+            .single();
 
-        res.json({ success: true, id: newPage.id });
+        if (insertError) throw insertError;
+
+        // 4. Create default FotoWall config
+        await supabase.from('fotowall_configs').insert({ event_id: newEvent.id });
+
+        res.json({ success: true, id: newEvent.id });
     } catch (error) {
         console.error("❌ Error Creating Event:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
-app.put('/api/events/:id', async (req, res) => {
+
+app.put('/api/events', async (req, res) => {
     try {
-        await schema.init();
-        const { id } = req.params;
-        const { eventName, date, location, message, image, time, hostName, giftType, giftDetail, fotowall } = req.body;
+        const { id, eventName, date, time, location, message, hostName, giftType, giftDetail, image } = req.body;
 
-        console.log(`📝 Updating event ${id}. Request body keys:`, Object.keys(req.body));
+        // Update basic info
+        const { error } = await supabase
+            .from('events')
+            .update({
+                name: eventName,
+                date,
+                time,
+                location,
+                message,
+                host_name: hostName,
+                gift_type: giftType,
+                gift_detail: giftDetail,
+                image_url: image, // Map image -> image_url
+                dress_code: req.body.dressCode,
+                venue_notes: req.body.venueNotes,
+                arrival_tips: req.body.arrivalTips
+            })
+            .eq('id', id);
 
-        const properties = {};
-        if (eventName !== undefined) properties[schema.get('EVENTS', 'Name')] = { title: [{ text: { content: eventName } }] };
-        if (date !== undefined) properties[schema.get('EVENTS', 'Date')] = { date: { start: date } };
-        if (location !== undefined) properties[schema.get('EVENTS', 'Location')] = { rich_text: [{ text: { content: location || "" } }] };
-        if (message !== undefined) properties[schema.get('EVENTS', 'Message')] = { rich_text: [{ text: { content: message || "" } }] };
-        if (image !== undefined) properties[schema.get('EVENTS', 'Image')] = { url: image || null };
-        if (time !== undefined) properties[schema.get('EVENTS', 'Time')] = { rich_text: [{ text: { content: time || "" } }] };
-        if (hostName !== undefined) properties[schema.get('EVENTS', 'Host')] = { rich_text: [{ text: { content: hostName || "" } }] };
-        if (giftType !== undefined) properties[schema.get('EVENTS', 'GiftType')] = { select: { name: giftType } };
-        if (giftDetail !== undefined) properties[schema.get('EVENTS', 'GiftDetail')] = { rich_text: [{ text: { content: giftDetail || "" } }] };
+        if (error) throw error;
 
-        const { dressCode, venueNotes, arrivalTips } = req.body;
-        if (dressCode !== undefined) properties[schema.get('EVENTS', 'DressCode')] = { rich_text: [{ text: { content: dressCode || "" } }] };
-        if (venueNotes !== undefined) properties[schema.get('EVENTS', 'VenueNotes')] = { rich_text: [{ text: { content: venueNotes || "" } }] };
-        if (arrivalTips !== undefined) properties[schema.get('EVENTS', 'ArrivalTips')] = { rich_text: [{ text: { content: arrivalTips || "" } }] };
-
-        // FotoWall update
-        if (fotowall) {
-            console.log("📸 Updating FotoWall settings:", JSON.stringify(fotowall));
-            properties[schema.get('EVENTS', 'FW_AlbumUrl')] = { url: fotowall.albumUrl || null };
-            properties[schema.get('EVENTS', 'FW_Interval')] = { number: Number(fotowall.interval) || 5 };
-            properties[schema.get('EVENTS', 'FW_Shuffle')] = { checkbox: !!fotowall.shuffle };
-            properties[schema.get('EVENTS', 'FW_OverlayTitle')] = { rich_text: [{ text: { content: fotowall.overlayTitle || "" } }] };
-            properties[schema.get('EVENTS', 'FW_ModerationMode')] = { select: { name: fotowall.mode || 'manual' } };
-            properties[schema.get('EVENTS', 'FW_Filters')] = { rich_text: [{ text: { content: JSON.stringify(fotowall.filters || {}) } }] };
-
-            console.log("🛠️ Mapped Properties for FotoWall:", {
-                albumUrl: schema.get('EVENTS', 'FW_AlbumUrl'),
-                interval: schema.get('EVENTS', 'FW_Interval'),
-                mode: schema.get('EVENTS', 'FW_ModerationMode')
-            });
+        // Handle FotoWall updates if present
+        if (req.body.fotowall) {
+            const fw = req.body.fotowall;
+            // Update or upsert if missing? Assuming exist because created on POST
+            const { error: fwError } = await supabase
+                .from('fotowall_configs')
+                .update({
+                    album_url: fw.albumUrl,
+                    interval: fw.interval,
+                    shuffle: fw.shuffle,
+                    overlay_title: fw.overlayTitle,
+                    moderation_mode: fw.mode,
+                    filters: fw.filters
+                })
+                .eq('event_id', id);
+            if (fwError) console.warn("Error updating fotowall config:", fwError);
         }
 
-        console.log("📤 Sending update to Notion for page:", id);
-        await notionClient.pages.update({ page_id: id, properties });
-        console.log("✅ Notion update successful");
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error updating event:", error);
+        console.error("❌ Error Updating Event:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
-app.delete('/api/events/:id', async (req, res) => {
+app.delete('/api/events', async (req, res) => {
     try {
-        const { id } = req.params;
-        console.log(`🗑️ Deleting event: ${id}`);
+        const { id } = req.body; // Using body for delete? Backend usually uses params but frontend sends body
 
-        // Archive the event page in Notion
-        await notionClient.pages.update({ page_id: id, archived: true });
+        // Notion logic used databases.delete equivalent (archiving). Supabase delete.
+        const { error } = await supabase.from('events').delete().eq('id', id);
 
-        console.log(`✅ Event ${id} deleted successfully`);
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error deleting event:", error);
+        console.error("❌ Error Deleting Event:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -893,138 +718,81 @@ app.delete('/api/events/:id', async (req, res) => {
 app.get('/api/guests', async (req, res) => {
     try {
         const { eventId } = req.query;
-        const filter = eventId ? {
-            property: schema.get('GUESTS', 'Event'),
-            relation: { contains: eventId }
-        } : undefined;
+        let query = supabase.from('guests').select('*');
+        if (eventId) query = query.eq('event_id', eventId);
 
-        const response = await notionClient.databases.query({
-            database_id: DS.GUESTS,
-            filter
-        });
+        const { data: guestsData, error } = await query;
+        if (error) throw error;
 
-        const guests = response.results.map((page, index) => {
-            const props = page.properties;
-            const companionNamesStr = getText(findProp(props, KNOWN_PROPERTIES.GUESTS.CompanionNames));
-            let companionNames = { adults: [], teens: [], kids: [], infants: [] };
-            try {
-                if (companionNamesStr) {
-                    const parsed = JSON.parse(companionNamesStr);
-                    companionNames = { ...companionNames, ...parsed };
-                }
-            } catch (e) { }
+        // Map to frontend structure
+        const guests = guestsData.map(g => ({
+            id: g.id,
+            name: g.name,
+            email: g.email,
+            status: g.status,
+            allotted: g.allotted || { adults: 0, teens: 0, kids: 0, infants: 0 },
+            confirmed: g.confirmed || { adults: 0, teens: 0, kids: 0, infants: 0 },
+            companionNames: g.companion_names || { adults: [], teens: [], kids: [], infants: [] },
+            sent: g.invitation_sent,
+            tableId: g.assigned_table_id // distinct from Notion relation, but useful?
+        }));
 
-            const guest = {
-                id: page.id,
-                name: getText(findProp(props, KNOWN_PROPERTIES.GUESTS.Name)),
-                email: getText(findProp(props, KNOWN_PROPERTIES.GUESTS.Email)),
-                status: findProp(props, KNOWN_PROPERTIES.GUESTS.Status)?.select?.name || 'pending',
-                allotted: {
-                    adults: findProp(props, KNOWN_PROPERTIES.GUESTS.AllottedAdults)?.number ?? 0,
-                    teens: findProp(props, KNOWN_PROPERTIES.GUESTS.AllottedTeens)?.number ?? 0,
-                    kids: findProp(props, KNOWN_PROPERTIES.GUESTS.AllottedKids)?.number ?? 0,
-                    infants: findProp(props, KNOWN_PROPERTIES.GUESTS.AllottedInfants)?.number ?? 0
-                },
-                confirmed: {
-                    adults: findProp(props, KNOWN_PROPERTIES.GUESTS.ConfirmedAdults)?.number || 0,
-                    teens: findProp(props, KNOWN_PROPERTIES.GUESTS.ConfirmedTeens)?.number || 0,
-                    kids: findProp(props, KNOWN_PROPERTIES.GUESTS.ConfirmedKids)?.number || 0,
-                    infants: findProp(props, KNOWN_PROPERTIES.GUESTS.ConfirmedInfants)?.number || 0
-                },
-                companionNames,
-                sent: findProp(props, KNOWN_PROPERTIES.GUESTS.Sent)?.checkbox || false
-            };
-
-            if (index === 0) {
-                console.log("🔍 [DIAGNOSTIC] First Guest Mapped:", JSON.stringify(guest, null, 2));
-                console.log("🔍 [DIAGNOSTIC] Actual Mapped Keys GUEST:", JSON.stringify(schema.mappings.GUESTS, null, 2));
-                const dump = {
-                    guest_mapped: guest,
-                    raw_keys: Object.keys(props),
-                    raw_properties: props
-                };
-                try { fs.writeFileSync(path.join(__dirname, 'diagnostic_dump_guest.json'), JSON.stringify(dump, null, 2)); } catch (e) { }
-            }
-            return guest;
-        });
         res.json(guests);
     } catch (error) {
+        console.error("❌ Error fetching guests:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.post('/api/guests', async (req, res) => {
     try {
-        await schema.init(); // Ensure schema is ready
         const { eventId, guest, userPlan, userRole } = req.body;
-        console.log("📝 Creating Guest for Event:", eventId);
-        console.log("📦 Guest Payload:", JSON.stringify(guest, null, 2));
 
-        // --- PLAN LIMIT CHECK ---
-        // Admins bypass limits
+        // 1. Check Limits
         if (!isAdmin(userRole)) {
-            // Count existing guests for this event
-            const existingGuestsRes = await notionClient.databases.query({
-                database_id: DS.GUESTS,
-                filter: {
-                    property: schema.get('GUESTS', 'Event'),
-                    relation: { contains: eventId }
-                }
-            });
-            const currentGuestCount = existingGuestsRes.results.length;
+            const { count, error: countError } = await supabase
+                .from('guests')
+                .select('*', { count: 'exact', head: true })
+                .eq('event_id', eventId);
+
+            if (countError) throw countError;
 
             const limitCheck = checkLimit({
                 plan: userPlan || DEFAULT_PLAN,
                 resource: 'guests',
-                currentCount: currentGuestCount
+                currentCount: count || 0
             });
 
             if (!limitCheck.allowed) {
-                console.log(`⛔ Guest limit reached for event ${eventId}: ${currentGuestCount}/${limitCheck.limit}`);
                 return res.status(403).json({
                     error: limitCheck.reason,
                     limitReached: true,
-                    current: currentGuestCount,
+                    current: count,
                     limit: limitCheck.limit
                 });
             }
-            console.log(`✅ Guest limit check passed: ${currentGuestCount}/${limitCheck.limit}`);
         }
-        // --- END PLAN LIMIT CHECK ---
 
-        const properties = {};
+        // 2. Insert Guest
+        const { data: newGuest, error } = await supabase
+            .from('guests')
+            .insert({
+                event_id: eventId,
+                name: guest.name,
+                email: guest.email,
+                status: guest.status || 'pending',
+                allotted: guest.allotted || {},
+                confirmed: guest.confirmed || {},
+                companion_names: guest.companionNames || {},
+                invitation_sent: false
+            })
+            .select()
+            .single();
 
-        // Helper to safely set property
-        const setProp = (key, value) => {
-            const propName = schema.get('GUESTS', key);
-            if (propName) properties[propName] = value;
-            else console.warn(`⚠️ Warning: Property mapping for '${key}' not found.`);
-        };
-
-        setProp('Name', { title: [{ text: { content: guest.name } }] });
-        setProp('Email', { email: guest.email || null });
-        setProp('Status', { select: { name: guest.status || 'pending' } });
-
-        setProp('AllottedAdults', { number: Number(guest.allotted?.adults) || 0 });
-        setProp('AllottedTeens', { number: Number(guest.allotted?.teens) || 0 });
-        setProp('AllottedKids', { number: Number(guest.allotted?.kids) || 0 });
-        setProp('AllottedInfants', { number: Number(guest.allotted?.infants) || 0 });
-
-        setProp('Event', { relation: [{ id: eventId }] });
-        setProp('CompanionNames', { rich_text: [{ text: { content: JSON.stringify(guest.companionNames || {}) } }] });
-
-        console.log("📤 Notion Properties:", JSON.stringify(properties, null, 2));
-
-        const newPage = await notionClient.pages.create({
-            parent: { database_id: DB.GUESTS },
-            properties
-        });
-
-        console.log("✅ Guest Created:", newPage.id);
-        res.json({ success: true, id: newPage.id });
+        if (error) throw error;
+        res.json({ success: true, id: newGuest.id });
     } catch (error) {
-        console.error("❌ Error creating guest:", error.message);
-        console.error("Stack:", error.stack);
+        console.error("❌ Error creating guest:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1033,25 +801,22 @@ app.put('/api/guests/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { guest } = req.body;
-        const properties = {};
-        if (guest.name) properties[schema.get('GUESTS', 'Name')] = { title: [{ text: { content: guest.name } }] };
-        properties[schema.get('GUESTS', 'Email')] = { email: guest.email || null };
-        if (guest.status) properties[schema.get('GUESTS', 'Status')] = { select: { name: guest.status } };
 
-        properties[schema.get('GUESTS', 'AllottedAdults')] = { number: guest.allotted?.adults || 0 };
-        properties[schema.get('GUESTS', 'AllottedTeens')] = { number: guest.allotted?.teens || 0 };
-        properties[schema.get('GUESTS', 'AllottedKids')] = { number: guest.allotted?.kids || 0 };
-        properties[schema.get('GUESTS', 'AllottedInfants')] = { number: guest.allotted?.infants || 0 };
+        const updates = {};
+        if (guest.name) updates.name = guest.name;
+        if (guest.email !== undefined) updates.email = guest.email;
+        if (guest.status) updates.status = guest.status;
+        if (guest.allotted) updates.allotted = guest.allotted;
+        if (guest.confirmed) updates.confirmed = guest.confirmed;
+        if (guest.companionNames) updates.companion_names = guest.companionNames;
+        if (guest.sent !== undefined) updates.invitation_sent = guest.sent;
 
-        properties[schema.get('GUESTS', 'ConfirmedAdults')] = { number: guest.confirmed?.adults || 0 };
-        properties[schema.get('GUESTS', 'ConfirmedTeens')] = { number: guest.confirmed?.teens || 0 };
-        properties[schema.get('GUESTS', 'ConfirmedKids')] = { number: guest.confirmed?.kids || 0 };
-        properties[schema.get('GUESTS', 'ConfirmedInfants')] = { number: guest.confirmed?.infants || 0 };
+        const { error } = await supabase
+            .from('guests')
+            .update(updates)
+            .eq('id', id);
 
-        properties[schema.get('GUESTS', 'CompanionNames')] = { rich_text: [{ text: { content: JSON.stringify(guest.companionNames || {}) } }] };
-        properties[schema.get('GUESTS', 'Sent')] = { checkbox: guest.sent || false };
-
-        await notionClient.pages.update({ page_id: id, properties });
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -1063,19 +828,17 @@ app.patch('/api/guests/:id/rsvp', async (req, res) => {
         const { id } = req.params;
         const { status, confirmed, companionNames } = req.body;
 
-        const properties = {};
-        if (status) properties[schema.get('GUESTS', 'Status')] = { select: { name: status } };
+        const updates = {};
+        if (status) updates.status = status;
+        if (confirmed) updates.confirmed = confirmed;
+        if (companionNames) updates.companion_names = companionNames;
 
-        properties[schema.get('GUESTS', 'ConfirmedAdults')] = { number: confirmed?.adults || 0 };
-        properties[schema.get('GUESTS', 'ConfirmedTeens')] = { number: confirmed?.teens || 0 };
-        properties[schema.get('GUESTS', 'ConfirmedKids')] = { number: confirmed?.kids || 0 };
-        properties[schema.get('GUESTS', 'ConfirmedInfants')] = { number: confirmed?.infants || 0 };
+        const { error } = await supabase
+            .from('guests')
+            .update(updates)
+            .eq('id', id);
 
-        properties[schema.get('GUESTS', 'CompanionNames')] = { rich_text: [{ text: { content: JSON.stringify(companionNames || {}) } }] };
-
-        console.log("📝 [DEBUG] Updating RSVP:", JSON.stringify(properties));
-
-        await notionClient.pages.update({ page_id: id, properties });
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
         console.error("❌ RSVP Error:", error);
@@ -1085,117 +848,119 @@ app.patch('/api/guests/:id/rsvp', async (req, res) => {
 
 app.delete('/api/guests/:id', async (req, res) => {
     try {
-        await notionClient.pages.update({ page_id: req.params.id, archived: true });
+        const { error } = await supabase.from('guests').delete().eq('id', req.params.id);
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// --- SUBSCRIBERS (Formerly Staff) ---
+
+// --- SUBSCRIBERS (Staff) ---
 app.get('/api/subscribers', async (req, res) => {
     try {
-        await schema.init();
         const { eventId } = req.query;
+        if (!eventId) return res.status(400).json({ error: "eventId is required" });
 
-        // Build filter - if eventId is provided, filter by it
-        const queryOptions = {
-            database_id: DS.SUBSCRIBERS
-        };
+        // Get assignments for this event
+        const { data: assignments, error } = await supabase
+            .from('staff_assignments')
+            .select(`
+                id,
+                permissions,
+                user:users (
+                    id,
+                    email,
+                    role,
+                    username
+                )
+            `)
+            .eq('event_id', eventId);
 
-        if (eventId) {
-            queryOptions.filter = {
-                property: schema.get('SUBSCRIBERS', 'Event'),
-                relation: { contains: eventId }
-            };
-        }
+        if (error) throw error;
 
-        const response = await notionClient.databases.query(queryOptions);
+        // Map to frontend structure
+        const subscribers = assignments.map(a => ({
+            id: a.id,
+            userId: a.user?.id,
+            name: a.user?.username || a.user?.email,
+            email: a.user?.email,
+            plan: 'freemium', // Staff inherits owner's plan, return 'freemium' as placeholder
+            permissions: a.permissions || {}
+        }));
 
-        const staff = response.results.map(page => {
-            // Get plan value from select property
-            const planProp = findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Plan);
-            const planValue = planProp?.select?.name || 'freemium';
-
-            return {
-                id: page.id,
-                name: getText(findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Name)),
-                email: getText(findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.Email)),
-                plan: planValue,
-                permissions: {
-                    access_invitados: findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessInvitados)?.checkbox || false,
-                    access_mesas: findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessMesas)?.checkbox || false,
-                    access_link: findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessLink)?.checkbox || false,
-                    access_fotowall: findProp(page.properties, KNOWN_PROPERTIES.SUBSCRIBERS.AccessFotowall)?.checkbox || false
-                }
-            };
-        });
-
-        res.json(staff);
+        res.json(subscribers);
     } catch (error) {
-        console.error("❌ Error getting staff:", error);
+        console.error("❌ Error fetching subscribers:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.post('/api/subscribers', async (req, res) => {
     try {
-        await schema.init();
-        const { eventId, name, email, password, permissions, userRole, plan } = req.body;
+        const { eventId, name, email, password, permissions, userRole } = req.body;
 
-        // --- ADMIN ONLY CHECK ---
+        // Admin Check
         if (!isAdmin(userRole)) {
-            console.log(`⛔ Non-admin attempted to create subscriber: ${userRole}`);
-            return res.status(403).json({
-                error: 'Solo los administradores pueden crear suscriptores',
-                adminRequired: true
+            return res.status(403).json({ error: 'Solo los administradores pueden crear suscriptores' });
+        }
+
+        // 1. Check if user exists by email
+        const { data: existingUser } = await supabase
+            .from('users')
+            .select('id, email')
+            .eq('email', email)
+            .single();
+
+        let userId = existingUser?.id;
+
+        if (!userId) {
+            // 2. Create Auth User
+            const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                email,
+                password,
+                email_confirm: true
+            });
+
+            if (authError) throw authError;
+            userId = authData.user.id;
+
+            // Upsert profile to ensure name/role key
+            await supabase.from('users').upsert({
+                id: userId,
+                email: email,
+                username: name || email.split('@')[0],
+                role: 'staff'
             });
         }
-        // --- END ADMIN CHECK ---
 
-        if (!eventId || !email || !password) {
-            return res.status(400).json({ error: 'eventId, email, and password are required' });
+        // 3. Check if assignment exists
+        const { data: existingAssign } = await supabase
+            .from('staff_assignments')
+            .select('id')
+            .eq('event_id', eventId)
+            .eq('staff_id', userId)
+            .single();
+
+        if (existingAssign) {
+            return res.status(409).json({ error: 'Staff member already assigned' });
         }
 
-        // Check if staff with this email already exists for this event
-        const existing = await notionClient.databases.query({
-            database_id: DS.SUBSCRIBERS,
-            filter: {
-                and: [
-                    { property: schema.get('SUBSCRIBERS', 'Email'), email: { equals: email } },
-                    { property: schema.get('SUBSCRIBERS', 'Event'), relation: { contains: eventId } }
-                ]
-            }
-        });
+        // 4. Create Assignment
+        const { data: newAssign, error: assignError } = await supabase
+            .from('staff_assignments')
+            .insert({
+                event_id: eventId,
+                staff_id: userId,
+                permissions: permissions || {}
+            })
+            .select()
+            .single();
 
-        if (existing.results.length > 0) {
-            return res.status(409).json({ error: 'Staff member with this email already exists for this event' });
-        }
+        if (assignError) throw assignError;
 
-        const properties = {};
-        properties[schema.get('SUBSCRIBERS', 'Name')] = { title: [{ text: { content: name || email.split('@')[0] } }] };
-        properties[schema.get('SUBSCRIBERS', 'Email')] = { email: email };
-        properties[schema.get('SUBSCRIBERS', 'Password')] = { rich_text: [{ text: { content: password } }] };
-        properties[schema.get('SUBSCRIBERS', 'Event')] = { relation: [{ id: eventId }] };
-
-        // Save plan - use select type for Plan property
-        const planPropName = schema.get('SUBSCRIBERS', 'Plan');
-        if (planPropName && plan) {
-            properties[planPropName] = { select: { name: plan } };
-        }
-
-        properties[schema.get('SUBSCRIBERS', 'AccessInvitados')] = { checkbox: permissions?.access_invitados || false };
-        properties[schema.get('SUBSCRIBERS', 'AccessMesas')] = { checkbox: permissions?.access_mesas || false };
-        properties[schema.get('SUBSCRIBERS', 'AccessLink')] = { checkbox: permissions?.access_link || false };
-        properties[schema.get('SUBSCRIBERS', 'AccessFotowall')] = { checkbox: permissions?.access_fotowall || false };
-
-        const newPage = await notionClient.pages.create({
-            parent: { database_id: DS.SUBSCRIBERS },
-            properties
-        });
-
-        console.log(`✅ Staff created: ${email} for event ${eventId}`);
-        res.json({ success: true, id: newPage.id });
+        res.json({ success: true, id: newAssign.id });
     } catch (error) {
         console.error("❌ Error creating staff:", error);
         res.status(500).json({ error: error.message });
@@ -1204,91 +969,103 @@ app.post('/api/subscribers', async (req, res) => {
 
 app.put('/api/subscribers/:id', async (req, res) => {
     try {
-        await schema.init();
-        const { id } = req.params;
-        const { name, permissions, plan } = req.body;
-
-        const properties = {};
-        if (name) properties[schema.get('SUBSCRIBERS', 'Name')] = { title: [{ text: { content: name } }] };
-
-        // Update plan if provided
-        const planPropName = schema.get('SUBSCRIBERS', 'Plan');
-        if (plan && planPropName) {
-            properties[planPropName] = { select: { name: plan } };
-        }
+        const { id } = req.params; // Assignment ID
+        const { permissions } = req.body;
 
         if (permissions) {
-            if (permissions.access_invitados !== undefined) properties[schema.get('SUBSCRIBERS', 'AccessInvitados')] = { checkbox: permissions.access_invitados };
-            if (permissions.access_mesas !== undefined) properties[schema.get('SUBSCRIBERS', 'AccessMesas')] = { checkbox: permissions.access_mesas };
-            if (permissions.access_link !== undefined) properties[schema.get('SUBSCRIBERS', 'AccessLink')] = { checkbox: permissions.access_link };
-            if (permissions.access_fotowall !== undefined) properties[schema.get('SUBSCRIBERS', 'AccessFotowall')] = { checkbox: permissions.access_fotowall };
+            const { error } = await supabase
+                .from('staff_assignments')
+                .update({ permissions })
+                .eq('id', id);
+            if (error) throw error;
         }
 
-        await notionClient.pages.update({ page_id: id, properties });
-        console.log(`✅ Staff updated: ${id}`);
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error updating staff:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.delete('/api/subscribers/:id', async (req, res) => {
     try {
-        await notionClient.pages.update({ page_id: req.params.id, archived: true });
-        console.log(`✅ Staff deleted: ${req.params.id}`);
+        const { error } = await supabase
+            .from('staff_assignments')
+            .delete()
+            .eq('id', req.params.id);
+
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error deleting staff:", error);
+        console.error("Error deleting subscriber:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
-// --- TABLES ---
+// ========================================
+// TABLES ENDPOINTS
+// ========================================
 app.get('/api/tables', async (req, res) => {
     try {
         const { eventId } = req.query;
-        await schema.init();
+        if (!eventId) return res.status(400).json({ error: "Missing eventId" });
 
-        const filter = eventId ? {
-            property: schema.get('TABLES', 'Event'),
-            relation: { contains: eventId }
-        } : undefined;
+        // 1. Get Tables
+        const { data: tablesData, error: tablesError } = await supabase
+            .from('tables')
+            .select('*')
+            .eq('event_id', eventId)
+            .order('order', { ascending: true });
 
-        const response = await notionClient.databases.query({
-            database_id: DS.TABLES,
-            filter
-        });
+        if (tablesError) throw tablesError;
 
-        const tables = response.results.map(page => {
-            const assignmentJson = getText(findProp(page.properties, KNOWN_PROPERTIES.TABLES.Assignments));
-            let parsedGuests = [];
+        // 2. Get Guests for these tables
+        const { data: guestsData, error: guestsError } = await supabase
+            .from('guests')
+            .select('*')
+            .eq('event_id', eventId)
+            .not('assigned_table_id', 'is', null);
 
-            if (assignmentJson) {
-                try {
-                    // Map companionName to name for frontend compatibility
-                    parsedGuests = JSON.parse(assignmentJson).map(g => ({
-                        ...g,
-                        name: g.companionName || g.name || "Sin nombre"
-                    }));
-                } catch (e) { console.error("Error parsing table assignments", e); }
-            } else {
-                // Fallback: use relation if no JSON (legacy behavior)
-                const relationIds = findProp(page.properties, KNOWN_PROPERTIES.TABLES.Guests)?.relation?.map(r => r.id) || [];
-                parsedGuests = relationIds.map(id => ({ guestId: id, name: "Invitado (Legacy)", companionIndex: -1 }));
-            }
+        if (guestsError) throw guestsError;
+
+        // 3. Map guests to tables
+        const tables = tablesData.map(t => {
+            const tableGuests = guestsData.filter(g => g.assigned_table_id === t.id);
+
+            // Flatten guests (handling companions)
+            const flattenedGuests = [];
+            tableGuests.forEach(g => {
+                // Add main guest
+                flattenedGuests.push({
+                    id: g.id,
+                    name: g.name,
+                    type: 'main',
+                    confirmed: g.status === 'confirmed'
+                });
+
+                // Add companions
+                if (g.companion_names && typeof g.companion_names === 'object') {
+                    Object.values(g.companion_names).flat().forEach((name, idx) => {
+                        if (name && typeof name === 'string' && name.trim() !== '') {
+                            flattenedGuests.push({
+                                id: `${g.id}-c-${idx}`, // unique ID for frontend
+                                name: name,
+                                type: 'companion',
+                                confirmed: g.status === 'confirmed'
+                            });
+                        }
+                    });
+                }
+            });
 
             return {
-                id: page.id,
-                name: getText(findProp(page.properties, KNOWN_PROPERTIES.TABLES.Name)),
-                capacity: findProp(page.properties, KNOWN_PROPERTIES.TABLES.Capacity)?.number || 0,
-                order: findProp(page.properties, KNOWN_PROPERTIES.TABLES.Order)?.number ?? 999,
-                guests: parsedGuests
+                id: t.id,
+                name: t.name,
+                capacity: t.capacity || 0,
+                order: t.order !== null ? t.order : 999,
+                guests: flattenedGuests
             };
         });
 
-        // Sort tables by order before sending
-        tables.sort((a, b) => a.order - b.order);
         res.json(tables);
     } catch (error) {
         console.error("Error fetching tables:", error);
@@ -1298,54 +1075,83 @@ app.get('/api/tables', async (req, res) => {
 
 app.post('/api/tables', async (req, res) => {
     try {
-        await schema.init();
         let { eventId, name, capacity, table } = req.body;
-
-        console.log("\n=== POST /api/tables ===");
-        console.log("Request body:", JSON.stringify(req.body, null, 2));
-
-        // Handle payload variation { eventId, table: { name, capacity } }
         if (table) {
             name = table.name;
             capacity = table.capacity;
-            console.log("Using table object - name:", name, "capacity:", capacity);
         }
 
         if (!name || !eventId) {
-            console.error("❌ Missing required fields - name:", name, "eventId:", eventId);
-            return res.status(400).json({ error: "Missing required fields: name, eventId" });
+            return res.status(400).json({ error: "Missing name or eventId" });
         }
 
-        const properties = {};
-        const setProp = (key, value) => {
-            const propName = schema.get('TABLES', key);
-            if (propName) {
-                properties[propName] = value;
-                console.log(`Set property ${key} (${propName})`);
-            } else {
-                console.warn(`⚠️  Property ${key} not found in schema`);
-            }
-        };
+        // Get max order to append at end
+        const { data: maxOrderData } = await supabase
+            .from('tables')
+            .select('order')
+            .eq('event_id', eventId)
+            .order('order', { ascending: false })
+            .limit(1);
 
-        setProp('Name', { title: [{ text: { content: name } }] });
-        setProp('Capacity', { number: Number(capacity) || 10 });
-        setProp('Event', { relation: [{ id: eventId }] });
-        setProp('Assignments', { rich_text: [{ text: { content: "[]" } }] });
+        const nextOrder = (maxOrderData && maxOrderData.length > 0) ? (maxOrderData[0].order + 1) : 0;
 
-        console.log("Properties to create:", Object.keys(properties));
-        console.log("Database ID:", DB.TABLES);
+        const { data: newTable, error } = await supabase
+            .from('tables')
+            .insert({
+                event_id: eventId,
+                name,
+                capacity: Number(capacity) || 10,
+                order: nextOrder
+            })
+            .select()
+            .single();
 
-        const newPage = await notionClient.pages.create({
-            parent: { database_id: DB.TABLES },
-            properties
-        });
-
-        console.log("✅ Table created successfully:", newPage.id);
-        res.json({ success: true, id: newPage.id });
+        if (error) throw error;
+        res.json({ success: true, id: newTable.id });
     } catch (error) {
-        console.error("❌ Error creating table:", error.body || error.message);
-        console.error("Stack:", error.stack);
-        res.status(500).json({ error: error.message, details: error.body });
+        console.error("❌ Error creating table:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.put('/api/tables/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, capacity, order } = req.body;
+
+        const updates = {};
+        if (name) updates.name = name;
+        if (capacity !== undefined) updates.capacity = Number(capacity);
+        if (order !== undefined) updates.order = Number(order);
+
+        const { error } = await supabase
+            .from('tables')
+            .update(updates)
+            .eq('id', id);
+
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (error) {
+        console.error("❌ Error updating table:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.patch('/api/tables/reorder', async (req, res) => {
+    try {
+        const { orders } = req.body;
+
+        for (const { tableId, order } of orders) {
+            const { error } = await supabase
+                .from('tables')
+                .update({ order: Number(order) })
+                .eq('id', tableId);
+            if (error) throw error;
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 
@@ -1353,109 +1159,44 @@ app.patch('/api/tables/:id/guests', async (req, res) => {
     try {
         const { id } = req.params;
         const { assignments } = req.body;
-        await schema.init();
 
-        console.log(`\n=== PATCH /api/tables/${id}/guests ===`);
-        console.log("Assignments received:", JSON.stringify(assignments, null, 2));
+        const newGuestIds = [...new Set(assignments.map(a => a.guestId))];
 
-        const properties = {};
-        const setProp = (key, value) => {
-            const propName = schema.get('TABLES', key);
-            if (propName) {
-                properties[propName] = value;
-                console.log(`Set property ${key} (${propName})`);
-            } else {
-                console.warn(`⚠️  Property ${key} not found in schema`);
-            }
-        };
+        const { data: currentGuests } = await supabase
+            .from('guests')
+            .select('id')
+            .eq('assigned_table_id', id);
 
-        // 1. Save detailed assignments as JSON text
-        const assignmentsJson = JSON.stringify(assignments);
-        console.log("Assignments JSON length:", assignmentsJson.length);
-        setProp('Assignments', { rich_text: [{ text: { content: assignmentsJson } }] });
+        const currentGuestIds = currentGuests ? currentGuests.map(g => g.id) : [];
 
-        console.log("Properties to update:", Object.keys(properties));
+        const toRemove = currentGuestIds.filter(gid => !newGuestIds.includes(gid));
+        const toAdd = newGuestIds.filter(gid => !currentGuestIds.includes(gid));
 
-        const result = await notionClient.pages.update({ page_id: id, properties });
-        console.log("✅ Table updated successfully");
-
-        res.json({ success: true, updated: result.id });
-    } catch (error) {
-        console.error("❌ Error updating table guests:", error.body || error.message);
-        console.error("Stack:", error.stack);
-        res.status(500).json({ error: error.message, details: error.body });
-    }
-});
-
-
-app.put('/api/tables/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { name, capacity, order } = req.body;
-        await schema.init();
-
-        console.log(`\n=== PUT /api/tables/${id} ===`);
-        console.log("Update data:", { name, capacity, order });
-
-        const properties = {};
-        const setProp = (key, value) => {
-            const propName = schema.get('TABLES', key);
-            if (propName) {
-                properties[propName] = value;
-            }
-        };
-
-        if (name) setProp('Name', { title: [{ text: { content: name } }] });
-        if (capacity !== undefined) setProp('Capacity', { number: Number(capacity) });
-        if (order !== undefined) setProp('Order', { number: Number(order) });
-
-        const result = await notionClient.pages.update({ page_id: id, properties });
-        console.log("✅ Table updated successfully");
-
-        res.json({ success: true, updated: result.id });
-    } catch (error) {
-        console.error("❌ Error updating table:", error.body || error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Batch update table orders
-app.patch('/api/tables/reorder', async (req, res) => {
-    try {
-        const { orders } = req.body; // Array of { tableId, order }
-        await schema.init();
-
-        console.log(`\n=== PATCH /api/tables/reorder ===`);
-        console.log("Orders to update:", orders);
-
-        const orderPropName = schema.get('TABLES', 'Order');
-        if (!orderPropName) {
-            // Property doesn't exist yet, just return success
-            console.log("Order property not found in schema, skipping order update");
-            return res.json({ success: true, message: "Order property not found" });
+        if (toRemove.length > 0) {
+            await supabase
+                .from('guests')
+                .update({ assigned_table_id: null })
+                .in('id', toRemove);
         }
 
-        // Update each table's order
-        for (const { tableId, order } of orders) {
-            await notionClient.pages.update({
-                page_id: tableId,
-                properties: {
-                    [orderPropName]: { number: order }
-                }
-            });
+        if (toAdd.length > 0) {
+            await supabase
+                .from('guests')
+                .update({ assigned_table_id: id })
+                .in('id', toAdd);
         }
 
-        console.log("✅ Table orders updated successfully");
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error updating table orders:", error.body || error.message);
+        console.error("❌ Error updating table guests:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.delete('/api/tables/:id', async (req, res) => {
     try {
-        await notionClient.pages.update({ page_id: req.params.id, archived: true });
+        const { error } = await supabase.from('tables').delete().eq('id', req.params.id);
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -2122,32 +1863,64 @@ app.get('/api/usage-summary', async (req, res) => {
 // === EXPENSE CONTROL MODULE ENDPOINTS ===
 // =============================================
 
+// =============================================
+// === EXPENSE CONTROL MODULE ENDPOINTS ===
+// =============================================
+
+// Helper to find or create category/supplier by name
+async function getOrCreateResource(table, eventId, name) {
+    if (!name) return null;
+    const { data: existing } = await supabase
+        .from(table)
+        .select('id')
+        .eq('event_id', eventId)
+        .ilike('name', name)
+        .maybeSingle();
+
+    if (existing) return existing.id;
+
+    const { data: newRecord, error } = await supabase
+        .from(table)
+        .insert({ event_id: eventId, name })
+        .select()
+        .single();
+
+    if (error) {
+        console.error(`Error creating ${table}:`, error);
+        return null; // Fallback? Or throw?
+    }
+    return newRecord.id;
+}
+
+
 // --- EXPENSES ---
 app.get('/api/events/:eventId/expenses', async (req, res) => {
     try {
-        await schema.init();
         const { eventId } = req.params;
-        const response = await notionClient.databases.query({
-            database_id: DS.EXPENSES,
-            filter: {
-                property: schema.get('EXPENSES', 'Event'),
-                relation: { contains: eventId }
-            }
-        });
-        const expenses = response.results.map(page => {
-            const p = page.properties;
-            return {
-                id: page.id,
-                name: getText(findProp(p, schema.getAliases('EXPENSES', 'Name'))),
-                category: getText(findProp(p, schema.getAliases('EXPENSES', 'Category'))),
-                supplier: getText(findProp(p, schema.getAliases('EXPENSES', 'Supplier'))),
-                total: parseFloat(getText(findProp(p, schema.getAliases('EXPENSES', 'Total')))) || 0,
-                paid: parseFloat(getText(findProp(p, schema.getAliases('EXPENSES', 'Paid')))) || 0,
-                status: getText(findProp(p, schema.getAliases('EXPENSES', 'Status'))),
-                staff: getText(findProp(p, schema.getAliases('EXPENSES', 'Staff')))
-            };
-        });
-        res.json(expenses);
+        const { data: expenses, error } = await supabase
+            .from('expenses')
+            .select(`
+                *,
+                category:expense_categories(name),
+                supplier:suppliers(name)
+            `)
+            .eq('event_id', eventId);
+
+        if (error) throw error;
+
+        // Map to frontend structure
+        const mapped = expenses.map(e => ({
+            id: e.id,
+            name: e.name,
+            category: e.category?.name || '',
+            supplier: e.supplier?.name || '',
+            total: e.total || 0,
+            paid: e.paid || 0,
+            status: e.status || 'Pendiente',
+            staff: e.responsible || ''
+        }));
+
+        res.json(mapped);
     } catch (error) {
         console.error("❌ Error fetching expenses:", error);
         res.status(500).json({ error: error.message });
@@ -2156,59 +1929,58 @@ app.get('/api/events/:eventId/expenses', async (req, res) => {
 
 app.post('/api/events/:eventId/expenses', async (req, res) => {
     try {
-        await schema.init();
         const { eventId } = req.params;
-        const { name, category, supplier, total, paid, status, staff, userPlan } = req.body;
+        const { name, category, supplier, total, paid, status, staff, userPlan, userRole } = req.body;
 
-        // CHECK LIMITS
-        const currentCountDetails = await notionClient.databases.query({
-            database_id: DS.EXPENSES,
-            filter: {
-                property: schema.get('EXPENSES', 'Event'),
-                relation: { contains: eventId }
-            }
-        });
-        const currentCount = currentCountDetails.results.length;
+        // Check Limits
+        if (!isAdmin(userRole)) {
+            const { count, error: countError } = await supabase
+                .from('expenses')
+                .select('*', { count: 'exact', head: true })
+                .eq('event_id', eventId);
 
-        const limitCheck = checkLimit({
-            plan: userPlan || DEFAULT_PLAN,
-            resource: 'expenses',
-            currentCount
-        });
+            if (countError) throw countError;
 
-        if (!limitCheck.allowed) {
-            return res.status(403).json({
-                error: limitCheck.reason,
-                limitReached: true,
-                current: currentCount,
-                limit: limitCheck.limit
+            const limitCheck = checkLimit({
+                plan: userPlan || DEFAULT_PLAN,
+                resource: 'expenses',
+                currentCount: count || 0
             });
+
+            if (!limitCheck.allowed) {
+                return res.status(403).json({
+                    error: limitCheck.reason,
+                    limitReached: true,
+                    current: count,
+                    limit: limitCheck.limit
+                });
+            }
         }
 
-        const properties = {};
-        const isMapped = (dbKey, internalKey) => {
-            return schema.mappings[dbKey] && schema.mappings[dbKey][internalKey];
-        };
+        // Resolve IDs
+        let categoryId = null;
+        if (category) categoryId = await getOrCreateResource('expense_categories', eventId, category);
 
-        properties[schema.get('EXPENSES', 'Name')] = { title: [{ text: { content: name || '' } }] };
-        properties[schema.get('EXPENSES', 'Category')] = { rich_text: [{ text: { content: category || '' } }] };
-        properties[schema.get('EXPENSES', 'Supplier')] = { rich_text: [{ text: { content: supplier || '' } }] };
-        properties[schema.get('EXPENSES', 'Total')] = { number: total || 0 };
-        properties[schema.get('EXPENSES', 'Paid')] = { number: paid || 0 };
+        let supplierId = null;
+        if (supplier) supplierId = await getOrCreateResource('suppliers', eventId, supplier);
 
-        if (status && isMapped('EXPENSES', 'Status')) {
-            properties[schema.get('EXPENSES', 'Status')] = { select: { name: status } };
-        }
-        if (staff && isMapped('EXPENSES', 'Staff')) {
-            properties[schema.get('EXPENSES', 'Staff')] = { rich_text: [{ text: { content: staff } }] };
-        }
-        properties[schema.get('EXPENSES', 'Event')] = { relation: [{ id: eventId }] };
+        const { data: newExpense, error } = await supabase
+            .from('expenses')
+            .insert({
+                event_id: eventId,
+                name: name || 'Gasto sin nombre',
+                category_id: categoryId,
+                supplier_id: supplierId,
+                total: Number(total) || 0,
+                paid: Number(paid) || 0,
+                status: status || 'Pendiente',
+                responsible: staff || ''
+            })
+            .select()
+            .single();
 
-        const newPage = await notionClient.pages.create({
-            parent: { database_id: DB.EXPENSES },
-            properties
-        });
-        res.json({ success: true, id: newPage.id });
+        if (error) throw error;
+        res.json({ success: true, id: newExpense.id });
     } catch (error) {
         console.error("❌ Error creating expense:", error);
         res.status(500).json({ error: error.message });
@@ -2217,57 +1989,44 @@ app.post('/api/events/:eventId/expenses', async (req, res) => {
 
 app.put('/api/expenses/:id', async (req, res) => {
     try {
-        await schema.init();
         const { id } = req.params;
         const { name, category, supplier, total, paid, status, staff } = req.body;
-        const properties = {};
 
-        // Helper to check if a property is actually mapped (not a fallback)
-        const isMapped = (dbKey, internalKey) => {
-            return schema.mappings[dbKey] && schema.mappings[dbKey][internalKey];
-        };
+        // Fetch existing to get event_id
+        const { data: existing } = await supabase.from('expenses').select('event_id').eq('id', id).single();
+        if (!existing) return res.status(404).json({ error: "Expense not found" });
+        const eventId = existing.event_id;
 
-        if (name !== undefined && isMapped('EXPENSES', 'Name')) {
-            properties[schema.get('EXPENSES', 'Name')] = { title: [{ text: { content: name } }] };
+        const updates = {};
+        if (name !== undefined) updates.name = name;
+        if (total !== undefined) updates.total = Number(total);
+        if (paid !== undefined) updates.paid = Number(paid);
+        if (status !== undefined) updates.status = status;
+        if (staff !== undefined) updates.responsible = staff;
+
+        // Handle relations
+        if (category !== undefined) {
+            updates.category_id = category ? await getOrCreateResource('expense_categories', eventId, category) : null;
         }
-        if (category !== undefined && isMapped('EXPENSES', 'Category')) {
-            properties[schema.get('EXPENSES', 'Category')] = { rich_text: [{ text: { content: category } }] };
-        }
-        if (supplier !== undefined && isMapped('EXPENSES', 'Supplier')) {
-            properties[schema.get('EXPENSES', 'Supplier')] = { rich_text: [{ text: { content: supplier } }] };
-        }
-        if (total !== undefined && isMapped('EXPENSES', 'Total')) {
-            properties[schema.get('EXPENSES', 'Total')] = { number: total || 0 };
-        }
-        if (paid !== undefined && isMapped('EXPENSES', 'Paid')) {
-            properties[schema.get('EXPENSES', 'Paid')] = { number: paid || 0 };
-        }
-        if (status && isMapped('EXPENSES', 'Status')) {
-            properties[schema.get('EXPENSES', 'Status')] = { select: { name: status } };
-        }
-        // Only update staff if provided AND the column exists in the database
-        if (staff && isMapped('EXPENSES', 'Staff')) {
-            properties[schema.get('EXPENSES', 'Staff')] = { rich_text: [{ text: { content: staff } }] };
+        if (supplier !== undefined) {
+            updates.supplier_id = supplier ? await getOrCreateResource('suppliers', eventId, supplier) : null;
         }
 
-        if (Object.keys(properties).length > 0) {
-            await notionClient.pages.update({ page_id: id, properties });
-        }
+        const { error } = await supabase.from('expenses').update(updates).eq('id', id);
+        if (error) throw error;
 
         res.json({ success: true });
     } catch (error) {
-        console.error(`❌ Error updating expense ${req.params.id}:`, error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.delete('/api/expenses/:id', async (req, res) => {
     try {
-        const { id } = req.params;
-        await notionClient.pages.update({ page_id: id, archived: true });
+        const { error } = await supabase.from('expenses').delete().eq('id', req.params.id);
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error deleting expense:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -2275,118 +2034,75 @@ app.delete('/api/expenses/:id', async (req, res) => {
 // --- SUPPLIERS ---
 app.get('/api/events/:eventId/suppliers', async (req, res) => {
     try {
-        await schema.init();
         const { eventId } = req.params;
-        const response = await notionClient.databases.query({
-            database_id: DS.SUPPLIERS,
-            filter: {
-                property: schema.get('SUPPLIERS', 'Event'),
-                relation: { contains: eventId }
-            }
-        });
-        const suppliers = response.results.map(page => {
-            const p = page.properties;
-            return {
-                id: page.id,
-                name: getText(findProp(p, schema.getAliases('SUPPLIERS', 'Name'))),
-                category: getText(findProp(p, schema.getAliases('SUPPLIERS', 'Category'))),
-                phone: getText(findProp(p, schema.getAliases('SUPPLIERS', 'Phone'))),
-                email: getText(findProp(p, schema.getAliases('SUPPLIERS', 'Email')))
-            };
-        });
-        res.json(suppliers);
+        const { data, error } = await supabase
+            .from('suppliers')
+            .select('*')
+            .eq('event_id', eventId);
+        if (error) throw error;
+        res.json(data);
     } catch (error) {
-        console.error("❌ Error fetching suppliers:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.post('/api/events/:eventId/suppliers', async (req, res) => {
     try {
-        await schema.init();
         const { eventId } = req.params;
-        const { name, category, phone, email, userPlan } = req.body;
+        const { name, category, phone, email, userPlan, userRole } = req.body;
 
-        // CHECK LIMITS
-        const currentCountDetails = await notionClient.databases.query({
-            database_id: DS.SUPPLIERS,
-            filter: {
-                property: schema.get('SUPPLIERS', 'Event'),
-                relation: { contains: eventId }
-            }
-        });
-        const currentCount = currentCountDetails.results.length;
+        if (!isAdmin(userRole)) {
+            const { count, error: countError } = await supabase
+                .from('suppliers')
+                .select('*', { count: 'exact', head: true })
+                .eq('event_id', eventId);
+            if (countError) throw countError;
 
-        const limitCheck = checkLimit({
-            plan: userPlan || DEFAULT_PLAN,
-            resource: 'suppliers',
-            currentCount
-        });
-
-        if (!limitCheck.allowed) {
-            return res.status(403).json({
-                error: limitCheck.reason,
-                limitReached: true,
-                current: currentCount,
-                limit: limitCheck.limit
+            const limitCheck = checkLimit({
+                plan: userPlan || DEFAULT_PLAN,
+                resource: 'suppliers',
+                currentCount: count || 0
             });
+            if (!limitCheck.allowed) {
+                return res.status(403).json({ error: limitCheck.reason, limitReached: true });
+            }
         }
 
-        const properties = {};
-        properties[schema.get('SUPPLIERS', 'Name')] = { title: [{ text: { content: name || '' } }] };
-        properties[schema.get('SUPPLIERS', 'Category')] = { rich_text: [{ text: { content: category || '' } }] };
-        properties[schema.get('SUPPLIERS', 'Phone')] = { rich_text: [{ text: { content: phone || '' } }] };
-
-        // Only add email if it's a valid string to avoid Notion validation errors
-        if (email && email.trim()) {
-            properties[schema.get('SUPPLIERS', 'Email')] = { email: email.trim() };
-        }
-
-        properties[schema.get('SUPPLIERS', 'Event')] = { relation: [{ id: eventId }] };
-
-        console.log('📝 Creating new supplier in Notion...', { name, category });
-        const newPage = await notionClient.pages.create({
-            parent: { database_id: DB.SUPPLIERS },
-            properties
-        });
-        console.log('✅ Supplier created successfully:', newPage.id);
-        res.json({ success: true, id: newPage.id });
+        const { data, error } = await supabase
+            .from('suppliers')
+            .insert({
+                event_id: eventId, name, category, phone, email: email || null
+            })
+            .select()
+            .single();
+        if (error) throw error;
+        res.json({ success: true, id: data.id });
     } catch (error) {
-        console.error("❌ Error creating supplier:", error);
-        // Return a more descriptive error if it's a Notion validation error
-        res.status(500).json({
-            error: error.message,
-            detail: error.body ? JSON.parse(error.body) : undefined
-        });
+        res.status(500).json({ error: error.message });
     }
 });
 
 app.put('/api/suppliers/:id', async (req, res) => {
     try {
-        await schema.init();
         const { id } = req.params;
         const { name, category, phone, email } = req.body;
-        const properties = {};
-        if (name !== undefined) properties[schema.get('SUPPLIERS', 'Name')] = { title: [{ text: { content: name } }] };
-        if (category !== undefined) properties[schema.get('SUPPLIERS', 'Category')] = { rich_text: [{ text: { content: category } }] };
-        if (phone !== undefined) properties[schema.get('SUPPLIERS', 'Phone')] = { rich_text: [{ text: { content: phone } }] };
-        if (email !== undefined) properties[schema.get('SUPPLIERS', 'Email')] = { email: email || null };
+        const updates = { name, category, phone, email };
+        Object.keys(updates).forEach(key => updates[key] === undefined && delete updates[key]);
 
-        await notionClient.pages.update({ page_id: id, properties });
+        const { error } = await supabase.from('suppliers').update(updates).eq('id', id);
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error updating supplier:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.delete('/api/suppliers/:id', async (req, res) => {
     try {
-        const { id } = req.params;
-        await notionClient.pages.update({ page_id: id, archived: true });
+        const { error } = await supabase.from('suppliers').delete().eq('id', req.params.id);
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error deleting supplier:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -2394,78 +2110,51 @@ app.delete('/api/suppliers/:id', async (req, res) => {
 // --- EXPENSE CATEGORIES ---
 app.get('/api/events/:eventId/expense-categories', async (req, res) => {
     try {
-        await schema.init();
         const { eventId } = req.params;
-        const response = await notionClient.databases.query({
-            database_id: DS.EXPENSE_CATEGORIES,
-            filter: {
-                property: schema.get('EXPENSE_CATEGORIES', 'Event'),
-                relation: { contains: eventId }
-            }
-        });
-        const categories = response.results.map(page => {
-            const p = page.properties;
-            return {
-                id: page.id,
-                name: getText(findProp(p, schema.getAliases('EXPENSE_CATEGORIES', 'Name'))),
-                icon: getText(findProp(p, schema.getAliases('EXPENSE_CATEGORIES', 'Icon'))),
-                subtitle: getText(findProp(p, schema.getAliases('EXPENSE_CATEGORIES', 'Subtitle')))
-            };
-        });
-        res.json(categories);
+        const { data, error } = await supabase.from('expense_categories').select('*').eq('event_id', eventId);
+        if (error) throw error;
+        res.json(data);
     } catch (error) {
-        console.error("❌ Error fetching expense categories:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.post('/api/events/:eventId/expense-categories', async (req, res) => {
     try {
-        await schema.init();
         const { eventId } = req.params;
         const { name, icon, subtitle } = req.body;
-        const properties = {};
-        properties[schema.get('EXPENSE_CATEGORIES', 'Name')] = { title: [{ text: { content: name || '' } }] };
-        properties[schema.get('EXPENSE_CATEGORIES', 'Icon')] = { rich_text: [{ text: { content: icon || 'category' } }] };
-        properties[schema.get('EXPENSE_CATEGORIES', 'Subtitle')] = { rich_text: [{ text: { content: subtitle || '' } }] };
-        properties[schema.get('EXPENSE_CATEGORIES', 'Event')] = { relation: [{ id: eventId }] };
-
-        const newPage = await notionClient.pages.create({
-            parent: { database_id: DB.EXPENSE_CATEGORIES },
-            properties
-        });
-        res.json({ success: true, id: newPage.id });
+        const { data, error } = await supabase
+            .from('expense_categories')
+            .insert({ event_id: eventId, name, icon: icon || 'category', subtitle })
+            .select()
+            .single();
+        if (error) throw error;
+        res.json({ success: true, id: data.id });
     } catch (error) {
-        console.error("❌ Error creating expense category:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.put('/api/expense-categories/:id', async (req, res) => {
     try {
-        await schema.init();
         const { id } = req.params;
         const { name, icon, subtitle } = req.body;
-        const properties = {};
-        if (name !== undefined) properties[schema.get('EXPENSE_CATEGORIES', 'Name')] = { title: [{ text: { content: name } }] };
-        if (icon !== undefined) properties[schema.get('EXPENSE_CATEGORIES', 'Icon')] = { rich_text: [{ text: { content: icon } }] };
-        if (subtitle !== undefined) properties[schema.get('EXPENSE_CATEGORIES', 'Subtitle')] = { rich_text: [{ text: { content: subtitle } }] };
-
-        await notionClient.pages.update({ page_id: id, properties });
+        const updates = { name, icon, subtitle };
+        Object.keys(updates).forEach(key => updates[key] === undefined && delete updates[key]);
+        const { error } = await supabase.from('expense_categories').update(updates).eq('id', id);
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error updating expense category:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.delete('/api/expense-categories/:id', async (req, res) => {
     try {
-        const { id } = req.params;
-        await notionClient.pages.update({ page_id: id, archived: true });
+        const { error } = await supabase.from('expense_categories').delete().eq('id', req.params.id);
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error deleting expense category:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -2475,96 +2164,69 @@ app.delete('/api/expense-categories/:id', async (req, res) => {
 // ========================================
 app.get('/api/events/:eventId/participants', async (req, res) => {
     try {
-        await schema.init();
         const { eventId } = req.params;
-        const response = await notionClient.databases.query({
-            database_id: DS.PAYMENT_PARTICIPANTS,
-            filter: { property: schema.get('PAYMENT_PARTICIPANTS', 'EventId'), rich_text: { equals: eventId } }
-        });
-        const participants = response.results.map(p => ({
-            id: p.id,
-            name: p.properties[schema.get('PAYMENT_PARTICIPANTS', 'Name')]?.title?.[0]?.text?.content || '',
-            eventId: p.properties[schema.get('PAYMENT_PARTICIPANTS', 'EventId')]?.rich_text?.[0]?.text?.content || '',
-            weight: p.properties[schema.get('PAYMENT_PARTICIPANTS', 'Weight')]?.number || 1
-        }));
-        res.json(participants);
+        const { data, error } = await supabase
+            .from('payment_participants')
+            .select('*')
+            .eq('event_id', eventId);
+        if (error) throw error;
+        res.json(data);
     } catch (error) {
-        console.error("❌ Error fetching participants:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.post('/api/events/:eventId/participants', async (req, res) => {
     try {
-        await schema.init();
         const { eventId } = req.params;
-        const { name, weight = 1, userPlan } = req.body;
+        const { name, weight = 1, userPlan, userRole } = req.body;
 
-        // CHECK LIMITS
-        const currentCountDetails = await notionClient.databases.query({
-            database_id: DS.PAYMENT_PARTICIPANTS,
-            filter: { property: schema.get('PAYMENT_PARTICIPANTS', 'EventId'), rich_text: { equals: eventId } }
-        });
-        const currentCount = currentCountDetails.results.length;
+        if (!isAdmin(userRole)) {
+            const { count, error } = await supabase.from('payment_participants').select('*', { count: 'exact', head: true }).eq('event_id', eventId);
+            if (error) throw error;
 
-        const limitCheck = checkLimit({
-            plan: userPlan || DEFAULT_PLAN,
-            resource: 'participants',
-            currentCount
-        });
-
-        if (!limitCheck.allowed) {
-            return res.status(403).json({
-                error: limitCheck.reason,
-                limitReached: true,
-                current: currentCount,
-                limit: limitCheck.limit
+            const limitCheck = checkLimit({
+                plan: userPlan || DEFAULT_PLAN,
+                resource: 'participants',
+                currentCount: count || 0
             });
+            if (!limitCheck.allowed) {
+                return res.status(403).json({ error: limitCheck.reason, limitReached: true });
+            }
         }
 
-        const response = await notionClient.pages.create({
-            parent: { database_id: DB.PAYMENT_PARTICIPANTS },
-            properties: {
-                [schema.get('PAYMENT_PARTICIPANTS', 'Name')]: { title: [{ text: { content: name } }] },
-                [schema.get('PAYMENT_PARTICIPANTS', 'EventId')]: { rich_text: [{ text: { content: eventId } }] },
-                [schema.get('PAYMENT_PARTICIPANTS', 'Weight')]: { number: weight }
-            }
-        });
-        res.json({
-            id: response.id,
-            name,
-            eventId,
-            weight
-        });
+        const { data, error } = await supabase
+            .from('payment_participants')
+            .insert({ event_id: eventId, name, weight })
+            .select()
+            .single();
+        if (error) throw error;
+        res.json(data);
     } catch (error) {
-        console.error("❌ Error creating participant:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.put('/api/participants/:id', async (req, res) => {
     try {
-        await schema.init();
         const { id } = req.params;
         const { name, weight } = req.body;
-        const properties = {};
-        if (name !== undefined) properties[schema.get('PAYMENT_PARTICIPANTS', 'Name')] = { title: [{ text: { content: name } }] };
-        if (weight !== undefined) properties[schema.get('PAYMENT_PARTICIPANTS', 'Weight')] = { number: weight };
-        await notionClient.pages.update({ page_id: id, properties });
+        const updates = { name, weight };
+        Object.keys(updates).forEach(key => updates[key] === undefined && delete updates[key]);
+        const { error } = await supabase.from('payment_participants').update(updates).eq('id', id);
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error updating participant:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.delete('/api/participants/:id', async (req, res) => {
     try {
-        const { id } = req.params;
-        await notionClient.pages.update({ page_id: id, archived: true });
+        const { error } = await supabase.from('payment_participants').delete().eq('id', req.params.id);
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error deleting participant:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -2574,162 +2236,155 @@ app.delete('/api/participants/:id', async (req, res) => {
 // ========================================
 app.get('/api/expenses/:expenseId/payments', async (req, res) => {
     try {
-        await schema.init();
         const { expenseId } = req.params;
-        const response = await notionClient.databases.query({
-            database_id: DS.PAYMENTS,
-            filter: { property: schema.get('PAYMENTS', 'ExpenseId'), rich_text: { equals: expenseId } }
-        });
-        const payments = response.results.map(p => ({
+        const { data, error } = await supabase
+            .from('payments')
+            .select('*')
+            .eq('expense_id', expenseId);
+
+        if (error) throw error;
+
+        // Map to frontend
+        const payments = data.map(p => ({
             id: p.id,
-            expenseId: p.properties[schema.get('PAYMENTS', 'ExpenseId')]?.rich_text?.[0]?.text?.content || '',
-            participantId: p.properties[schema.get('PAYMENTS', 'ParticipantId')]?.rich_text?.[0]?.text?.content || '',
-            amount: p.properties[schema.get('PAYMENTS', 'Amount')]?.number || 0,
-            date: p.properties[schema.get('PAYMENTS', 'Date')]?.date?.start || null,
-            description: p.properties[schema.get('PAYMENTS', 'Description')]?.title?.[0]?.text?.content || '',
-            receiptUrl: p.properties[schema.get('PAYMENTS', 'ReceiptURL')]?.url || ''
+            expenseId: p.expense_id,
+            participantId: p.participant_id,
+            amount: p.amount,
+            date: p.date,
+            description: p.receipt_url ? 'Comprobante' : '',
+            receiptUrl: p.receipt_url
         }));
+
         res.json(payments);
     } catch (error) {
-        console.error("❌ Error fetching payments:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.post('/api/expenses/:expenseId/payments', async (req, res) => {
     try {
-        await schema.init();
         const { expenseId } = req.params;
         const { participantId, amount, date, description, receiptUrl } = req.body;
 
-        const properties = {
-            [schema.get('PAYMENTS', 'ExpenseId')]: { rich_text: [{ text: { content: expenseId } }] },
-            [schema.get('PAYMENTS', 'ParticipantId')]: { rich_text: [{ text: { content: participantId } }] },
-            [schema.get('PAYMENTS', 'Amount')]: { number: amount }
-        };
+        const { data, error } = await supabase
+            .from('payments')
+            .insert({
+                expense_id: expenseId,
+                participant_id: participantId,
+                amount: Number(amount),
+                date: date,
+                receipt_url: receiptUrl
+            })
+            .select()
+            .single();
+        if (error) throw error;
 
-        if (date) properties[schema.get('PAYMENTS', 'Date')] = { date: { start: date } };
-        if (description) properties[schema.get('PAYMENTS', 'Description')] = { title: [{ text: { content: description } }] };
-        if (receiptUrl) properties[schema.get('PAYMENTS', 'ReceiptURL')] = { url: receiptUrl };
-
-        const response = await notionClient.pages.create({
-            parent: { database_id: DB.PAYMENTS },
-            properties
-        });
         res.json({
-            id: response.id,
-            expenseId,
-            participantId,
-            amount,
-            date,
-            description,
-            receiptUrl
+            id: data.id,
+            expenseId: data.expense_id,
+            participantId: data.participant_id,
+            amount: data.amount,
+            date: data.date,
+            receiptUrl: data.receipt_url
         });
     } catch (error) {
-        console.error("❌ Error creating payment:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.delete('/api/payments/:id', async (req, res) => {
     try {
-        const { id } = req.params;
-        await notionClient.pages.update({ page_id: id, archived: true });
+        const { error } = await supabase.from('payments').delete().eq('id', req.params.id);
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error deleting payment:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 // ========================================
-// BALANCES ENDPOINT (calculate who owes whom)
+// BALANCES ENDPOINT
 // ========================================
 app.get('/api/events/:eventId/balances', async (req, res) => {
     try {
-        await schema.init();
         const { eventId } = req.params;
-
         console.log('📊 Calculating balances for event:', eventId);
 
-        // Get all participants
-        const participantsRes = await notionClient.databases.query({
-            database_id: DS.PAYMENT_PARTICIPANTS,
-            filter: { property: schema.get('PAYMENT_PARTICIPANTS', 'EventId'), rich_text: { equals: eventId } }
-        });
-        const participants = participantsRes.results.map(p => ({
-            id: p.id,
-            name: p.properties[schema.get('PAYMENT_PARTICIPANTS', 'Name')]?.title?.[0]?.text?.content || '',
-            weight: p.properties[schema.get('PAYMENT_PARTICIPANTS', 'Weight')]?.number || 1
-        }));
-        console.log('   Found participants:', participants.length, participants.map(p => p.name));
+        // 1. Get Participants
+        const { data: participants, error: partError } = await supabase
+            .from('payment_participants')
+            .select('*')
+            .eq('event_id', eventId);
+        if (partError) throw partError;
 
-        // Get all expenses for event
-        const expensesRes = await notionClient.databases.query({
-            database_id: DS.EXPENSES,
-            filter: { property: schema.get('EXPENSES', 'Event'), relation: { contains: eventId } }
-        });
-        const expenses = expensesRes.results;
+        // 2. Get Expenses
+        const { data: expenses, error: expError } = await supabase
+            .from('expenses')
+            .select('id, total')
+            .eq('event_id', eventId);
+        if (expError) throw expError;
+
+        const totalExpenses = expenses.reduce((sum, e) => sum + (Number(e.total) || 0), 0);
         const expenseIds = expenses.map(e => e.id);
-        console.log('   Found expenses:', expenses.length);
 
-        // Get all payments
+        // 3. Get Payments
         let allPayments = [];
-        for (const expenseId of expenseIds) {
-            const paymentsRes = await notionClient.databases.query({
-                database_id: DS.PAYMENTS,
-                filter: { property: schema.get('PAYMENTS', 'ExpenseId'), rich_text: { equals: expenseId } }
-            });
-            allPayments = allPayments.concat(paymentsRes.results.map(p => ({
-                expenseId: p.properties[schema.get('PAYMENTS', 'ExpenseId')]?.rich_text?.[0]?.text?.content || '',
-                participantId: p.properties[schema.get('PAYMENTS', 'ParticipantId')]?.rich_text?.[0]?.text?.content || '',
-                amount: p.properties[schema.get('PAYMENTS', 'Amount')]?.number || 0
-            })));
+        if (expenseIds.length > 0) {
+            const { data: payments, error: payError } = await supabase
+                .from('payments')
+                .select('*')
+                .in('expense_id', expenseIds);
+            if (payError) throw payError;
+            allPayments = payments;
         }
 
-        // Calculate totals
-        const totalExpenses = expenses.reduce((sum, e) => {
-            return sum + (e.properties[schema.get('EXPENSES', 'Total')]?.number || 0);
-        }, 0);
+        // 4. Calculate
+        const totalWeight = participants.reduce((sum, p) => sum + (Number(p.weight) || 1), 0);
 
-        // Calculate weighted shares
-        const totalWeight = participants.reduce((sum, p) => sum + p.weight, 0);
-
-        // Calculate balance per participant
         const balances = participants.map(p => {
-            const fairShare = totalWeight > 0 ? (totalExpenses * p.weight) / totalWeight : 0;
+            const weight = Number(p.weight) || 1;
+            const fairShare = totalWeight > 0 ? (totalExpenses * weight) / totalWeight : 0;
             const totalPaid = allPayments
-                .filter(pay => pay.participantId === p.id)
-                .reduce((sum, pay) => sum + pay.amount, 0);
+                .filter(pay => pay.participant_id === p.id)
+                .reduce((sum, pay) => sum + (Number(pay.amount) || 0), 0);
+
             return {
                 participantId: p.id,
                 name: p.name,
-                weight: p.weight,
+                weight: weight,
                 fairShare,
                 totalPaid,
                 balance: totalPaid - fairShare // positive = owed money, negative = owes money
             };
         });
 
-        // Calculate settlements (who pays whom)
-        const debtors = balances.filter(b => b.balance < 0).map(b => ({ ...b, owes: Math.abs(b.balance) }));
-        const creditors = balances.filter(b => b.balance > 0).map(b => ({ ...b, owed: b.balance }));
+        // Calculate settlements
+        const debtors = balances.filter(b => b.balance < -0.01).map(b => ({ ...b, owes: Math.abs(b.balance) }));
+        const creditors = balances.filter(b => b.balance > 0.01).map(b => ({ ...b, owed: b.balance }));
+
+        debtors.sort((a, b) => b.owes - a.owes);
+        creditors.sort((a, b) => b.owed - a.owed);
 
         const settlements = [];
         let i = 0, j = 0;
+
         while (i < debtors.length && j < creditors.length) {
             const debtor = debtors[i];
             const creditor = creditors[j];
+
             const amount = Math.min(debtor.owes, creditor.owed);
-            if (amount > 0.01) { // ignore tiny amounts
+
+            if (amount > 0.01) {
                 settlements.push({
                     from: { id: debtor.participantId, name: debtor.name },
                     to: { id: creditor.participantId, name: creditor.name },
                     amount: Math.round(amount * 100) / 100
                 });
             }
+
             debtor.owes -= amount;
             creditor.owed -= amount;
+
             if (debtor.owes < 0.01) i++;
             if (creditor.owed < 0.01) j++;
         }
@@ -2740,6 +2395,7 @@ app.get('/api/events/:eventId/balances', async (req, res) => {
             balances,
             settlements
         });
+
     } catch (error) {
         console.error("❌ Error calculating balances:", error);
         res.status(500).json({ error: error.message });
@@ -3961,12 +3617,11 @@ app.get(/.*/, (req, res) => {
 
 // Start server
 const start = async () => {
-    await schema.init(); // Initialize dynamic schema mapping
     app.listen(PORT, () => {
         console.log(`-----------------------------------------`);
         console.log(`🚀 API Server running on port: ${PORT}`);
         console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
-        console.log(`🔑 Notion API Key: ${process.env.NOTION_API_KEY ? 'Present ✅' : 'NOT FOUND ❌'}`);
+        console.log(`🔑 Supabase URL: ${process.env.SUPABASE_URL ? 'Present ✅' : 'NOT FOUND ❌'}`);
         console.log(`-----------------------------------------`);
     });
 };

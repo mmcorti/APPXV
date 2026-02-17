@@ -1,5 +1,5 @@
 
-import { RaffleState, RaffleMode, RaffleStatus } from '../types/raffleTypes';
+import { RaffleState, RaffleMode, RaffleStatus } from '../game-types/raffleTypes';
 
 const API_BASE = '/api/raffle';
 

@@ -10,39 +10,53 @@ Esta guía detalla los pasos para migrar APPXV de Render a Google Cloud Run para
 ## 2. Preparación del Proyecto
 He creado dos archivos Dockerfile específicos para separar responsabilidades:
 
-1.  **`Dockerfile.backend`**: Empaqueta el servidor Node.js/Express.
-2.  **`Dockerfile.frontend`**: Construye la App React y la sirve usando Nginx (más eficiente para contenido estático).
+1.  **`Dockerfile`**: (Ya configurado) Empaqueta el servidor Node.js/Express y sirve el Frontend.
+2.  **`package.json`**: Se agregó `"start": "node server/index.js"` para que Cloud Run sepa cómo arrancar.
+3.  **`server/index.js`**: Se configuró el puerto para usar `process.env.PORT || 8080`.
 
 ## 3. Despliegue a Cloud Run
 
-### Paso 1: Desplegar el Backend
-Primero necesitamos la URL del backend para que el frontend sepa a dónde conectarse.
+### Paso 1: Despliegue Unificado (Backend + Frontend)
 
-```bash
-# Desplegar backend
-gcloud run deploy appxv-backend --source . --file Dockerfile.backend --env-vars-file .env.production
-```
-*Nota: Asegúrate de tener tus variables de Notion, Cloudinary, etc., listas.*
+He descubierto que tu proyecto ya tiene un `Dockerfile` inteligente que construye el Frontend y el Backend juntos en un solo servicio. Esto es mucho más fácil de desplegar.
 
-### Paso 2: Desplegar el Frontend
-Una vez tengas la URL del backend (ej: `https://appxv-backend-xyz.a.run.app`), despliega el frontend inyectando esa URL:
-
-```bash
-# Desplegar frontend
-gcloud run deploy appxv-frontend --source . --file Dockerfile.frontend --set-build-envs VITE_API_URL=https://TU-URL-BACKEND/api
+#### 1. Abre PowerShell en la carpeta del proyecto:
+```powershell
+cd "c:\Users\Mariano\Documents\GitHub\APPXV"
 ```
 
-Durante el despliegue, elige:
-- **Region**: `us-central1` (recomendado por latencia/costo).
-- **Allow unauthenticated invocations**: `y` (para que sea público).
+#### 2. Ejecuta el comando de despliegue:
+Solo necesitas este comando. He incluido todas tus llaves excepto las de Cloudinary (rellénalas donde dice `xxx`).
 
+```powershell
+gcloud run deploy appxv `
+  --source . `
+  --region us-central1 `
+  --allow-unauthenticated `
+  --set-env-vars "SUPABASE_URL=YOUR_SUPABASE_URL,SUPABASE_SERVICE_KEY=YOUR_SUPABASE_KEY,CLOUDINARY_CLOUD_NAME=xxx,CLOUDINARY_API_KEY=xxx,CLOUDINARY_API_SECRET=xxx,GOOGLE_CLIENT_ID=xxx,GOOGLE_CLIENT_SECRET=xxx,GEMINI_API_KEY=xxx,OPENAI_API_KEY=xxx,GOOGLE_REDIRECT_URI=xxx"
+```
+
+#### 3. Notas importantes:
+- **ID de Proyecto**: Si `gcloud` te pregunta por el proyecto, selecciona `gen-lang-client-0613585534`.
+- **URL Final**: Al terminar, gcloud te dará una URL. **Esa será tu URL de la web completa**.
+- **Google Redirect**: Deberás copiar esa URL y actualizarla en tu Consola de Google Cloud (OAuth) agregando `/api/auth/google/callback`.
+
+---
 ## 4. Configuración de Variables de Entorno
-Cloud Run necesita las mismas variables que tenías en Render. Puedes configurarlas en la consola de Google Cloud (Cloud Run > Tu Servicio > Edit & Deploy New Revision > Variables):
+Cloud Run necesita estas variables de Runtime (todas están incluidas en el comando de arriba):
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_KEY`
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GEMINI_API_KEY`
+- `OPENAI_API_KEY`
+- `GOOGLE_REDIRECT_URI`
 
-- `NOTION_API_KEY`
-- `VITE_API_URL` (Deberá ser la URL que te de Cloud Run terminada en `/api`)
-- `CLOUDINARY_URL` (y variables de cloudinary)
-- `GOOGLE_CLIENT_ID` / `SECRET` (si usas Auth)
+### Frontend (Variables de Build):
+- `VITE_API_URL` (La URL del backend + `/api`)
 
 ## 5. Ventajas de Cloud Run para esta App
 - **Memoria Flexible**: Puedes asignar 1GB o 2GB de RAM para que las fotos nunca saturen el servidor.
