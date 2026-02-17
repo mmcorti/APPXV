@@ -23,7 +23,7 @@ export interface ImpostorState {
     winner: 'PUBLIC' | 'IMPOSTOR' | null;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const impostorService = {
     async getState(eventId: string): Promise<ImpostorState> {

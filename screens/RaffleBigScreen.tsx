@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { raffleService } from '../services/raffleService';
-import { RaffleState } from '../types/raffleTypes';
+import { RaffleState } from '../game-types/raffleTypes';
 
 const RaffleBigScreen: React.FC = () => {
     const { id: eventId } = useParams<{ id: string }>();

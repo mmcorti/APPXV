@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { InvitationData, Guest, Table } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const notionService = {
     async uploadImage(base64Image: string): Promise<string> {

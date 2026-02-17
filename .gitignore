@@ -26,3 +26,4 @@ dist-ssr
 # Environment files with secrets
 .env
 server/config.local.js
+gcp-key.json

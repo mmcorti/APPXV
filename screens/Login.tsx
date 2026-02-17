@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { notionService } from '../services/notion';
 import { StaffPermissions } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 interface LoginProps {
   onLogin: (id: string, name: string, email: string, role?: string, permissions?: StaffPermissions, eventId?: string, plan?: string) => void;

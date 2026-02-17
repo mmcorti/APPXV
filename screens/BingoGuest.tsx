@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { bingoService, BingoGameState, BingoPrompt } from '../services/bingoService';
-import { BingoCard } from '../types/bingoTypes';
+import { BingoCard } from '../game-types/bingoTypes';
 
 const PLAYER_ID_KEY = 'bingo_player_id';
 const PLAYER_NAME_KEY = 'bingo_player_name';

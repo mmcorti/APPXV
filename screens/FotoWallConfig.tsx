@@ -4,7 +4,7 @@ import { InvitationData, User } from '../types';
 import { UpgradePrompt } from '../components/UpgradePrompt';
 import { usePlan } from '../hooks/usePlan';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Types
 type ModerationMode = 'ai' | 'manual';
