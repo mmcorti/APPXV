@@ -672,7 +672,7 @@ app.post('/api/events', async (req, res) => {
 });
 
 
-app.put('/api/events/:id?', async (req, res) => {
+app.put(['/api/events', '/api/events/:id'], async (req, res) => {
     try {
         const id = req.params.id || req.body.id;
         const { eventName, date, time, location, message, hostName, giftType, giftDetail, image } = req.body;
@@ -723,7 +723,7 @@ app.put('/api/events/:id?', async (req, res) => {
     }
 });
 
-app.delete('/api/events/:id?', async (req, res) => {
+app.delete(['/api/events', '/api/events/:id'], async (req, res) => {
     try {
         const id = req.params.id || req.body.id;
 
