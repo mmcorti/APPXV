@@ -89,14 +89,30 @@ const App: React.FC = () => {
     setLoading(true);
     try {
       const events = await notionService.getEvents(userEmail, staffId);
+
       const detailedEvents = await Promise.all(events.map(async (event) => {
-        const guests = await notionService.getGuests(event.id);
-        const tables = await notionService.getTables(event.id);
-        return { ...event, guests, tables };
+        try {
+          const [guests, tables] = await Promise.all([
+            notionService.getGuests(event.id).catch(e => {
+              console.warn(`Failed to fetch guests for event ${event.id}`, e);
+              return [];
+            }),
+            notionService.getTables(event.id).catch(e => {
+              console.warn(`Failed to fetch tables for event ${event.id}`, e);
+              return [];
+            })
+          ]);
+          return { ...event, guests, tables };
+        } catch (err) {
+          console.error(`Error enriching event ${event.id}:`, err);
+          return { ...event, guests: [], tables: [] };
+        }
       }));
+
       setInvitations(detailedEvents);
     } catch (err) {
       console.error("Failed to fetch data:", err);
+      // Even if getEvents fails, we should ensure the UI doesn't hang in loading
     } finally {
       setLoading(false);
     }
