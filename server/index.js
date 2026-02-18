@@ -833,14 +833,26 @@ app.delete(['/api/events', '/api/events/:id'], async (req, res) => {
 app.get('/api/guests', async (req, res) => {
     try {
         const { eventId } = req.query;
+        // console.log(`📝 [GET /api/guests] Fetching guests for event: ${eventId}`); // Verbose log
+
         let query = supabase.from('guests').select('*');
-        if (eventId) query = query.eq('event_id', eventId);
+        if (eventId) {
+            query = query.eq('event_id', eventId);
+        } else {
+            // Optional: Limit or warn if no eventId
+            // console.warn("⚠️ [GET /api/guests] No eventId provided, fetching all guests!");
+        }
 
         const { data: guestsData, error } = await query;
-        if (error) throw error;
+        if (error) {
+            console.error(`❌ [GET /api/guests] Error fetching:`, error);
+            throw error;
+        }
+
+        // console.log(`✅ [GET /api/guests] Found ${guestsData?.length || 0} guests`);
 
         // Map to frontend structure
-        const guests = guestsData.map(g => ({
+        const guests = (guestsData || []).map(g => ({
             id: g.id,
             name: g.name,
             email: g.email,
@@ -862,6 +874,7 @@ app.get('/api/guests', async (req, res) => {
 app.post('/api/guests', async (req, res) => {
     try {
         const { eventId, guest, userPlan, userRole } = req.body;
+        console.log(`📝 [POST /api/guests] Creating guest for event ${eventId}:`, guest.name);
 
         // 1. Check Limits
         if (!isAdmin(userRole)) {
@@ -870,7 +883,10 @@ app.post('/api/guests', async (req, res) => {
                 .select('*', { count: 'exact', head: true })
                 .eq('event_id', eventId);
 
-            if (countError) throw countError;
+            if (countError) {
+                console.error(`❌ [POST /api/guests] Error checking guest count:`, countError);
+                throw countError;
+            }
 
             const limitCheck = checkLimit({
                 plan: userPlan || DEFAULT_PLAN,
@@ -879,6 +895,7 @@ app.post('/api/guests', async (req, res) => {
             });
 
             if (!limitCheck.allowed) {
+                console.warn(`⚠️ [POST /api/guests] Limit reached for event ${eventId}: ${count}/${limitCheck.limit}`);
                 return res.status(403).json({
                     error: limitCheck.reason,
                     limitReached: true,
@@ -886,6 +903,12 @@ app.post('/api/guests', async (req, res) => {
                     limit: limitCheck.limit
                 });
             }
+        }
+
+        // Validate guest object
+        if (!guest || !guest.name) {
+            console.error(`❌ [POST /api/guests] Invalid guest data:`, guest);
+            return res.status(400).json({ error: "Guest name is required" });
         }
 
         // 2. Insert Guest
@@ -904,8 +927,15 @@ app.post('/api/guests', async (req, res) => {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error(`❌ [POST /api/guests] Supabase insert error:`, error);
+            throw error;
+        }
+
+        console.log(`✅ [POST /api/guests] Guest created: ${newGuest.id}`);
         res.json({ success: true, id: newGuest.id });
+
+
     } catch (error) {
         console.error("❌ Error creating guest:", error);
         res.status(500).json({ error: error.message });
@@ -916,6 +946,13 @@ app.put('/api/guests/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { guest } = req.body;
+
+        if (!guest) {
+            console.error(`❌ [PUT /api/guests] Missing guest data for ID: ${id}`);
+            return res.status(400).json({ error: "Missing guest data" });
+        }
+
+        console.log(`📝 [PUT /api/guests] Updating guest ${id}:`, guest.name);
 
         const updates = {};
         if (guest.name) updates.name = guest.name;
@@ -931,9 +968,15 @@ app.put('/api/guests/:id', async (req, res) => {
             .update(updates)
             .eq('id', id);
 
-        if (error) throw error;
+        if (error) {
+            console.error(`❌ [PUT /api/guests] Update error for ${id}:`, error);
+            throw error;
+        }
+
+        console.log(`✅ [PUT /api/guests] Guest updated: ${id}`);
         res.json({ success: true });
     } catch (error) {
+        console.error("❌ Error updating guest:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -942,6 +985,7 @@ app.patch('/api/guests/:id/rsvp', async (req, res) => {
     try {
         const { id } = req.params;
         const { status, confirmed, companionNames } = req.body;
+        console.log(`📝 [PATCH /api/guests/rsvp] RSVP update for ${id}:`, { status });
 
         const updates = {};
         if (status) updates.status = status;
@@ -953,7 +997,10 @@ app.patch('/api/guests/:id/rsvp', async (req, res) => {
             .update(updates)
             .eq('id', id);
 
-        if (error) throw error;
+        if (error) {
+            console.error(`❌ [PATCH /api/guests] RSVP update error for ${id}:`, error);
+            throw error;
+        }
         res.json({ success: true });
     } catch (error) {
         console.error("❌ RSVP Error:", error);
