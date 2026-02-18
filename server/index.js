@@ -625,19 +625,27 @@ app.get('/api/events', async (req, res) => {
                     console.error(`[GET /api/events] Error fetching events for user ${user.id}:`, eventsError);
                     throw eventsError;
                 }
-                console.log(`[GET /api/events] Found ${eventData?.length || 0} events for user ${user.id}`);
+                const eventCount = eventData?.length || 0;
+                console.log(`[GET /api/events] Found ${eventCount} events for user ${user.id}`);
 
-                events = eventData.map(ev => ({
-                    ...mapEventFromSupabase(ev),
-                    ownerPlan: user.plan || DEFAULT_PLAN,
-                    permissions: {
-                        access_invitados: true,
-                        access_mesas: true,
-                        access_link: true,
-                        access_fotowall: true,
-                        access_games: true
+                events = (eventData || []).map(ev => {
+                    try {
+                        return {
+                            ...mapEventFromSupabase(ev),
+                            ownerPlan: user.plan || DEFAULT_PLAN,
+                            permissions: {
+                                access_invitados: true,
+                                access_mesas: true,
+                                access_link: true,
+                                access_fotowall: true,
+                                access_games: true
+                            }
+                        };
+                    } catch (e) {
+                        console.error(`[GET /api/events] Error mapping event ${ev.id}:`, e);
+                        return null; // Filter out bad events
                     }
-                }));
+                }).filter(Boolean);
             } else {
                 console.warn(`[GET /api/events] User not found in 'users' table for email: ${email}`);
                 // Attempt to find user by email in auth.users if needed, or just return empty
