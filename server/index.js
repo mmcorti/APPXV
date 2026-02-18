@@ -7,7 +7,7 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { checkLimit, isAdmin, DEFAULT_PLAN } from './planLimits.js';
+import { checkLimit, isAdmin, DEFAULT_PLAN, getUsageSummary } from './planLimits.js';
 import bcrypt from 'bcryptjs';
 import { supabase, TABLES } from './supabase.js';
 import { googlePhotosService } from './services/googlePhotos.js';
@@ -428,11 +428,12 @@ app.get('/api/auth/google/callback', async (req, res) => {
         console.log('[GOOGLE AUTH] User profile:', profile.email, profile.name);
 
         // Check if user exists in public.users by email
+        const userEmail = profile.email.toLowerCase();
         const { data: existingUser } = await supabase
             .from(TABLES.USERS)
             .select('*')
-            .eq('email', profile.email)
-            .single();
+            .eq('email', userEmail)
+            .maybeSingle();
 
         let userId, userName, userPlan;
 
@@ -453,19 +454,57 @@ app.get('/api/auth/google/callback', async (req, res) => {
             // New user - create via Supabase Auth + public.users
             console.log('[GOOGLE AUTH] Creating new user...');
             const randomPassword = crypto.randomBytes(32).toString('hex');
+
+            // Try to create auth user, or get existing if already registered
+            let authId;
             const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-                email: profile.email,
+                email: userEmail,
                 password: randomPassword,
                 email_confirm: true
             });
 
-            if (authError) throw authError;
+            if (authError) {
+                if (authError.message?.includes('already registered')) {
+                    // User exists in Auth but not in public.users - fetch ID
+                    console.log('[GOOGLE AUTH] User already in Auth, fetching ID...');
+                    const { data: existingAuthUser } = await supabase.from('users').select('id').eq('email', userEmail).maybeSingle();
+                    // Actually we can't easily get auth ID if not in public users without using listUsers which is heavy, 
+                    // OR we assume they are in public.users if they are in Auth. But we just checked public.users and they weren't there.
+                    // A better way is to rely on the fact that if they are in Auth, we can't get their ID easily without login.
+                    // BUT, we can try to "recover" by just ignoring the error and trying to find them? No.
+                    // If they are in Auth, they have an ID.
+                    // Let's try to search by email in 'users' again? No we did that.
+                    // We can use listUsers with filter?
+                    // For now, let's assume if they are in Auth, we might have a data sync issue. 
+                    // We will try to upsert to public.users using the email as key if possible? No, ID is PK.
+
+                    // WORKAROUND: If auth exists, we might need to ask user to login via password? 
+                    // Or we can try to find them in public.users again? No.
+
+                    // Let's log deeply.
+                    console.error('[GOOGLE AUTH] User in Auth but not public.users. syncing...');
+                    // Try to get user by email from admin API
+                    const { data: { users } } = await supabase.auth.admin.listUsers();
+                    const found = users.find(u => u.email === userEmail);
+                    if (found) {
+                        authId = found.id;
+                    } else {
+                        throw authError;
+                    }
+                } else {
+                    throw authError;
+                }
+            } else {
+                authId = authUser.user.id;
+            }
+
+            if (!authId) throw new Error("Could not obtain User ID");
 
             await supabase
                 .from(TABLES.USERS)
                 .upsert({
-                    id: authUser.user.id,
-                    email: profile.email,
+                    id: authId,
+                    email: userEmail,
                     username: profile.name,
                     role: 'subscriber',
                     plan: 'freemium',
@@ -473,7 +512,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
                     avatar_url: profile.picture || null
                 });
 
-            userId = authUser.user.id;
+            userId = authId;
             userName = profile.name;
             userPlan = 'freemium';
         }
@@ -571,17 +610,21 @@ app.get('/api/events', async (req, res) => {
             }
         } else if (email) {
             // 2. Fetch own events (Owner)
+            const userEmail = email.toLowerCase();
             // First get user ID
-            const { data: user } = await supabase.from('users').select('id, plan').eq('email', email).single();
+            const { data: user } = await supabase.from('users').select('id, plan').eq('email', userEmail).maybeSingle();
 
             if (user) {
-                console.log(`[GET /api/events] Fetching for owner ID: ${user.id} (${email})`);
+                console.log(`[GET /api/events] Fetching events for owner ID: ${user.id} (${userEmail})`);
                 const { data: eventData, error: eventsError } = await supabase
                     .from('events')
                     .select('*, fotowall_configs(*)')
                     .eq('creator_id', user.id);
 
-                if (eventsError) throw eventsError;
+                if (eventsError) {
+                    console.error(`[GET /api/events] Error fetching events for user ${user.id}:`, eventsError);
+                    throw eventsError;
+                }
                 console.log(`[GET /api/events] Found ${eventData?.length || 0} events for user ${user.id}`);
 
                 events = eventData.map(ev => ({
@@ -595,6 +638,9 @@ app.get('/api/events', async (req, res) => {
                         access_games: true
                     }
                 }));
+            } else {
+                console.warn(`[GET /api/events] User not found in 'users' table for email: ${email}`);
+                // Attempt to find user by email in auth.users if needed, or just return empty
             }
         }
 
@@ -641,8 +687,12 @@ app.post('/api/events', async (req, res) => {
         console.log(`📝 [DEBUG] Creating event: ${eventName} for ${userEmail}`);
 
         // 1. Get User ID
-        const { data: user } = await supabase.from('users').select('id, plan').eq('email', userEmail).single();
-        if (!user) throw new Error("User not found");
+        const email = userEmail.toLowerCase();
+        const { data: user } = await supabase.from('users').select('id, plan').eq('email', email).maybeSingle();
+        if (!user) {
+            console.error(`❌ User not found for email: ${email} (original: ${userEmail})`);
+            return res.status(404).json({ error: "User not found" });
+        }
 
         // 2. Check Limits
         if (!isAdmin(userRole)) {
@@ -1861,16 +1911,24 @@ app.get('/api/usage-summary', async (req, res) => {
             return res.status(400).json({ error: 'email is required' });
         }
 
+        const userEmail = email.toLowerCase();
+
         // 1. Get user profile from Supabase
         const { data: user, error: userError } = await supabase
             .from('users')
             .select('id, plan')
-            .eq('email', email)
-            .single();
+            .eq('email', userEmail)
+            .maybeSingle();
 
         if (userError || !user) {
-            console.warn(`⚠️ User profile not found for usage summary: ${email}`);
-            return res.json(getUsageSummary({ events: 0 }, plan || DEFAULT_PLAN));
+            console.warn(`⚠️ User profile not found for usage summary: ${userEmail} (original: ${email})`);
+            return res.json({
+                events: { current: 0, limit: 1, display: '0/1' }, // Fallback default
+                guests: { current: 0, limit: 10, display: '0/10' },
+                staffRoster: { current: 0, limit: 0, display: '0/0' },
+                plan: plan || DEFAULT_PLAN,
+                aiFeatures: false
+            });
         }
 
         const detectedPlan = user.plan || plan || DEFAULT_PLAN;
