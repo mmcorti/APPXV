@@ -1198,25 +1198,33 @@ app.get('/api/tables', async (req, res) => {
             tableGuests.forEach(g => {
                 // Add main guest
                 flattenedGuests.push({
-                    id: g.id,
+                    guestId: g.id,
+                    companionIndex: -1,
                     name: g.name,
-                    type: 'main',
-                    confirmed: g.status === 'confirmed'
+                    status: g.status || 'pending',
+                    avatar: g.avatar // if exists
                 });
 
                 // Add companions
-                if (g.companion_names && typeof g.companion_names === 'object') {
-                    Object.values(g.companion_names).flat().forEach((name, idx) => {
-                        if (name && typeof name === 'string' && name.trim() !== '') {
-                            flattenedGuests.push({
-                                id: `${g.id}-c-${idx}`, // unique ID for frontend
-                                name: name,
-                                type: 'companion',
-                                confirmed: g.status === 'confirmed'
-                            });
-                        }
-                    });
-                }
+                // Ensure stable order: adults, teens, kids, infants
+                const companions = g.companion_names || {};
+                const allCompanions = [
+                    ...(companions.adults || []),
+                    ...(companions.teens || []),
+                    ...(companions.kids || []),
+                    ...(companions.infants || [])
+                ];
+
+                allCompanions.forEach((name, idx) => {
+                    if (name && typeof name === 'string' && name.trim() !== '') {
+                        flattenedGuests.push({
+                            guestId: g.id,
+                            companionIndex: idx,
+                            name: name,
+                            status: g.status || 'pending'
+                        });
+                    }
+                });
             });
 
             return {
@@ -1230,7 +1238,7 @@ app.get('/api/tables', async (req, res) => {
 
         res.json(tables);
     } catch (error) {
-        console.error("Error fetching tables:", error);
+        console.error("❌ [GET /api/tables] Error fetching tables:", error);
         res.status(500).json({ error: error.message });
     }
 });
