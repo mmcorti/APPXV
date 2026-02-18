@@ -497,9 +497,8 @@ const App: React.FC = () => {
     if (publicMatch && !user && invitations.length === 0) {
       setLoading(true);
       const eventId = publicMatch[1];
-      notionService.getEvents()
-        .then(async (events) => {
-          const event = events.find(e => e.id === eventId);
+      notionService.getEvent(eventId)
+        .then(async (event) => {
           if (event) {
             const guests = await notionService.getGuests(event.id);
             const tables = await notionService.getTables(event.id);

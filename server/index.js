@@ -537,6 +537,7 @@ const mapEventFromSupabase = (ev) => {
 app.get('/api/events', async (req, res) => {
     try {
         const { email, staffId } = req.query;
+        console.log(`[GET /api/events] Request for email: ${email}, staffId: ${staffId}`);
         let events = [];
 
         if (staffId) {
@@ -574,12 +575,14 @@ app.get('/api/events', async (req, res) => {
             const { data: user } = await supabase.from('users').select('id, plan').eq('email', email).single();
 
             if (user) {
+                console.log(`[GET /api/events] Fetching for owner ID: ${user.id} (${email})`);
                 const { data: eventData, error: eventsError } = await supabase
                     .from('events')
                     .select('*, fotowall_configs(*)')
                     .eq('creator_id', user.id);
 
                 if (eventsError) throw eventsError;
+                console.log(`[GET /api/events] Found ${eventData?.length || 0} events for user ${user.id}`);
 
                 events = eventData.map(ev => ({
                     ...mapEventFromSupabase(ev),
@@ -598,6 +601,36 @@ app.get('/api/events', async (req, res) => {
         res.json(events);
     } catch (error) {
         console.error("❌ Error fetching events:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET Single Event (Public access for RSVP)
+app.get('/api/events/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data: event, error } = await supabase
+            .from('events')
+            .select('*, fotowall_configs(*), creator:users(plan)')
+            .eq('id', id)
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST116') {
+                return res.status(404).json({ error: 'Event not found' });
+            }
+            throw error;
+        }
+
+        const mappedEvent = {
+            ...mapEventFromSupabase(event),
+            ownerPlan: event.creator?.plan || DEFAULT_PLAN,
+            permissions: {} // Public access has no specific staff permissions
+        };
+
+        res.json(mappedEvent);
+    } catch (error) {
+        console.error("❌ Error fetching event:", error);
         res.status(500).json({ error: error.message });
     }
 });
