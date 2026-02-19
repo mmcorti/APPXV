@@ -84,6 +84,10 @@ export const bingoService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ theme, count }),
         });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Error del servidor' }));
+            throw new Error(errorData.error || `Server error: ${response.status}`);
+        }
         return response.json();
     },
 
@@ -198,7 +202,7 @@ export const bingoService = {
 
     getPlayerCount: async (eventId: string): Promise<number> => {
         const state = await bingoService.getState(eventId);
-        return Object.keys(state.players).length;
+        return Object.values(state.players).filter((p: any) => p.online !== false).length;
     },
 
     createInitialState,

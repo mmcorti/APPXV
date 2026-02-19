@@ -261,12 +261,13 @@ app.post('/api/login', async (req, res) => {
                 const a = assignments[0];
                 staffEventId = a.event_id;
                 const p = a.permissions || {};
+                // Handle both legacy keys and new access_ prefix keys from types.ts
                 staffPermissions = {
-                    access_invitados: p.invitados || false,
-                    access_mesas: p.mesas || false,
-                    access_link: p.link || false,
-                    access_fotowall: p.fotowall || false,
-                    access_games: p.games || false
+                    access_invitados: p.access_invitados ?? p.invitados ?? false,
+                    access_mesas: p.access_mesas ?? p.mesas ?? false,
+                    access_link: p.access_link ?? p.link ?? false,
+                    access_fotowall: p.access_fotowall ?? p.fotowall ?? false,
+                    access_games: p.access_games ?? p.games ?? false
                 };
             }
 
@@ -1925,7 +1926,14 @@ app.post('/api/staff-roster', async (req, res) => {
         }
 
         // 3. Create or find User
-        const { data: existingUser } = await supabase.from('users').select('id').eq('email', email).single();
+        // Fix: Use maybeSingle() instead of single() to avoid throwing an error if user not found
+        const { data: existingUser, error: checkError } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
+
+        if (checkError) {
+            console.error("â Œ Error checking existing user:", checkError);
+            throw checkError;
+        }
+
         let userId = existingUser?.id;
 
         if (!userId) {
@@ -2020,6 +2028,9 @@ app.post('/api/staff-assignments', async (req, res) => {
                 staff_id: staffId,
                 event_id: eventId,
                 permissions: permissions || {}
+            }, {
+                // Add onConflict to handle updates instead of failing on duplicates
+                onConflict: 'staff_id,event_id'
             })
             .select()
             .single();
@@ -3296,8 +3307,8 @@ app.post('/api/bingo/generate-prompts', async (req, res) => {
         const prompts = await geminiService.generateBingoPrompts(theme, count);
         res.json({ prompts });
     } catch (error) {
-        console.error('Error generating bingo prompts:', error);
-        res.status(500).json({ error: 'Failed to generate prompts' });
+        console.error('❌ Error generating bingo prompts:', error.message, error.stack);
+        res.status(500).json({ error: `Failed to generate prompts: ${error.message}` });
     }
 });
 
@@ -3317,8 +3328,8 @@ app.post('/api/impostor/generate-tasks', async (req, res) => {
         console.log('[Impostor] Generated tasks OK:', { mainPrompt: tasks.mainPrompt.substring(0, 50), impostorPrompt: tasks.impostorPrompt.substring(0, 50) });
         res.json(tasks);
     } catch (error) {
-        console.error('Error generating impostor tasks:', error);
-        res.status(500).json({ error: 'Failed to generate tasks' });
+        console.error('❌ Error generating impostor tasks:', error.message, error.stack);
+        res.status(500).json({ error: `Failed to generate tasks: ${error.message}` });
     }
 });
 

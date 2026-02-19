@@ -52,7 +52,7 @@ const AdminView: React.FC = () => {
   };
 
   const activeQuestion = gameState.questions.find(q => q.id === gameState.currentQuestionId);
-  const totalPlayers = Object.keys(gameState.players).length;
+  const totalPlayers = Object.values(gameState.players).filter((p: any) => p.online !== false).length;
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 p-6 flex flex-col gap-6 max-w-5xl mx-auto">
@@ -64,12 +64,12 @@ const AdminView: React.FC = () => {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
+
         {/* Left Col: Game Controls */}
         <div className="md:col-span-1 space-y-4">
           <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
             <h2 className="text-lg font-semibold mb-3">Live Control</h2>
-            
+
             <div className="flex flex-col gap-3">
               {gameState.status === 'WAITING' && (
                 <button onClick={handleStartGame} className="btn-primary py-3">
@@ -85,22 +85,22 @@ const AdminView: React.FC = () => {
                   </div>
 
                   {!gameState.currentQuestionId ? (
-                     <button onClick={handleNextQuestion} className="btn-primary">
-                        Launch First Question
-                     </button>
+                    <button onClick={handleNextQuestion} className="btn-primary">
+                      Launch First Question
+                    </button>
                   ) : (
                     <>
-                       <button 
-                        onClick={handleReveal} 
+                      <button
+                        onClick={handleReveal}
                         disabled={gameState.isAnswerRevealed}
                         className={`btn-secondary ${gameState.isAnswerRevealed ? 'opacity-50 cursor-not-allowed' : ''}`}
-                       >
-                         {gameState.isAnswerRevealed ? 'Answer Revealed' : 'Reveal Answer'}
-                       </button>
+                      >
+                        {gameState.isAnswerRevealed ? 'Answer Revealed' : 'Reveal Answer'}
+                      </button>
 
-                       <button onClick={handleNextQuestion} className="btn-primary bg-indigo-600 hover:bg-indigo-500">
-                         Next Question &rarr;
-                       </button>
+                      <button onClick={handleNextQuestion} className="btn-primary bg-indigo-600 hover:bg-indigo-500">
+                        Next Question &rarr;
+                      </button>
                     </>
                   )}
 
@@ -119,63 +119,63 @@ const AdminView: React.FC = () => {
           </div>
 
           <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-             <h2 className="text-lg font-semibold mb-2">Stats</h2>
-             <div className="flex justify-between items-center">
-                <span>Active Players:</span>
-                <span className="text-2xl font-mono text-brand-success">{totalPlayers}</span>
-             </div>
+            <h2 className="text-lg font-semibold mb-2">Stats</h2>
+            <div className="flex justify-between items-center">
+              <span>Active Players:</span>
+              <span className="text-2xl font-mono text-brand-success">{totalPlayers}</span>
+            </div>
           </div>
         </div>
 
         {/* Right Col: Question Management */}
         <div className="md:col-span-2 space-y-4">
-           <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-              <h2 className="text-lg font-semibold mb-3">Questions ({gameState.questions.length})</h2>
-              
-              <div className="flex gap-2 mb-4">
-                 <input 
-                    type="text" 
-                    value={newTopic}
-                    onChange={(e) => setNewTopic(e.target.value)}
-                    placeholder="Enter topic (e.g. 'Science 1990s')..."
-                    className="flex-1 bg-gray-900 border border-gray-600 rounded px-3 py-2 focus:outline-none focus:border-brand-primary"
-                 />
-                 <button 
-                    onClick={handleGenerate} 
-                    disabled={isGenerating || !newTopic}
-                    className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-4 py-2 rounded font-medium transition-colors"
-                 >
-                    {isGenerating ? 'AI Thinking...' : 'AI Generate'}
-                 </button>
-              </div>
+          <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
+            <h2 className="text-lg font-semibold mb-3">Questions ({gameState.questions.length})</h2>
 
-              <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
-                 {gameState.questions.map((q, idx) => (
-                    <div 
-                        key={q.id} 
-                        className={`p-3 rounded border ${gameState.currentQuestionId === q.id ? 'border-brand-success bg-brand-success/10' : 'border-gray-700 bg-gray-900'}`}
-                    >
-                        <div className="flex justify-between">
-                            <span className="font-bold text-gray-400 mr-2">#{idx + 1}</span>
-                            <span className="flex-1 font-medium">{q.text}</span>
-                            <span className="text-xs text-gray-500 ml-2">{q.durationSeconds}s</span>
-                        </div>
-                        <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-gray-400">
-                            {q.options.map(opt => (
-                                <span key={opt.key} className={opt.key === q.correctOption ? 'text-brand-success font-bold' : ''}>
-                                    {opt.key}: {opt.text}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                 ))}
-                 {gameState.questions.length === 0 && (
-                    <div className="text-center text-gray-500 py-10">
-                        No questions yet. Use AI to generate some!
-                    </div>
-                 )}
-              </div>
-           </div>
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={newTopic}
+                onChange={(e) => setNewTopic(e.target.value)}
+                placeholder="Enter topic (e.g. 'Science 1990s')..."
+                className="flex-1 bg-gray-900 border border-gray-600 rounded px-3 py-2 focus:outline-none focus:border-brand-primary"
+              />
+              <button
+                onClick={handleGenerate}
+                disabled={isGenerating || !newTopic}
+                className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-4 py-2 rounded font-medium transition-colors"
+              >
+                {isGenerating ? 'AI Thinking...' : 'AI Generate'}
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
+              {gameState.questions.map((q, idx) => (
+                <div
+                  key={q.id}
+                  className={`p-3 rounded border ${gameState.currentQuestionId === q.id ? 'border-brand-success bg-brand-success/10' : 'border-gray-700 bg-gray-900'}`}
+                >
+                  <div className="flex justify-between">
+                    <span className="font-bold text-gray-400 mr-2">#{idx + 1}</span>
+                    <span className="flex-1 font-medium">{q.text}</span>
+                    <span className="text-xs text-gray-500 ml-2">{q.durationSeconds}s</span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-gray-400">
+                    {q.options.map(opt => (
+                      <span key={opt.key} className={opt.key === q.correctOption ? 'text-brand-success font-bold' : ''}>
+                        {opt.key}: {opt.text}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {gameState.questions.length === 0 && (
+                <div className="text-center text-gray-500 py-10">
+                  No questions yet. Use AI to generate some!
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
       </div>

@@ -5,6 +5,18 @@ const IMAGE_MODEL = 'gemini-2.0-flash';
 const TEXT_MODEL = 'gemini-2.0-flash';
 
 /**
+ * Helper: clean AI JSON response that might be wrapped in markdown code fences
+ */
+function cleanJsonResponse(text) {
+    let cleaned = text.trim();
+    // Strip markdown code fences: ```json ... ``` or ``` ... ```
+    if (cleaned.startsWith('```')) {
+        cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/, '');
+    }
+    return cleaned;
+}
+
+/**
  * Generate an image using Gemini API
  * @param {string} prompt - The image generation prompt
  * @returns {Promise<string>} - Base64 data URL of the generated image
@@ -159,11 +171,14 @@ export async function generateTriviaQuestions(theme, count = 5) {
 
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
-        console.log('[GeminiService] AI Response received');
+        console.log('[GeminiService] AI Trivia raw response length:', responseText.length);
 
-        return JSON.parse(responseText);
+        const cleaned = cleanJsonResponse(responseText);
+        const parsed = JSON.parse(cleaned);
+        console.log('[GeminiService] AI Trivia parsed', Array.isArray(parsed) ? parsed.length : 0, 'questions');
+        return parsed;
     } catch (error) {
-        console.error('[GeminiService] Question generation error:', error.message);
+        console.error('[GeminiService] Question generation error:', error.message, error.stack);
         throw error;
     }
 }
@@ -205,11 +220,14 @@ export async function generateBingoPrompts(theme, count = 9) {
 
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
-        console.log('[GeminiService] AI Bingo Response received');
+        console.log('[GeminiService] AI Bingo raw response length:', responseText.length);
 
-        return JSON.parse(responseText);
+        const cleaned = cleanJsonResponse(responseText);
+        const parsed = JSON.parse(cleaned);
+        console.log('[GeminiService] AI Bingo parsed', Array.isArray(parsed) ? parsed.length : 0, 'prompts');
+        return parsed;
     } catch (error) {
-        console.error('[GeminiService] Bingo generation error:', error.message);
+        console.error('[GeminiService] Bingo generation error:', error.message, error.stack);
         throw error;
     }
 }
@@ -280,7 +298,8 @@ export async function generateImpostorTasks(theme) {
         const responseText = result.response.text();
         console.log('[GeminiService] AI Impostor raw response:', responseText);
 
-        const parsed = JSON.parse(responseText);
+        const cleaned = cleanJsonResponse(responseText);
+        const parsed = JSON.parse(cleaned);
         console.log('[GeminiService] AI Impostor parsed keys:', Object.keys(parsed));
 
         // Defensive key mapping: handle alternative key names the AI might use
@@ -302,7 +321,7 @@ export async function generateImpostorTasks(theme) {
         console.log('[GeminiService] AI Impostor final result:', JSON.stringify(normalized));
         return normalized;
     } catch (error) {
-        console.error('[GeminiService] Impostor generation error:', error.message);
+        console.error('[GeminiService] Impostor generation error:', error.message, error.stack);
         throw error;
     }
 }

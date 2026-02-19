@@ -86,11 +86,57 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
     const invitation = invitations.find(inv => inv.id === id);
 
     useEffect(() => {
-        if (!invitation) return;
-        const confirmedCount = invitation.guests?.filter(g => g.status === 'confirmed').length || 0;
-        const idleCount = confirmedCount > 0 ? Math.floor(confirmedCount * (Math.random() * 0.03 + 0.05)) : 0;
-        setConnectedDevices(idleCount);
-    }, [invitation]);
+        if (!id) return;
+
+        // Subscribe to event SSE to get real connected device count
+        const API_URL = import.meta.env.VITE_API_URL || '/api';
+        const eventSource = new EventSource(`${API_URL}/events/${id}/stream`);
+
+        eventSource.onopen = () => {
+            // We're connected — at least 1 device
+            setConnectedDevices(prev => Math.max(prev, 1));
+        };
+
+        eventSource.addEventListener('CONNECTED_COUNT', (event: any) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (typeof data.count === 'number') {
+                    setConnectedDevices(data.count);
+                }
+            } catch (e) {
+                // ignore parse errors
+            }
+        });
+
+        // Fallback: fetch counts from individual game states
+        const fetchCounts = async () => {
+            try {
+                const [triviaRes, bingoRes] = await Promise.allSettled([
+                    fetch(`${API_URL}/trivia/${id}`).then(r => r.json()),
+                    fetch(`${API_URL}/bingo/${id}`).then(r => r.json()),
+                ]);
+
+                let total = 0;
+                if (triviaRes.status === 'fulfilled' && triviaRes.value?.players) {
+                    total += Object.values(triviaRes.value.players).filter((p: any) => p.online !== false).length;
+                }
+                if (bingoRes.status === 'fulfilled' && bingoRes.value?.players) {
+                    total += Object.values(bingoRes.value.players).filter((p: any) => p.online !== false).length;
+                }
+                setConnectedDevices(total);
+            } catch {
+                // Silently fail
+            }
+        };
+
+        fetchCounts();
+        const interval = setInterval(fetchCounts, 15000); // Refresh every 15s
+
+        return () => {
+            eventSource.close();
+            clearInterval(interval);
+        };
+    }, [id]);
 
     const handleStartGame = (gameId: string) => {
         let path = '';

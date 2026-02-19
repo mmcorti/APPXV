@@ -101,10 +101,12 @@ const EventStaffAssignmentsScreen: React.FC<Props> = ({ user, invitations }) => 
                 setSelectedStaffId('');
                 // Reset permissions if desired
             } else {
-                alert('Error al asignar');
+                const err = await res.json().catch(() => ({}));
+                alert('Error al asignar: ' + (err.error || res.statusText));
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error('Error assigning:', e);
+            alert('Error al asignar: ' + (e.message || 'Error de conexión'));
         }
     };
 
