@@ -57,6 +57,12 @@ export const notionService = {
         return data.user;
     },
 
+    async getEvent(id: string): Promise<InvitationData> {
+        const res = await fetch(`${API_URL}/events/${id}`);
+        if (!res.ok) throw new Error('Failed to fetch event');
+        return await res.json();
+    },
+
     async getEvents(userEmail?: string, staffId?: string): Promise<InvitationData[]> {
         const params = new URLSearchParams();
         if (userEmail) params.append('email', userEmail);

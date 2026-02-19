@@ -89,14 +89,30 @@ const App: React.FC = () => {
     setLoading(true);
     try {
       const events = await notionService.getEvents(userEmail, staffId);
+
       const detailedEvents = await Promise.all(events.map(async (event) => {
-        const guests = await notionService.getGuests(event.id);
-        const tables = await notionService.getTables(event.id);
-        return { ...event, guests, tables };
+        try {
+          const [guests, tables] = await Promise.all([
+            notionService.getGuests(event.id).catch(e => {
+              console.warn(`Failed to fetch guests for event ${event.id}`, e);
+              return [];
+            }),
+            notionService.getTables(event.id).catch(e => {
+              console.warn(`Failed to fetch tables for event ${event.id}`, e);
+              return [];
+            })
+          ]);
+          return { ...event, guests, tables };
+        } catch (err) {
+          console.error(`Error enriching event ${event.id}:`, err);
+          return { ...event, guests: [], tables: [] };
+        }
       }));
+
       setInvitations(detailedEvents);
     } catch (err) {
       console.error("Failed to fetch data:", err);
+      // Even if getEvents fails, we should ensure the UI doesn't hang in loading
     } finally {
       setLoading(false);
     }
@@ -166,11 +182,24 @@ const App: React.FC = () => {
 
   const refreshEventData = async (eventId: string) => {
     try {
-      const [guests, tables] = await Promise.all([
+      const [guestsResult, tablesResult] = await Promise.allSettled([
         notionService.getGuests(eventId),
         notionService.getTables(eventId)
       ]);
-      setInvitations(prev => prev.map(inv => inv.id === eventId ? { ...inv, guests, tables } : inv));
+      const guests = guestsResult.status === 'fulfilled' ? guestsResult.value : undefined;
+      const tables = tablesResult.status === 'fulfilled' ? tablesResult.value : undefined;
+
+      if (guestsResult.status === 'rejected') console.error("❌ Failed to refresh guests:", guestsResult.reason);
+      if (tablesResult.status === 'rejected') console.error("❌ Failed to refresh tables:", tablesResult.reason);
+
+      setInvitations(prev => prev.map(inv => {
+        if (inv.id !== eventId) return inv;
+        return {
+          ...inv,
+          ...(guests !== undefined && { guests }),
+          ...(tables !== undefined && { tables })
+        };
+      }));
     } catch (e) {
       console.error("Refresh failed:", e);
     }
@@ -497,9 +526,8 @@ const App: React.FC = () => {
     if (publicMatch && !user && invitations.length === 0) {
       setLoading(true);
       const eventId = publicMatch[1];
-      notionService.getEvents()
-        .then(async (events) => {
-          const event = events.find(e => e.id === eventId);
+      notionService.getEvent(eventId)
+        .then(async (event) => {
           if (event) {
             const guests = await notionService.getGuests(event.id);
             const tables = await notionService.getTables(event.id);
