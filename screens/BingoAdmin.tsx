@@ -158,7 +158,7 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
     }
 
     const pendingSubmissions = state.submissions.filter(s => s.status === 'PENDING');
-    const playerCount = Object.keys(state.players).length;
+    const playerCount = Object.values(state.players).filter((p: any) => p.online !== false).length;
 
     return (
         <div className="min-h-screen bg-gray-50 text-slate-800 font-sans">

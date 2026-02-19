@@ -3296,8 +3296,8 @@ app.post('/api/bingo/generate-prompts', async (req, res) => {
         const prompts = await geminiService.generateBingoPrompts(theme, count);
         res.json({ prompts });
     } catch (error) {
-        console.error('Error generating bingo prompts:', error);
-        res.status(500).json({ error: 'Failed to generate prompts' });
+        console.error('❌ Error generating bingo prompts:', error.message, error.stack);
+        res.status(500).json({ error: `Failed to generate prompts: ${error.message}` });
     }
 });
 
@@ -3317,8 +3317,8 @@ app.post('/api/impostor/generate-tasks', async (req, res) => {
         console.log('[Impostor] Generated tasks OK:', { mainPrompt: tasks.mainPrompt.substring(0, 50), impostorPrompt: tasks.impostorPrompt.substring(0, 50) });
         res.json(tasks);
     } catch (error) {
-        console.error('Error generating impostor tasks:', error);
-        res.status(500).json({ error: 'Failed to generate tasks' });
+        console.error('❌ Error generating impostor tasks:', error.message, error.stack);
+        res.status(500).json({ error: `Failed to generate tasks: ${error.message}` });
     }
 });
 
