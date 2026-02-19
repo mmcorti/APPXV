@@ -1,4 +1,4 @@
-console.log('🏁 [STARTUP] server/index.js is being loaded...');
+console.log('ðŸ [STARTUP] server/index.js is being loaded...');
 import dotenv from 'dotenv';
 dotenv.config();
 dotenv.config({ path: '.env.local', override: true });
@@ -37,13 +37,13 @@ console.log('---------------------------');
 
 // Global Error Handlers to prevent silent crashes
 process.on('uncaughtException', (err) => {
-    console.error('🔥 CRITICAL: Uncaught Exception:', err);
+    console.error('ðŸ”¥ CRITICAL: Uncaught Exception:', err);
     // Don't exit immediately in Cloud Run to allow logs to flush
     setTimeout(() => process.exit(1), 1000);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('🔥 CRITICAL: Unhandled Rejection at:', promise, 'reason:', reason);
+    console.error('ðŸ”¥ CRITICAL: Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 // Debug helper (keep existing if needed)
@@ -54,8 +54,9 @@ process.on('unhandledRejection', (reason, promise) => {
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, '../dist')));
 
-app.get('/', (req, res) => {
-    res.send('Fiesta Planner API is Running');
+// Health check - only responds when no static frontend is built
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.get('/api/debug-mapping', async (req, res) => {
@@ -79,13 +80,13 @@ app.post('/api/upload-image', async (req, res) => {
             return res.status(400).json({ error: 'No image provided' });
         }
 
-        console.log('📸 Uploading image to Cloudinary...');
+        console.log('ðŸ“¸ Uploading image to Cloudinary...');
         const result = await uploadImage(image);
-        console.log('✅ Image uploaded:', result.url);
+        console.log('âœ… Image uploaded:', result.url);
 
         res.json({ success: true, url: result.url, publicId: result.publicId });
     } catch (error) {
-        console.error('❌ Image upload failed:', error);
+        console.error('âŒ Image upload failed:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -105,13 +106,13 @@ app.post('/api/trivia/generate-questions', async (req, res) => {
             return res.status(400).json({ error: 'Theme is required' });
         }
 
-        console.log(`🤖 AI generating ${count || 5} trivia questions for theme: ${theme}`);
+        console.log(`ðŸ¤– AI generating ${count || 5} trivia questions for theme: ${theme}`);
         const questions = await generateTriviaQuestions(theme, count || 5);
-        console.log(`✅ AI generated ${questions.length} questions`);
+        console.log(`âœ… AI generated ${questions.length} questions`);
 
         res.json({ success: true, questions });
     } catch (error) {
-        console.error('❌ AI trivia generation failed:', error);
+        console.error('âŒ AI trivia generation failed:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -123,18 +124,18 @@ app.post('/api/ai/generate-image', async (req, res) => {
             return res.status(400).json({ error: 'No prompt provided' });
         }
 
-        console.log('🎨 AI generating image with prompt:', prompt);
+        console.log('ðŸŽ¨ AI generating image with prompt:', prompt);
         const imageDataUrl = await geminiGenerateImage(prompt);
-        console.log('✅ AI image generated successfully');
+        console.log('âœ… AI image generated successfully');
 
         // Upload to Cloudinary to get a proper URL (Notion can't handle large base64)
-        console.log('📤 Uploading AI image to Cloudinary...');
+        console.log('ðŸ“¤ Uploading AI image to Cloudinary...');
         const cloudinaryResult = await uploadImage(imageDataUrl, 'appxv-ai-images');
-        console.log('✅ AI image uploaded to Cloudinary:', cloudinaryResult.url);
+        console.log('âœ… AI image uploaded to Cloudinary:', cloudinaryResult.url);
 
         res.json({ success: true, image: cloudinaryResult.url });
     } catch (error) {
-        console.error('❌ AI image generation failed:', error);
+        console.error('âŒ AI image generation failed:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -148,27 +149,27 @@ app.post('/api/ai/edit-image', async (req, res) => {
 
         // If image is a URL, fetch it and convert to base64
         if (image.startsWith('http://') || image.startsWith('https://')) {
-            console.log('🔄 Fetching image from URL for editing...');
+            console.log('ðŸ”„ Fetching image from URL for editing...');
             const response = await fetch(image);
             const arrayBuffer = await response.arrayBuffer();
             const base64 = Buffer.from(arrayBuffer).toString('base64');
             const contentType = response.headers.get('content-type') || 'image/png';
             image = `data:${contentType};base64,${base64}`;
-            console.log('✅ Image fetched and converted to base64');
+            console.log('âœ… Image fetched and converted to base64');
         }
 
-        console.log('🎨 AI editing image with prompt:', prompt);
+        console.log('ðŸŽ¨ AI editing image with prompt:', prompt);
         const editedImageDataUrl = await geminiEditImage(image, prompt);
-        console.log('✅ AI image edited successfully');
+        console.log('âœ… AI image edited successfully');
 
         // Upload to Cloudinary
-        console.log('📤 Uploading edited image to Cloudinary...');
+        console.log('ðŸ“¤ Uploading edited image to Cloudinary...');
         const cloudinaryResult = await uploadImage(editedImageDataUrl, 'appxv-ai-images');
-        console.log('✅ Edited image uploaded to Cloudinary:', cloudinaryResult.url);
+        console.log('âœ… Edited image uploaded to Cloudinary:', cloudinaryResult.url);
 
         res.json({ success: true, image: cloudinaryResult.url });
     } catch (error) {
-        console.error('❌ AI image edit failed:', error);
+        console.error('âŒ AI image edit failed:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -177,7 +178,7 @@ app.post('/api/ai/edit-image', async (req, res) => {
 app.post('/api/login', async (req, res) => {
     const email = req.body.email?.trim();
     const password = req.body.password?.trim();
-    console.log(`🔐 Intentando login para: ${email}`);
+    console.log(`ðŸ” Intentando login para: ${email}`);
 
     try {
         // 1. Find user by email in public.users
@@ -198,13 +199,13 @@ app.post('/api/login', async (req, res) => {
         });
 
         if (authError) {
-            console.log(`❌ Password mismatch for ${email}: ${authError.message}`);
-            return res.status(401).json({ success: false, message: 'Contraseña incorrecta' });
+            console.log(`âŒ Password mismatch for ${email}: ${authError.message}`);
+            return res.status(401).json({ success: false, message: 'ContraseÃ±a incorrecta' });
         }
 
         // 3. Handle based on role
         if (user.role === 'admin') {
-            console.log(`✅ Admin login successful: ${email}`);
+            console.log(`âœ… Admin login successful: ${email}`);
             return res.json({
                 success: true,
                 user: {
@@ -224,7 +225,7 @@ app.post('/api/login', async (req, res) => {
         }
 
         if (user.role === 'subscriber') {
-            console.log(`✅ Subscriber login successful: ${email} (plan: ${user.plan})`);
+            console.log(`âœ… Subscriber login successful: ${email} (plan: ${user.plan})`);
             return res.json({
                 success: true,
                 user: {
@@ -245,7 +246,7 @@ app.post('/api/login', async (req, res) => {
         }
 
         if (user.role === 'staff') {
-            console.log(`✅ Staff login successful: ${email}`);
+            console.log(`âœ… Staff login successful: ${email}`);
 
             // Fetch first staff assignment for permissions + eventId
             let staffPermissions = {};
@@ -286,7 +287,7 @@ app.post('/api/login', async (req, res) => {
         return res.status(401).json({ success: false, message: 'Rol de usuario no reconocido' });
 
     } catch (error) {
-        console.error("❌ Error en Login:", error);
+        console.error("âŒ Error en Login:", error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -294,7 +295,7 @@ app.post('/api/login', async (req, res) => {
 // --- REGISTER ---
 app.post('/api/register', async (req, res) => {
     const { username, name, email, password, captchaToken } = req.body;
-    console.log(`📝 Registration attempt for username: ${username}`);
+    console.log(`ðŸ“ Registration attempt for username: ${username}`);
 
     try {
         // 1. Validate required fields
@@ -304,11 +305,11 @@ app.post('/api/register', async (req, res) => {
 
         const usernameRegex = /^[a-zA-Z0-9._]{3,30}$/;
         if (!usernameRegex.test(username)) {
-            return res.status(400).json({ success: false, message: 'El usuario debe tener entre 3 y 30 caracteres (letras, números, puntos y guiones bajos)' });
+            return res.status(400).json({ success: false, message: 'El usuario debe tener entre 3 y 30 caracteres (letras, nÃºmeros, puntos y guiones bajos)' });
         }
 
         if (password.length < 8) {
-            return res.status(400).json({ success: false, message: 'La contraseña debe tener al menos 8 caracteres' });
+            return res.status(400).json({ success: false, message: 'La contraseÃ±a debe tener al menos 8 caracteres' });
         }
 
         // 2. Verify reCAPTCHA v3 token
@@ -321,12 +322,12 @@ app.post('/api/register', async (req, res) => {
                     body: `secret=${recaptchaSecret}&response=${captchaToken}`
                 });
                 const captchaResult = await captchaResponse.json();
-                console.log(`🤖 reCAPTCHA score: ${captchaResult.score}`);
+                console.log(`ðŸ¤– reCAPTCHA score: ${captchaResult.score}`);
                 if (!captchaResult.success || captchaResult.score < 0.5) {
-                    return res.status(403).json({ success: false, message: 'Verificación de seguridad fallida. Intenta de nuevo.' });
+                    return res.status(403).json({ success: false, message: 'VerificaciÃ³n de seguridad fallida. Intenta de nuevo.' });
                 }
             } catch (captchaError) {
-                console.warn('⚠️ reCAPTCHA verification failed, proceeding anyway:', captchaError.message);
+                console.warn('âš ï¸ reCAPTCHA verification failed, proceeding anyway:', captchaError.message);
             }
         }
 
@@ -341,7 +342,7 @@ app.post('/api/register', async (req, res) => {
             .limit(1);
 
         if (existing && existing.length > 0) {
-            return res.status(409).json({ success: false, message: 'Este nombre de usuario ya está registrado. Elige otro.' });
+            return res.status(409).json({ success: false, message: 'Este nombre de usuario ya estÃ¡ registrado. Elige otro.' });
         }
 
         // 5. Create user in Supabase Auth
@@ -352,7 +353,7 @@ app.post('/api/register', async (req, res) => {
         });
 
         if (authError) {
-            console.error('❌ Supabase Auth createUser error:', authError);
+            console.error('âŒ Supabase Auth createUser error:', authError);
             return res.status(500).json({ success: false, message: authError.message });
         }
 
@@ -368,7 +369,7 @@ app.post('/api/register', async (req, res) => {
                 recovery_email: email || null
             });
 
-        console.log(`✅ New user registered: ${appxvEmail} (ID: ${authUser.user.id})`);
+        console.log(`âœ… New user registered: ${appxvEmail} (ID: ${authUser.user.id})`);
 
         return res.json({
             success: true,
@@ -389,7 +390,7 @@ app.post('/api/register', async (req, res) => {
         });
 
     } catch (error) {
-        console.error("❌ Error en Registro:", error);
+        console.error("âŒ Error en Registro:", error);
         res.status(500).json({ success: false, message: error.message || 'Error interno del servidor' });
     }
 });
@@ -654,7 +655,7 @@ app.get('/api/events', async (req, res) => {
 
         res.json(events);
     } catch (error) {
-        console.error("❌ Error fetching events:", error);
+        console.error("âŒ Error fetching events:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -684,7 +685,7 @@ app.get('/api/events/:id', async (req, res) => {
 
         res.json(mappedEvent);
     } catch (error) {
-        console.error("❌ Error fetching event:", error);
+        console.error("âŒ Error fetching event:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -692,13 +693,13 @@ app.get('/api/events/:id', async (req, res) => {
 app.post('/api/events', async (req, res) => {
     try {
         const { eventName, date, location, message, image, userEmail, time, hostName, giftType, giftDetail, userPlan, userRole } = req.body;
-        console.log(`📝 [DEBUG] Creating event: ${eventName} for ${userEmail}`);
+        console.log(`ðŸ“ [DEBUG] Creating event: ${eventName} for ${userEmail}`);
 
         // 1. Get User ID
         const email = userEmail.toLowerCase();
         const { data: user } = await supabase.from('users').select('id, plan').eq('email', email).maybeSingle();
         if (!user) {
-            console.error(`❌ User not found for email: ${email} (original: ${userEmail})`);
+            console.error(`âŒ User not found for email: ${email} (original: ${userEmail})`);
             return res.status(404).json({ error: "User not found" });
         }
 
@@ -755,7 +756,7 @@ app.post('/api/events', async (req, res) => {
 
         res.json({ success: true, id: newEvent.id });
     } catch (error) {
-        console.error("❌ Error Creating Event:", error);
+        console.error("âŒ Error Creating Event:", error);
         // Provide more context in error for debugging
         const errorMessage = error.message || "Unknown error during event creation";
         res.status(500).json({ error: errorMessage });
@@ -809,7 +810,7 @@ app.put(['/api/events', '/api/events/:id'], async (req, res) => {
 
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error Updating Event:", error);
+        console.error("âŒ Error Updating Event:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -824,32 +825,87 @@ app.delete(['/api/events', '/api/events/:id'], async (req, res) => {
         if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error Deleting Event:", error);
+        console.error("âŒ Error Deleting Event:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 // --- GUESTS ---
+
+// Helper: Convert companion names object â†’ DB format
+// The DB column companion_names is TEXT[] (PostgreSQL array), not JSONB.
+// We store the structured object as a single JSON string inside the array.
+function companionNamesToDb(companionNames) {
+    if (!companionNames) return [];
+    // If it's already an array (legacy), return as-is
+    if (Array.isArray(companionNames)) return companionNames;
+    // Store the object as a JSON-encoded string inside a single-element TEXT[]
+    // This preserves category structure (adults, teens, kids, infants)
+    try {
+        return [JSON.stringify(companionNames)];
+    } catch {
+        return [];
+    }
+}
+
+// Helper: Convert DB format â†’ companion names object for frontend
+function companionNamesFromDb(dbValue, allotted) {
+    const defaultVal = { adults: [], teens: [], kids: [], infants: [] };
+    if (!dbValue) return defaultVal;
+
+    // If it's already an object (JSONB column), return directly
+    if (typeof dbValue === 'object' && !Array.isArray(dbValue)) {
+        return { ...defaultVal, ...dbValue };
+    }
+
+    // If it's a TEXT[] array
+    if (Array.isArray(dbValue)) {
+        // Try to parse first element as JSON (our encoding)
+        if (dbValue.length === 1) {
+            try {
+                const parsed = JSON.parse(dbValue[0]);
+                if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+                    return { ...defaultVal, ...parsed };
+                }
+            } catch { /* not JSON, fall through */ }
+        }
+        // Legacy: flat array of names, distribute based on allotted counts
+        if (dbValue.length === 0) return defaultVal;
+        const a = allotted || { adults: 0, teens: 0, kids: 0, infants: 0 };
+        let idx = 0;
+        const result = { adults: [], teens: [], kids: [], infants: [] };
+        const adultSlots = Math.max(0, (a.adults || 0) - 1); // main guest is first adult
+        for (let i = 0; i < adultSlots && idx < dbValue.length; i++, idx++) result.adults.push(dbValue[idx]);
+        for (let i = 0; i < (a.teens || 0) && idx < dbValue.length; i++, idx++) result.teens.push(dbValue[idx]);
+        for (let i = 0; i < (a.kids || 0) && idx < dbValue.length; i++, idx++) result.kids.push(dbValue[idx]);
+        for (let i = 0; i < (a.infants || 0) && idx < dbValue.length; i++, idx++) result.infants.push(dbValue[idx]);
+        // Any remaining go to adults
+        while (idx < dbValue.length) { result.adults.push(dbValue[idx]); idx++; }
+        return result;
+    }
+
+    return defaultVal;
+}
 app.get('/api/guests', async (req, res) => {
     try {
         const { eventId } = req.query;
-        // console.log(`📝 [GET /api/guests] Fetching guests for event: ${eventId}`); // Verbose log
+        // console.log(`ðŸ“ [GET /api/guests] Fetching guests for event: ${eventId}`); // Verbose log
 
         let query = supabase.from('guests').select('*');
         if (eventId) {
             query = query.eq('event_id', eventId);
         } else {
             // Optional: Limit or warn if no eventId
-            // console.warn("⚠️ [GET /api/guests] No eventId provided, fetching all guests!");
+            // console.warn("âš ï¸ [GET /api/guests] No eventId provided, fetching all guests!");
         }
 
         const { data: guestsData, error } = await query;
         if (error) {
-            console.error(`❌ [GET /api/guests] Error fetching:`, error);
+            console.error(`âŒ [GET /api/guests] Error fetching:`, error);
             throw error;
         }
 
-        // console.log(`✅ [GET /api/guests] Found ${guestsData?.length || 0} guests`);
+        // console.log(`âœ… [GET /api/guests] Found ${guestsData?.length || 0} guests`);
 
         // Map to frontend structure
         const guests = (guestsData || []).map(g => ({
@@ -859,14 +915,14 @@ app.get('/api/guests', async (req, res) => {
             status: g.status,
             allotted: g.allotted || { adults: 0, teens: 0, kids: 0, infants: 0 },
             confirmed: g.confirmed || { adults: 0, teens: 0, kids: 0, infants: 0 },
-            companionNames: g.companion_names || { adults: [], teens: [], kids: [], infants: [] },
+            companionNames: companionNamesFromDb(g.companion_names, g.allotted),
             sent: g.invitation_sent,
             tableId: g.assigned_table_id // distinct from Notion relation, but useful?
         }));
 
         res.json(guests);
     } catch (error) {
-        console.error("❌ Error fetching guests:", error);
+        console.error("âŒ Error fetching guests:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -874,7 +930,7 @@ app.get('/api/guests', async (req, res) => {
 app.post('/api/guests', async (req, res) => {
     try {
         const { eventId, guest, userPlan, userRole } = req.body;
-        console.log(`📝 [POST /api/guests] Creating guest for event ${eventId}:`, guest.name);
+        console.log(`ðŸ“ [POST /api/guests] Creating guest for event ${eventId}:`, guest.name);
 
         // 1. Check Limits
         if (!isAdmin(userRole)) {
@@ -884,7 +940,7 @@ app.post('/api/guests', async (req, res) => {
                 .eq('event_id', eventId);
 
             if (countError) {
-                console.error(`❌ [POST /api/guests] Error checking guest count:`, countError);
+                console.error(`âŒ [POST /api/guests] Error checking guest count:`, countError);
                 throw countError;
             }
 
@@ -895,7 +951,7 @@ app.post('/api/guests', async (req, res) => {
             });
 
             if (!limitCheck.allowed) {
-                console.warn(`⚠️ [POST /api/guests] Limit reached for event ${eventId}: ${count}/${limitCheck.limit}`);
+                console.warn(`âš ï¸ [POST /api/guests] Limit reached for event ${eventId}: ${count}/${limitCheck.limit}`);
                 return res.status(403).json({
                     error: limitCheck.reason,
                     limitReached: true,
@@ -907,7 +963,7 @@ app.post('/api/guests', async (req, res) => {
 
         // Validate guest object
         if (!guest || !guest.name) {
-            console.error(`❌ [POST /api/guests] Invalid guest data:`, guest);
+            console.error(`âŒ [POST /api/guests] Invalid guest data:`, guest);
             return res.status(400).json({ error: "Guest name is required" });
         }
 
@@ -921,23 +977,23 @@ app.post('/api/guests', async (req, res) => {
                 status: guest.status || 'pending',
                 allotted: guest.allotted || {},
                 confirmed: guest.confirmed || {},
-                companion_names: guest.companionNames || {},
+                companion_names: companionNamesToDb(guest.companionNames),
                 invitation_sent: false
             })
             .select()
             .single();
 
         if (error) {
-            console.error(`❌ [POST /api/guests] Supabase insert error:`, error);
+            console.error(`âŒ [POST /api/guests] Supabase insert error:`, error);
             throw error;
         }
 
-        console.log(`✅ [POST /api/guests] Guest created: ${newGuest.id}`);
+        console.log(`âœ… [POST /api/guests] Guest created: ${newGuest.id}`);
         res.json({ success: true, id: newGuest.id });
 
 
     } catch (error) {
-        console.error("❌ Error creating guest:", error);
+        console.error("âŒ Error creating guest:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -948,11 +1004,11 @@ app.put('/api/guests/:id', async (req, res) => {
         const { guest } = req.body;
 
         if (!guest) {
-            console.error(`❌ [PUT /api/guests] Missing guest data for ID: ${id}`);
+            console.error(`âŒ [PUT /api/guests] Missing guest data for ID: ${id}`);
             return res.status(400).json({ error: "Missing guest data" });
         }
 
-        console.log(`📝 [PUT /api/guests] Updating guest ${id}:`, guest.name);
+        console.log(`ðŸ“ [PUT /api/guests] Updating guest ${id}:`, guest.name);
 
         const updates = {};
         if (guest.name) updates.name = guest.name;
@@ -960,7 +1016,7 @@ app.put('/api/guests/:id', async (req, res) => {
         if (guest.status) updates.status = guest.status;
         if (guest.allotted) updates.allotted = guest.allotted;
         if (guest.confirmed) updates.confirmed = guest.confirmed;
-        if (guest.companionNames) updates.companion_names = guest.companionNames;
+        if (guest.companionNames) updates.companion_names = companionNamesToDb(guest.companionNames);
         if (guest.sent !== undefined) updates.invitation_sent = guest.sent;
 
         const { error } = await supabase
@@ -969,14 +1025,14 @@ app.put('/api/guests/:id', async (req, res) => {
             .eq('id', id);
 
         if (error) {
-            console.error(`❌ [PUT /api/guests] Update error for ${id}:`, error);
+            console.error(`âŒ [PUT /api/guests] Update error for ${id}:`, error);
             throw error;
         }
 
-        console.log(`✅ [PUT /api/guests] Guest updated: ${id}`);
+        console.log(`âœ… [PUT /api/guests] Guest updated: ${id}`);
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error updating guest:", error);
+        console.error("âŒ Error updating guest:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -985,12 +1041,12 @@ app.patch('/api/guests/:id/rsvp', async (req, res) => {
     try {
         const { id } = req.params;
         const { status, confirmed, companionNames } = req.body;
-        console.log(`📝 [PATCH /api/guests/rsvp] RSVP update for ${id}:`, { status });
+        console.log(`ðŸ“ [PATCH /api/guests/rsvp] RSVP update for ${id}:`, { status });
 
         const updates = {};
         if (status) updates.status = status;
         if (confirmed) updates.confirmed = confirmed;
-        if (companionNames) updates.companion_names = companionNames;
+        if (companionNames) updates.companion_names = companionNamesToDb(companionNames);
 
         const { error } = await supabase
             .from('guests')
@@ -998,12 +1054,12 @@ app.patch('/api/guests/:id/rsvp', async (req, res) => {
             .eq('id', id);
 
         if (error) {
-            console.error(`❌ [PATCH /api/guests] RSVP update error for ${id}:`, error);
+            console.error(`âŒ [PATCH /api/guests] RSVP update error for ${id}:`, error);
             throw error;
         }
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ RSVP Error:", error);
+        console.error("âŒ RSVP Error:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1054,7 +1110,7 @@ app.get('/api/subscribers', async (req, res) => {
 
         res.json(subscribers);
     } catch (error) {
-        console.error("❌ Error fetching subscribers:", error);
+        console.error("âŒ Error fetching subscribers:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1124,7 +1180,7 @@ app.post('/api/subscribers', async (req, res) => {
 
         res.json({ success: true, id: newAssign.id });
     } catch (error) {
-        console.error("❌ Error creating staff:", error);
+        console.error("âŒ Error creating staff:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1171,77 +1227,109 @@ app.get('/api/tables', async (req, res) => {
         const { eventId } = req.query;
         if (!eventId) return res.status(400).json({ error: "Missing eventId" });
 
-        // 1. Get Tables
+        // 1. Get Tables (including their assignments JSONB)
         const { data: tablesData, error: tablesError } = await supabase
             .from('tables')
             .select('*')
             .eq('event_id', eventId)
-            .order('order', { ascending: true });
+            .order('sort_order', { ascending: true });
 
         if (tablesError) throw tablesError;
 
-        // 2. Get Guests for these tables
+        // 2. Get all Guests for this event
         const { data: guestsData, error: guestsError } = await supabase
             .from('guests')
             .select('*')
-            .eq('event_id', eventId)
-            .not('assigned_table_id', 'is', null);
+            .eq('event_id', eventId);
 
         if (guestsError) throw guestsError;
 
-        // 3. Map guests to tables
-        const tables = tablesData.map(t => {
-            const tableGuests = guestsData.filter(g => g.assigned_table_id === t.id);
+        // Build a guest lookup map by ID
+        const guestMap = {};
+        (guestsData || []).forEach(g => { guestMap[g.id] = g; });
 
-            // Flatten guests (handling companions)
-            const flattenedGuests = [];
-            tableGuests.forEach(g => {
-                // Add main guest
-                flattenedGuests.push({
-                    guestId: g.id,
-                    companionIndex: -1,
-                    name: g.name,
-                    status: g.status || 'pending',
-                    avatar: g.avatar // if exists
-                });
+        // Helper: resolve name for a companion by index
+        const resolveCompanionName = (guest, companionIndex) => {
+            const namesObj = companionNamesFromDb(guest.companion_names, guest.allotted);
+            const isConfirmed = guest.status === 'confirmed';
+            const counts = isConfirmed ? guest.confirmed : guest.allotted;
+            const safeCounts = counts || { adults: 0, teens: 0, kids: 0, infants: 0 };
 
-                // Add companions
-                // Ensure stable order: adults, teens, kids, infants
-                const companions = g.companion_names || {};
-                const allCompanions = [
-                    ...(companions.adults || []),
-                    ...(companions.teens || []),
-                    ...(companions.kids || []),
-                    ...(companions.infants || [])
-                ];
+            // Build flat list of companion names in the same order as the frontend
+            const categories = ['adults', 'teens', 'kids', 'infants'];
+            let mainCategory = 'adults';
+            if ((safeCounts.adults || 0) > 0) mainCategory = 'adults';
+            else if ((safeCounts.teens || 0) > 0) mainCategory = 'teens';
+            else if ((safeCounts.kids || 0) > 0) mainCategory = 'kids';
+            else if ((safeCounts.infants || 0) > 0) mainCategory = 'infants';
 
-                allCompanions.forEach((name, idx) => {
-                    if (name && typeof name === 'string' && name.trim() !== '') {
-                        flattenedGuests.push({
-                            guestId: g.id,
-                            companionIndex: idx,
-                            name: name,
-                            status: g.status || 'pending'
-                        });
-                    }
-                });
+            const flatNames = [];
+            const categoryLabels = { adults: 'Adulto', teens: 'Adolescente', kids: 'Nino', infants: 'Bebe' };
+
+            categories.forEach(cat => {
+                const count = safeCounts[cat] || 0;
+                const effectiveCount = (cat === mainCategory) ? Math.max(0, count - 1) : count;
+                const catNames = (namesObj[cat] || []).filter(
+                    n => n && n.trim().toLowerCase() !== guest.name.trim().toLowerCase()
+                );
+                for (let i = 0; i < effectiveCount; i++) {
+                    const suppliedName = catNames[i] || "";
+                    const displayName = suppliedName.trim() ? suppliedName : `${categoryLabels[cat]} ${i + 1} - ${guest.name}`;
+                    flatNames.push(displayName);
+                }
+            });
+
+            return flatNames[companionIndex] || `Acompanante ${companionIndex + 1}`;
+        };
+
+        // 3. Build table response using assignments JSONB from each table
+        const result = (tablesData || []).map(t => {
+            const tableAssignments = t.assignments || [];
+            const guests = [];
+
+            tableAssignments.forEach(a => {
+                const guest = guestMap[a.guestId];
+                if (!guest) return; // Guest was deleted, skip
+
+                const compIdx = a.companionIndex ?? -1;
+
+                if (compIdx === -1) {
+                    // Main guest
+                    guests.push({
+                        guestId: guest.id,
+                        companionIndex: -1,
+                        name: guest.name,
+                        status: guest.status || 'pending',
+                        avatar: guest.avatar
+                    });
+                } else {
+                    // Companion
+                    const name = resolveCompanionName(guest, compIdx);
+                    guests.push({
+                        guestId: guest.id,
+                        companionIndex: compIdx,
+                        name: name,
+                        status: guest.status || 'pending'
+                    });
+                }
             });
 
             return {
                 id: t.id,
                 name: t.name,
                 capacity: t.capacity || 0,
-                order: t.order !== null ? t.order : 999,
-                guests: flattenedGuests
+                order: t.sort_order !== null ? t.sort_order : 999,
+                guests
             };
         });
 
-        res.json(tables);
+        res.json(result);
     } catch (error) {
-        console.error("❌ [GET /api/tables] Error fetching tables:", error);
+        console.error("Error [GET /api/tables]:", error);
         res.status(500).json({ error: error.message });
     }
 });
+
 
 app.post('/api/tables', async (req, res) => {
     try {
@@ -1258,12 +1346,12 @@ app.post('/api/tables', async (req, res) => {
         // Get max order to append at end
         const { data: maxOrderData } = await supabase
             .from('tables')
-            .select('order')
+            .select('sort_order')
             .eq('event_id', eventId)
-            .order('order', { ascending: false })
+            .order('sort_order', { ascending: false })
             .limit(1);
 
-        const nextOrder = (maxOrderData && maxOrderData.length > 0) ? (maxOrderData[0].order + 1) : 0;
+        const nextOrder = (maxOrderData && maxOrderData.length > 0) ? (maxOrderData[0].sort_order + 1) : 0;
 
         const { data: newTable, error } = await supabase
             .from('tables')
@@ -1271,7 +1359,7 @@ app.post('/api/tables', async (req, res) => {
                 event_id: eventId,
                 name,
                 capacity: Number(capacity) || 10,
-                order: nextOrder
+                sort_order: nextOrder
             })
             .select()
             .single();
@@ -1279,7 +1367,7 @@ app.post('/api/tables', async (req, res) => {
         if (error) throw error;
         res.json({ success: true, id: newTable.id });
     } catch (error) {
-        console.error("❌ Error creating table:", error);
+        console.error("âŒ Error creating table:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1292,7 +1380,7 @@ app.put('/api/tables/:id', async (req, res) => {
         const updates = {};
         if (name) updates.name = name;
         if (capacity !== undefined) updates.capacity = Number(capacity);
-        if (order !== undefined) updates.order = Number(order);
+        if (order !== undefined) updates.sort_order = Number(order);
 
         const { error } = await supabase
             .from('tables')
@@ -1302,7 +1390,7 @@ app.put('/api/tables/:id', async (req, res) => {
         if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error updating table:", error);
+        console.error("âŒ Error updating table:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1314,7 +1402,7 @@ app.patch('/api/tables/reorder', async (req, res) => {
         for (const { tableId, order } of orders) {
             const { error } = await supabase
                 .from('tables')
-                .update({ order: Number(order) })
+                .update({ sort_order: Number(order) })
                 .eq('id', tableId);
             if (error) throw error;
         }
@@ -1327,38 +1415,28 @@ app.patch('/api/tables/reorder', async (req, res) => {
 
 app.patch('/api/tables/:id/guests', async (req, res) => {
     try {
-        const { id } = req.params;
-        const { assignments } = req.body;
+        const { id: tableId } = req.params;
+        const { assignments } = req.body; // Array of { guestId, companionIndex, ... }
 
-        const newGuestIds = [...new Set(assignments.map(a => a.guestId))];
+        console.log(`[PATCH /api/tables/${tableId}/guests] Saving ${assignments?.length} assignments`);
 
-        const { data: currentGuests } = await supabase
-            .from('guests')
-            .select('id')
-            .eq('assigned_table_id', id);
+        // Store only the essential fields in the JSONB column
+        const cleanAssignments = (assignments || []).map(a => ({
+            guestId: String(a.guestId),
+            companionIndex: a.companionIndex ?? -1
+        }));
 
-        const currentGuestIds = currentGuests ? currentGuests.map(g => g.id) : [];
+        // Update the assignments JSONB column on the table record
+        const { error } = await supabase
+            .from('tables')
+            .update({ assignments: cleanAssignments })
+            .eq('id', tableId);
 
-        const toRemove = currentGuestIds.filter(gid => !newGuestIds.includes(gid));
-        const toAdd = newGuestIds.filter(gid => !currentGuestIds.includes(gid));
-
-        if (toRemove.length > 0) {
-            await supabase
-                .from('guests')
-                .update({ assigned_table_id: null })
-                .in('id', toRemove);
-        }
-
-        if (toAdd.length > 0) {
-            await supabase
-                .from('guests')
-                .update({ assigned_table_id: id })
-                .in('id', toAdd);
-        }
+        if (error) throw error;
 
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error updating table guests:", error);
+        console.error("Error updating table guests:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1392,7 +1470,7 @@ app.post('/api/fotowall/validate', async (req, res) => {
         if (photos.length > 0) {
             res.json({ valid: true, count: photos.length, preview: photos[0].src });
         } else {
-            res.json({ valid: false, message: "Álbum vacío o inaccesible" });
+            res.json({ valid: false, message: "Ãlbum vacÃ­o o inaccesible" });
         }
     } catch (error) {
         console.error(`[FOTOWALL] Validate error:`, error.message);
@@ -1812,7 +1890,7 @@ app.get('/api/staff-roster', async (req, res) => {
 
         res.json(formattedRoster);
     } catch (error) {
-        console.error("❌ Error getting staff roster:", error);
+        console.error("âŒ Error getting staff roster:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1839,7 +1917,7 @@ app.post('/api/staff-roster', async (req, res) => {
 
         if (currentCount >= limits.maxStaffRoster) {
             return res.status(403).json({
-                error: `Límite alcanzado: Tu plan ${plan.toUpperCase()} permite hasta ${limits.maxStaffRoster} miembros.`,
+                error: `LÃ­mite alcanzado: Tu plan ${plan.toUpperCase()} permite hasta ${limits.maxStaffRoster} miembros.`,
                 limitReached: true,
                 current: currentCount,
                 limit: limits.maxStaffRoster
@@ -1878,7 +1956,7 @@ app.post('/api/staff-roster', async (req, res) => {
 
         res.json({ success: true, id: userId });
     } catch (error) {
-        console.error("❌ Error creating staff roster member:", error);
+        console.error("âŒ Error creating staff roster member:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1890,7 +1968,7 @@ app.delete('/api/staff-roster/:id', async (req, res) => {
         if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error deleting staff roster:", error);
+        console.error("âŒ Error deleting staff roster:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1927,7 +2005,7 @@ app.get('/api/staff-assignments', async (req, res) => {
 
         res.json(formatted);
     } catch (error) {
-        console.error("❌ Error getting assignments:", error);
+        console.error("âŒ Error getting assignments:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1949,7 +2027,7 @@ app.post('/api/staff-assignments', async (req, res) => {
         if (error) throw error;
         res.json({ success: true, id: newAssign.id });
     } catch (error) {
-        console.error("❌ Error creating assignment:", error);
+        console.error("âŒ Error creating assignment:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1960,7 +2038,7 @@ app.delete('/api/staff-assignments/:id', async (req, res) => {
         if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ Error deleting assignment:", error);
+        console.error("âŒ Error deleting assignment:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1984,7 +2062,7 @@ app.get('/api/usage-summary', async (req, res) => {
             .maybeSingle();
 
         if (userError || !user) {
-            console.warn(`⚠️ User profile not found for usage summary: ${userEmail} (original: ${email})`);
+            console.warn(`âš ï¸ User profile not found for usage summary: ${userEmail} (original: ${email})`);
             return res.json({
                 events: { current: 0, limit: 1, display: '0/1' }, // Fallback default
                 guests: { current: 0, limit: 10, display: '0/10' },
@@ -2023,7 +2101,7 @@ app.get('/api/usage-summary', async (req, res) => {
 
         res.json(summary);
     } catch (error) {
-        console.error("❌ Error getting usage summary:", error);
+        console.error("âŒ Error getting usage summary:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -2091,7 +2169,7 @@ app.get('/api/events/:eventId/expenses', async (req, res) => {
 
         res.json(mapped);
     } catch (error) {
-        console.error("❌ Error fetching expenses:", error);
+        console.error("âŒ Error fetching expenses:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -2151,7 +2229,7 @@ app.post('/api/events/:eventId/expenses', async (req, res) => {
         if (error) throw error;
         res.json({ success: true, id: newExpense.id });
     } catch (error) {
-        console.error("❌ Error creating expense:", error);
+        console.error("âŒ Error creating expense:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -2477,7 +2555,7 @@ app.delete('/api/payments/:id', async (req, res) => {
 app.get('/api/events/:eventId/balances', async (req, res) => {
     try {
         const { eventId } = req.params;
-        console.log('📊 Calculating balances for event:', eventId);
+        console.log('ðŸ“Š Calculating balances for event:', eventId);
 
         // 1. Get Participants
         const { data: participants, error: partError } = await supabase
@@ -2566,7 +2644,7 @@ app.get('/api/events/:eventId/balances', async (req, res) => {
         });
 
     } catch (error) {
-        console.error("❌ Error calculating balances:", error);
+        console.error("âŒ Error calculating balances:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -2612,14 +2690,14 @@ const broadcastTriviaState = (eventId) => {
             console.error('SSE write error:', e);
         }
     });
-    console.log(`📡 [TRIVIA] Broadcast to ${clients.length} clients for event ${eventId.substring(0, 8)}...`);
+    console.log(`ðŸ“¡ [TRIVIA] Broadcast to ${clients.length} clients for event ${eventId.substring(0, 8)}...`);
 };
 
 // SSE endpoint for real-time updates
 app.get('/api/trivia/:eventId/stream', (req, res) => {
     const { eventId } = req.params;
     const { clientId } = req.query; // Track who is connecting
-    console.log(`📡 [TRIVIA SSE] Client ${clientId || 'unknown'} connected for event ${eventId.substring(0, 8)}...`);
+    console.log(`ðŸ“¡ [TRIVIA SSE] Client ${clientId || 'unknown'} connected for event ${eventId.substring(0, 8)}...`);
 
     // SSE headers
     res.writeHead(200, {
@@ -2665,7 +2743,7 @@ app.get('/api/trivia/:eventId/stream', (req, res) => {
 
     // Remove client on disconnect
     req.on('close', () => {
-        console.log(`📡 [TRIVIA SSE] Client ${clientId || 'unknown'} disconnected from event ${eventId.substring(0, 8)}...`);
+        console.log(`ðŸ“¡ [TRIVIA SSE] Client ${clientId || 'unknown'} disconnected from event ${eventId.substring(0, 8)}...`);
         clearInterval(keepAlive);
         triviaClients[eventId] = triviaClients[eventId].filter(c => c !== res);
 
@@ -2691,7 +2769,7 @@ setInterval(() => {
             // Remove players inactive for more than 10 minutes
             // This prevents "zombies" from filling up the plan limit (e.g., 20 guests)
             if (player.lastSeen && (now - player.lastSeen > 10 * 60 * 1000)) {
-                console.log(`🧹 [TRIVIA GC] Removing inactive player ${player.name} (${playerId})`);
+                console.log(`ðŸ§¹ [TRIVIA GC] Removing inactive player ${player.name} (${playerId})`);
                 delete state.players[playerId];
                 changed = true;
             }
@@ -2893,7 +2971,7 @@ app.post('/api/trivia/:eventId/join', (req, res) => {
 
         if (!limitCheck.allowed) {
             return res.status(403).json({
-                error: limitCheck.reason || 'Límite de participantes alcanzado (Plan Limit)',
+                error: limitCheck.reason || 'LÃ­mite de participantes alcanzado (Plan Limit)',
                 limitReached: true
             });
         }
@@ -2948,15 +3026,15 @@ app.post('/api/trivia/:eventId/answer', (req, res) => {
 
 // Default bingo prompts
 const DEFAULT_BINGO_PROMPTS = [
-    { id: 1, text: "Selfie con el anfitrión", icon: "person_pin" },
+    { id: 1, text: "Selfie con el anfitriÃ³n", icon: "person_pin" },
     { id: 2, text: "Alguien riendo", icon: "sentiment_very_satisfied" },
-    { id: 3, text: "La persona más alta", icon: "height" },
+    { id: 3, text: "La persona mÃ¡s alta", icon: "height" },
     { id: 4, text: "Un trago raro", icon: "local_bar" },
     { id: 5, text: "Selfie grupal (3+)", icon: "groups" },
     { id: 6, text: "Alguien de rojo", icon: "palette" },
     { id: 7, text: "Paso de baile gracioso", icon: "music_note" },
-    { id: 8, text: "El invitado más viejo", icon: "elderly" },
-    { id: 9, text: "¡Brindis!", icon: "celebration" },
+    { id: 8, text: "El invitado mÃ¡s viejo", icon: "elderly" },
+    { id: 9, text: "Â¡Brindis!", icon: "celebration" },
 ];
 
 // In-memory bingo game state (per event)
@@ -3044,7 +3122,7 @@ const broadcastBingoState = (eventId) => {
 
     // Log the size for debugging
     const sizeKB = (data.length / 1024).toFixed(1);
-    console.log(`📸 [BINGO] Broadcast ${sizeKB}KB to ${clients.length} clients for event ${eventId.substring(0, 8)}...`);
+    console.log(`ðŸ“¸ [BINGO] Broadcast ${sizeKB}KB to ${clients.length} clients for event ${eventId.substring(0, 8)}...`);
 
     clients.forEach((res) => {
         try {
@@ -3084,7 +3162,7 @@ const calculateBingoStatus = (card, prompts) => {
 app.get('/api/bingo/:eventId/stream', (req, res) => {
     const { eventId } = req.params;
     const { clientId } = req.query;
-    console.log(`📸 [BINGO SSE] Client ${clientId || 'unknown'} connected for event ${eventId.substring(0, 8)}...`);
+    console.log(`ðŸ“¸ [BINGO SSE] Client ${clientId || 'unknown'} connected for event ${eventId.substring(0, 8)}...`);
 
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -3129,14 +3207,14 @@ app.get('/api/bingo/:eventId/stream', (req, res) => {
 
     // Remove client on disconnect
     req.on('close', () => {
-        console.log(`📸 [BINGO SSE] Client ${clientId || 'unknown'} disconnected from event ${eventId.substring(0, 8)}...`);
+        console.log(`ðŸ“¸ [BINGO SSE] Client ${clientId || 'unknown'} disconnected from event ${eventId.substring(0, 8)}...`);
         clearInterval(keepAlive);
         bingoClients[eventId] = bingoClients[eventId].filter(c => c !== res);
 
         // Mark player as offline but persist data
         if (clientId && state.players[clientId]) {
             state.players[clientId].online = false;
-            console.log(`👋 [BINGO] Player ${state.players[clientId].name} went offline (persisted)`);
+            console.log(`ðŸ‘‹ [BINGO] Player ${state.players[clientId].name} went offline (persisted)`);
             broadcastBingoState(eventId);
         }
     });
@@ -3155,7 +3233,7 @@ setInterval(() => {
             const player = state.players[playerId];
             // Remove players inactive for more than 10 minutes
             if (player.lastSeen && (now - player.lastSeen > 10 * 60 * 1000)) {
-                console.log(`🧹 [BINGO GC] Removing inactive player ${player.name} (${playerId})`);
+                console.log(`ðŸ§¹ [BINGO GC] Removing inactive player ${player.name} (${playerId})`);
                 delete state.players[playerId];
                 // Also remove their card
                 if (state.cards[playerId]) {
@@ -3366,7 +3444,7 @@ app.post('/api/bingo/:eventId/join', (req, res) => {
     const playerId = crypto.randomUUID();
     const player = {
         id: playerId,
-        name: name || 'Jugador Anónimo',
+        name: name || 'Jugador AnÃ³nimo',
         joinedAt: Date.now(),
         lastSeen: Date.now(),
         online: true
@@ -3508,7 +3586,7 @@ app.get('/api/raffle/:eventId/stream', (req, res) => {
         if (clientId) {
             const updated = raffleGameService.setParticipantStatus(eventId, clientId, false);
             if (updated) {
-                console.log(`👋 [RAFFLE] Participant ${clientId} went offline`);
+                console.log(`ðŸ‘‹ [RAFFLE] Participant ${clientId} went offline`);
                 broadcastRaffleState(eventId);
             }
         }
@@ -3654,7 +3732,7 @@ app.get('/api/events/:eventId/stream', (req, res) => {
         if (clientId) {
             const updated = impostorGameService.setPlayerStatus(eventId, clientId, false);
             if (updated) {
-                console.log(`👋 [IMPOSTOR] Player ${clientId} went offline`);
+                console.log(`ðŸ‘‹ [IMPOSTOR] Player ${clientId} went offline`);
                 broadcastImpostorState(eventId);
             }
         }
@@ -3733,14 +3811,14 @@ app.put('/api/confessions/:eventId/config', async (req, res) => {
     // Handle Google Photos links automatically
     if (config.backgroundUrl && (config.backgroundUrl.includes('photos.app.goo.gl') || config.backgroundUrl.includes('google.com/photos'))) {
         try {
-            console.log("📸 [Confessions] Resolving Google Photos link:", config.backgroundUrl);
+            console.log("ðŸ“¸ [Confessions] Resolving Google Photos link:", config.backgroundUrl);
             const photos = await googlePhotosService.getAlbumPhotos(config.backgroundUrl);
             if (photos && photos.length > 0) {
                 config.backgroundUrl = photos[0].src; // Use the first photo found
-                console.log("✅ [Confessions] Resolved to direct URL:", config.backgroundUrl);
+                console.log("âœ… [Confessions] Resolved to direct URL:", config.backgroundUrl);
             }
         } catch (e) {
-            console.warn("⚠️ [Confessions] Failed to resolve Google Photos link (using original):", e.message);
+            console.warn("âš ï¸ [Confessions] Failed to resolve Google Photos link (using original):", e.message);
         }
     }
 
@@ -3788,9 +3866,9 @@ app.get(/.*/, (req, res) => {
 const start = async () => {
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`-----------------------------------------`);
-        console.log(`🚀 API Server running on port: ${PORT}`);
-        console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
-        console.log(`🔑 Supabase URL: ${process.env.SUPABASE_URL ? 'Present ✅' : 'NOT FOUND ❌'}`);
+        console.log(`ðŸš€ API Server running on port: ${PORT}`);
+        console.log(`ðŸ“¡ Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`ðŸ”‘ Supabase URL: ${process.env.SUPABASE_URL ? 'Present âœ…' : 'NOT FOUND âŒ'}`);
         console.log(`-----------------------------------------`);
     });
 };
