@@ -23,4 +23,7 @@ steps:
 images:
   - 'gcr.io/$PROJECT_ID/appxv'
 
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 timeout: '1200s'
