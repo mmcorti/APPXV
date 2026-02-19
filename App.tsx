@@ -182,11 +182,24 @@ const App: React.FC = () => {
 
   const refreshEventData = async (eventId: string) => {
     try {
-      const [guests, tables] = await Promise.all([
+      const [guestsResult, tablesResult] = await Promise.allSettled([
         notionService.getGuests(eventId),
         notionService.getTables(eventId)
       ]);
-      setInvitations(prev => prev.map(inv => inv.id === eventId ? { ...inv, guests, tables } : inv));
+      const guests = guestsResult.status === 'fulfilled' ? guestsResult.value : undefined;
+      const tables = tablesResult.status === 'fulfilled' ? tablesResult.value : undefined;
+
+      if (guestsResult.status === 'rejected') console.error("❌ Failed to refresh guests:", guestsResult.reason);
+      if (tablesResult.status === 'rejected') console.error("❌ Failed to refresh tables:", tablesResult.reason);
+
+      setInvitations(prev => prev.map(inv => {
+        if (inv.id !== eventId) return inv;
+        return {
+          ...inv,
+          ...(guests !== undefined && { guests }),
+          ...(tables !== undefined && { tables })
+        };
+      }));
     } catch (e) {
       console.error("Refresh failed:", e);
     }
