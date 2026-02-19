@@ -92,12 +92,12 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
                 setNewDescription('');
                 fetchRoster();
             } else {
-                const err = await res.json();
-                alert('Error: ' + err.error);
+                const err = await res.json().catch(() => ({}));
+                alert('Error al crear Miembro: ' + (err.error || 'Error del servidor (' + res.status + ')'));
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error('Error creating member:', e);
-            alert('Error al crear miembro');
+            alert('Error al crear miembro: ' + (e.message || 'Error de conexión'));
         }
     };
 
