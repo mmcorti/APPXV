@@ -30,7 +30,7 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
     const [newPassword, setNewPassword] = useState('');
     const [newDescription, setNewDescription] = useState('');
 
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    const API_URL = import.meta.env.VITE_API_URL || '/api';
 
     const fetchRoster = async () => {
         if (!user.id) return;
