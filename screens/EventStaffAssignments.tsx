@@ -41,7 +41,7 @@ const EventStaffAssignmentsScreen: React.FC<Props> = ({ user, invitations }) => 
         access_games: false
     });
 
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    const API_URL = import.meta.env.VITE_API_URL || '/api';
 
     useEffect(() => {
         if (event && user.id) {
