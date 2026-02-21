@@ -24,6 +24,9 @@ const formatDateSpanish = (dateStr: string, timeStr?: string) => {
   }
 };
 
+const normalizeString = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
 const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSubmit, loading: parentLoading }) => {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -48,11 +51,16 @@ const GuestRSVPScreen: React.FC<GuestRSVPScreenProps> = ({ invitations, onRsvpSu
   });
   const [submitted, setSubmitted] = useState(false);
 
-  const foundGuest = invitation?.guests.find(g => g.name.toLowerCase() === name.toLowerCase());
+  const foundGuest = React.useMemo(() => {
+    if (!invitation || !name) return null;
+    const normalizedTarget = normalizeString(name);
+    return invitation.guests.find(g => normalizeString(g.name) === normalizedTarget);
+  }, [invitation, name]);
 
   useEffect(() => {
     if (invitation && name) {
-      const existingGuest = invitation.guests.find(g => g.name.toLowerCase() === name.toLowerCase());
+      const normalizedTarget = normalizeString(name);
+      const existingGuest = invitation.guests.find(g => normalizeString(g.name) === normalizedTarget);
 
       if (existingGuest) {
         if (existingGuest.status !== 'pending') {

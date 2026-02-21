@@ -890,25 +890,17 @@ function companionNamesFromDb(dbValue, allotted) {
 app.get('/api/guests', async (req, res) => {
     try {
         const { eventId } = req.query;
-        // console.log(`ðŸ“ [GET /api/guests] Fetching guests for event: ${eventId}`); // Verbose log
-
         let query = supabase.from('guests').select('*');
         if (eventId) {
             query = query.eq('event_id', eventId);
-        } else {
-            // Optional: Limit or warn if no eventId
-            // console.warn("âš ï¸ [GET /api/guests] No eventId provided, fetching all guests!");
         }
 
         const { data: guestsData, error } = await query;
         if (error) {
-            console.error(`âŒ [GET /api/guests] Error fetching:`, error);
+            console.error(`❌ [GET /api/guests] Error fetching:`, error);
             throw error;
         }
 
-        // console.log(`âœ… [GET /api/guests] Found ${guestsData?.length || 0} guests`);
-
-        // Map to frontend structure
         const guests = (guestsData || []).map(g => ({
             id: g.id,
             name: g.name,
@@ -918,12 +910,12 @@ app.get('/api/guests', async (req, res) => {
             confirmed: g.confirmed || { adults: 0, teens: 0, kids: 0, infants: 0 },
             companionNames: companionNamesFromDb(g.companion_names, g.allotted),
             sent: g.invitation_sent,
-            tableId: g.assigned_table_id // distinct from Notion relation, but useful?
+            tableId: g.assigned_table_id
         }));
 
         res.json(guests);
     } catch (error) {
-        console.error("âŒ Error fetching guests:", error);
+        console.error("❌ Error fetching guests:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -931,19 +923,15 @@ app.get('/api/guests', async (req, res) => {
 app.post('/api/guests', async (req, res) => {
     try {
         const { eventId, guest, userPlan, userRole } = req.body;
-        console.log(`ðŸ“ [POST /api/guests] Creating guest for event ${eventId}:`, guest.name);
+        console.log(`📝 [POST /api/guests] Creating guest for event ${eventId}:`, guest.name);
 
-        // 1. Check Limits
         if (!isAdmin(userRole)) {
             const { count, error: countError } = await supabase
                 .from('guests')
                 .select('*', { count: 'exact', head: true })
                 .eq('event_id', eventId);
 
-            if (countError) {
-                console.error(`âŒ [POST /api/guests] Error checking guest count:`, countError);
-                throw countError;
-            }
+            if (countError) throw countError;
 
             const limitCheck = checkLimit({
                 plan: userPlan || DEFAULT_PLAN,
@@ -952,7 +940,6 @@ app.post('/api/guests', async (req, res) => {
             });
 
             if (!limitCheck.allowed) {
-                console.warn(`âš ï¸ [POST /api/guests] Limit reached for event ${eventId}: ${count}/${limitCheck.limit}`);
                 return res.status(403).json({
                     error: limitCheck.reason,
                     limitReached: true,
@@ -962,13 +949,10 @@ app.post('/api/guests', async (req, res) => {
             }
         }
 
-        // Validate guest object
         if (!guest || !guest.name) {
-            console.error(`âŒ [POST /api/guests] Invalid guest data:`, guest);
             return res.status(400).json({ error: "Guest name is required" });
         }
 
-        // 2. Insert Guest
         const { data: newGuest, error } = await supabase
             .from('guests')
             .insert({
@@ -984,17 +968,10 @@ app.post('/api/guests', async (req, res) => {
             .select()
             .single();
 
-        if (error) {
-            console.error(`âŒ [POST /api/guests] Supabase insert error:`, error);
-            throw error;
-        }
-
-        console.log(`âœ… [POST /api/guests] Guest created: ${newGuest.id}`);
+        if (error) throw error;
         res.json({ success: true, id: newGuest.id });
-
-
     } catch (error) {
-        console.error("âŒ Error creating guest:", error);
+        console.error("❌ Error creating guest:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1003,13 +980,7 @@ app.put('/api/guests/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { guest } = req.body;
-
-        if (!guest) {
-            console.error(`âŒ [PUT /api/guests] Missing guest data for ID: ${id}`);
-            return res.status(400).json({ error: "Missing guest data" });
-        }
-
-        console.log(`ðŸ“ [PUT /api/guests] Updating guest ${id}:`, guest.name);
+        if (!guest) return res.status(400).json({ error: "Missing guest data" });
 
         const updates = {};
         if (guest.name) updates.name = guest.name;
@@ -1020,20 +991,11 @@ app.put('/api/guests/:id', async (req, res) => {
         if (guest.companionNames) updates.companion_names = companionNamesToDb(guest.companionNames);
         if (guest.sent !== undefined) updates.invitation_sent = guest.sent;
 
-        const { error } = await supabase
-            .from('guests')
-            .update(updates)
-            .eq('id', id);
-
-        if (error) {
-            console.error(`âŒ [PUT /api/guests] Update error for ${id}:`, error);
-            throw error;
-        }
-
-        console.log(`âœ… [PUT /api/guests] Guest updated: ${id}`);
+        const { error } = await supabase.from('guests').update(updates).eq('id', id);
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("âŒ Error updating guest:", error);
+        console.error("❌ Error updating guest:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1042,25 +1004,16 @@ app.patch('/api/guests/:id/rsvp', async (req, res) => {
     try {
         const { id } = req.params;
         const { status, confirmed, companionNames } = req.body;
-        console.log(`ðŸ“ [PATCH /api/guests/rsvp] RSVP update for ${id}:`, { status });
-
         const updates = {};
         if (status) updates.status = status;
         if (confirmed) updates.confirmed = confirmed;
         if (companionNames) updates.companion_names = companionNamesToDb(companionNames);
 
-        const { error } = await supabase
-            .from('guests')
-            .update(updates)
-            .eq('id', id);
-
-        if (error) {
-            console.error(`âŒ [PATCH /api/guests] RSVP update error for ${id}:`, error);
-            throw error;
-        }
+        const { error } = await supabase.from('guests').update(updates).eq('id', id);
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("âŒ RSVP Error:", error);
+        console.error("❌ RSVP Error:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1918,7 +1871,7 @@ app.post('/api/staff-roster', async (req, res) => {
 
         if (currentCount >= limits.maxStaffRoster) {
             return res.status(403).json({
-                error: `LÃ­mite alcanzado: Tu plan ${plan.toUpperCase()} permite hasta ${limits.maxStaffRoster} miembros.`,
+                error: `Límite alcanzado: Tu plan ${plan.toUpperCase()} permite hasta ${limits.maxStaffRoster} miembros.`,
                 limitReached: true,
                 current: currentCount,
                 limit: limits.maxStaffRoster
@@ -1926,45 +1879,71 @@ app.post('/api/staff-roster', async (req, res) => {
         }
 
         // 3. Create or find User
-        // Fix: Use maybeSingle() instead of single() to avoid throwing an error if user not found
-        const { data: existingUser, error: checkError } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
+        console.log(`[STAFF] Processing staff creation for ${email}`);
+        const { data: existingUser, error: checkError } = await supabase.from('users').select('id, role').eq('email', email.toLowerCase()).maybeSingle();
 
         if (checkError) {
-            console.error("â Œ Error checking existing user:", checkError);
+            console.error("❌ Error checking existing user:", checkError);
             throw checkError;
         }
 
         let userId = existingUser?.id;
 
         if (!userId) {
+            // Try to create in auth.users first
+            console.log(`[STAFF] User ${email} not found in public.users, creating in auth...`);
             const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
                 email,
                 password: password || crypto.randomBytes(32).toString('hex'),
                 email_confirm: true
             });
-            if (authError) throw authError;
-            userId = authUser.user.id;
 
-            await supabase.from('users').upsert({
+            if (authError) {
+                // If user exists in auth but not in public.users (edge case)
+                if (authError.message.includes('already exists') || authError.status === 422) {
+                    console.log(`[STAFF] User ${email} already exists in auth, looking up ID...`);
+                    const { data: allUsers } = await supabase.auth.admin.listUsers();
+                    const foundAuth = allUsers?.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+                    if (foundAuth) {
+                        userId = foundAuth.id;
+                    } else {
+                        throw new Error(`Email already registered in system. Use a different email.`);
+                    }
+                } else {
+                    console.error("❌ Auth error creating staff:", authError);
+                    throw authError;
+                }
+            } else {
+                userId = authUser.user.id;
+            }
+
+            // Ensure profile exists in 'users' table
+            console.log(`[STAFF] Ensuring public profile for ${userId} (${email})`);
+            const { error: upsertUserError } = await supabase.from('users').upsert({
                 id: userId,
-                email,
+                email: email.toLowerCase(),
                 username: name || email.split('@')[0],
-                role: 'staff'
+                role: existingUser?.role || 'staff' // Keep existing role if they had one or default to staff
             });
+            if (upsertUserError) throw upsertUserError;
         }
 
-        // 4. Create Profile
+        // 4. Create or update Staff Profile
+        console.log(`[STAFF] Upserting staff profile for ${userId} owned by ${ownerId}`);
         const { error: profileError } = await supabase.from('staff_profiles').upsert({
             id: userId,
             description,
             owner_id: ownerId
         });
 
-        if (profileError) throw profileError;
+        if (profileError) {
+            console.error("❌ Profile error:", profileError);
+            throw profileError;
+        }
 
         res.json({ success: true, id: userId });
     } catch (error) {
-        console.error("âŒ Error creating staff roster member:", error);
+        console.error("❌ Error creating staff roster member:", error);
         res.status(500).json({ error: error.message });
     }
 });
