@@ -7,7 +7,7 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { checkLimit, isAdmin, DEFAULT_PLAN, getUsageSummary } from './planLimits.js';
+import { checkLimit, isAdmin, DEFAULT_PLAN, getUsageSummary, getPlanLimits } from './planLimits.js';
 import bcrypt from 'bcryptjs';
 import { supabase, TABLES } from './supabase.js';
 import { googlePhotosService } from './services/googlePhotos.js';
