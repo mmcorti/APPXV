@@ -405,8 +405,12 @@ app.post('/api/register', async (req, res) => {
 
 // Step 1: Redirect user to Google login
 app.get('/api/auth/google', (req, res) => {
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.headers['host'];
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${protocol}://${host}/api/auth/google/callback`;
+
     const state = req.query.state || '';
-    const authUrl = googleAuth.getAuthUrl(state);
+    const authUrl = googleAuth.getAuthUrl(redirectUri, state);
     console.log('[GOOGLE AUTH] Redirecting to Google:', authUrl);
     res.redirect(authUrl);
 });
@@ -414,6 +418,10 @@ app.get('/api/auth/google', (req, res) => {
 // Step 2: Handle callback from Google
 app.get('/api/auth/google/callback', async (req, res) => {
     try {
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+        const host = req.headers['host'];
+        const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${protocol}://${host}/api/auth/google/callback`;
+
         const { code, error, state } = req.query;
 
         if (error) {
@@ -427,7 +435,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
         // Exchange code for tokens
         console.log('[GOOGLE AUTH] Exchanging code for tokens...');
-        const tokens = await googleAuth.getTokens(code);
+        const tokens = await googleAuth.getTokens(code, redirectUri);
 
         // Get user profile
         console.log('[GOOGLE AUTH] Fetching user profile...');
