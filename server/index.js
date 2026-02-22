@@ -551,8 +551,13 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
 // Helper: Map Supabase event object to Frontend structure
 const mapEventFromSupabase = (ev) => {
-    // fotowall_configs is returned as an array by the join
-    const fw = (ev.fotowall_configs && ev.fotowall_configs.length > 0) ? ev.fotowall_configs[0] : {};
+    // Handle fotowall_configs whether Supabase returns it as an array or a single object
+    let fw = {};
+    if (ev.fotowall_configs) {
+        fw = Array.isArray(ev.fotowall_configs)
+            ? (ev.fotowall_configs.length > 0 ? ev.fotowall_configs[0] : {})
+            : ev.fotowall_configs;
+    }
     return {
         id: ev.id,
         eventName: ev.name,
@@ -807,7 +812,7 @@ app.put(['/api/events', '/api/events/:id'], async (req, res) => {
             if (fw.filters !== undefined) fwUpdates.filters = fw.filters;
 
             // Check if exist, and then either insert or update
-            const { data: existing } = await supabase.from('fotowall_configs').select('id').eq('event_id', id).maybeSingle();
+            const { data: existing } = await supabase.from('fotowall_configs').select('event_id').eq('event_id', id).maybeSingle();
             if (existing) {
                 const { error: fwError } = await supabase.from('fotowall_configs').update(fwUpdates).eq('event_id', id);
                 if (fwError) console.warn("Error updating fotowall config:", fwError);
