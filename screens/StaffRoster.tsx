@@ -59,9 +59,11 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
             return;
         }
         if (!newName || !newEmail || !newPassword) {
-            alert('Nombre, Email y Contraseña son obligatorios');
+            alert('Nombre, Nombre de Usuario y Contraseña son obligatorios');
             return;
         }
+
+        const formattedEmail = `${newEmail.trim().toLowerCase()}.${user.email}`;
 
         // Limit Enforcement
         const limitCheck = checkLimit('maxStaffRoster', roster.length);
@@ -76,7 +78,7 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: newName,
-                    email: newEmail,
+                    email: formattedEmail,
                     password: newPassword,
                     description: newDescription,
                     ownerId: user.id
@@ -161,14 +163,22 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Email (Login)</label>
-                            <input
-                                type="email"
-                                value={newEmail}
-                                onChange={e => setNewEmail(e.target.value)}
-                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
-                                placeholder="juan@ejemplo.com"
-                            />
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de Usuario</label>
+                            <div className="flex border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-black focus-within:border-transparent">
+                                <input
+                                    type="text"
+                                    value={newEmail}
+                                    onChange={e => setNewEmail(e.target.value.replace(/[^a-z0-9_-]/gi, '').toLowerCase())}
+                                    className="w-full p-2 outline-none text-right font-mono text-sm"
+                                    placeholder="ej: juan"
+                                />
+                                <div className="bg-gray-100 p-2 text-gray-500 font-mono text-sm flex items-center border-l border-gray-300 pointer-events-none whitespace-nowrap">
+                                    .{user?.email || 'email'}
+                                </div>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                                El email de acceso será: <span className="font-semibold text-gray-800">{newEmail ? `${newEmail.toLowerCase()}.${user?.email}` : `...`}</span>
+                            </p>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>

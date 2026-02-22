@@ -1828,24 +1828,36 @@ app.get('/api/staff-roster', async (req, res) => {
             .from('staff_profiles')
             .select(`
                 id,
-                description,
-                user:users (
-                    name,
-                    email,
-                    username
-                )
+                description
             `)
             .eq('owner_id', ownerId);
 
         if (error) throw error;
 
-        const formattedRoster = roster.map(item => ({
-            id: item.id,
-            name: item.user?.username || item.user?.name || item.user?.email,
-            email: item.user?.email,
-            description: item.description,
-            ownerId: ownerId
-        }));
+        // Fetch user data separately to avoid PostgREST ambiguous embed errors (fk mapping issue between owner_id vs id references)
+        let formattedRoster = [];
+
+        if (roster && roster.length > 0) {
+            const userIds = roster.map(r => r.id);
+            const { data: usersData, error: usersError } = await supabase
+                .from('users')
+                .select('id, username, email')
+                .in('id', userIds);
+
+            if (usersError) throw usersError;
+
+            // Map them
+            formattedRoster = roster.map(item => {
+                const userinfo = usersData.find(u => u.id === item.id);
+                return {
+                    id: item.id,
+                    name: userinfo?.username || userinfo?.name || userinfo?.email || 'Desconocido',
+                    email: userinfo?.email || '',
+                    description: item.description,
+                    ownerId: ownerId
+                };
+            });
+        }
 
         res.json(formattedRoster);
     } catch (error) {
