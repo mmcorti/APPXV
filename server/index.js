@@ -775,43 +775,46 @@ app.put(['/api/events', '/api/events/:id'], async (req, res) => {
         const id = req.params.id || req.body.id;
         const { eventName, date, time, location, message, hostName, giftType, giftDetail, image } = req.body;
 
-        // Update basic info
-        const { error } = await supabase
-            .from('events')
-            .update({
-                name: eventName,
-                date,
-                time,
-                location,
-                message,
-                host_name: hostName,
-                gift_type: giftType,
-                gift_detail: giftDetail,
-                image_url: image, // Map image -> image_url
-                dress_code: req.body.dressCode,
-                venue_notes: req.body.venueNotes,
-                arrival_tips: req.body.arrivalTips
-            })
-            .eq('id', id);
+        // Build update object only for defined fields to avoid empty updates
+        const eventUpdates = {};
+        if (eventName !== undefined) eventUpdates.name = eventName;
+        if (date !== undefined) eventUpdates.date = date;
+        if (time !== undefined) eventUpdates.time = time;
+        if (location !== undefined) eventUpdates.location = location;
+        if (message !== undefined) eventUpdates.message = message;
+        if (hostName !== undefined) eventUpdates.host_name = hostName;
+        if (giftType !== undefined) eventUpdates.gift_type = giftType;
+        if (giftDetail !== undefined) eventUpdates.gift_detail = giftDetail;
+        if (image !== undefined) eventUpdates.image_url = image;
+        if (req.body.dressCode !== undefined) eventUpdates.dress_code = req.body.dressCode;
+        if (req.body.venueNotes !== undefined) eventUpdates.venue_notes = req.body.venueNotes;
+        if (req.body.arrivalTips !== undefined) eventUpdates.arrival_tips = req.body.arrivalTips;
 
-        if (error) throw error;
+        if (Object.keys(eventUpdates).length > 0) {
+            const { error } = await supabase.from('events').update(eventUpdates).eq('id', id);
+            if (error) throw error;
+        }
 
         // Handle FotoWall updates if present
         if (req.body.fotowall) {
             const fw = req.body.fotowall;
-            // Update or upsert if missing? Assuming exist because created on POST
-            const { error: fwError } = await supabase
-                .from('fotowall_configs')
-                .update({
-                    album_url: fw.albumUrl,
-                    interval: fw.interval,
-                    shuffle: fw.shuffle,
-                    overlay_title: fw.overlayTitle,
-                    moderation_mode: fw.mode,
-                    filters: fw.filters
-                })
-                .eq('event_id', id);
-            if (fwError) console.warn("Error updating fotowall config:", fwError);
+            const fwUpdates = {};
+            if (fw.albumUrl !== undefined) fwUpdates.album_url = fw.albumUrl;
+            if (fw.interval !== undefined) fwUpdates.interval = fw.interval;
+            if (fw.shuffle !== undefined) fwUpdates.shuffle = fw.shuffle;
+            if (fw.overlayTitle !== undefined) fwUpdates.overlay_title = fw.overlayTitle;
+            if (fw.mode !== undefined) fwUpdates.moderation_mode = fw.mode;
+            if (fw.filters !== undefined) fwUpdates.filters = fw.filters;
+
+            // Check if exist, and then either insert or update
+            const { data: existing } = await supabase.from('fotowall_configs').select('id').eq('event_id', id).maybeSingle();
+            if (existing) {
+                const { error: fwError } = await supabase.from('fotowall_configs').update(fwUpdates).eq('event_id', id);
+                if (fwError) console.warn("Error updating fotowall config:", fwError);
+            } else {
+                const { error: fwError } = await supabase.from('fotowall_configs').insert({ event_id: id, ...fwUpdates });
+                if (fwError) console.warn("Error inserting fotowall config:", fwError);
+            }
         }
 
         res.json({ success: true });
