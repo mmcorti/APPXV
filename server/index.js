@@ -192,8 +192,13 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ success: false, message: 'Usuario no encontrado' });
         }
 
-        // 2. Verify password via Supabase Auth
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        // 2. Verify password without mutating the global service_role client
+        const tempClientFactory = await import('@supabase/supabase-js');
+        const tempSupabase = tempClientFactory.createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, {
+            auth: { persistSession: false, autoRefreshToken: false }
+        });
+
+        const { data: authData, error: authError } = await tempSupabase.auth.signInWithPassword({
             email,
             password
         });
