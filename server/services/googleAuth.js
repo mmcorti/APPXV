@@ -17,10 +17,10 @@ const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
  * @param {string} state - Optional state parameter for CSRF protection
  * @returns {string} The authorization URL to redirect the user to
  */
-export function getAuthUrl(state = '') {
+export function getAuthUrl(redirectUri, state = '') {
     const params = new URLSearchParams({
         client_id: GOOGLE_CLIENT_ID,
-        redirect_uri: GOOGLE_REDIRECT_URI,
+        redirect_uri: redirectUri,
         response_type: 'code',
         scope: 'openid email profile',
         access_type: 'offline',
@@ -34,9 +34,10 @@ export function getAuthUrl(state = '') {
 /**
  * Exchange authorization code for access token
  * @param {string} code - The authorization code from Google
+ * @param {string} redirectUri - The redirect URI to match
  * @returns {Promise<{access_token: string, refresh_token?: string, id_token?: string}>}
  */
-export async function getTokens(code) {
+export async function getTokens(code, redirectUri) {
     const response = await fetch(GOOGLE_TOKEN_URL, {
         method: 'POST',
         headers: {
@@ -47,7 +48,7 @@ export async function getTokens(code) {
             client_secret: GOOGLE_CLIENT_SECRET,
             code: code,
             grant_type: 'authorization_code',
-            redirect_uri: GOOGLE_REDIRECT_URI
+            redirect_uri: redirectUri
         })
     });
 

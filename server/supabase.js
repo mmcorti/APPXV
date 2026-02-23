@@ -13,6 +13,16 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     console.warn('Application will likely fail on database requests.');
 } else {
     console.log('✅ Supabase configuration detected.');
+    try {
+        const payload = JSON.parse(Buffer.from(SUPABASE_SERVICE_KEY.split('.')[1], 'base64').toString());
+        if (payload.role !== 'service_role') {
+            console.error('🔥 CRITICAL ERROR: SUPABASE_SERVICE_KEY is NOT a service role key! Found role:', payload.role);
+        } else {
+            console.log('✅ Service Role key verified successfully.');
+        }
+    } catch (e) {
+        console.error('⚠️ Could not verify SUPABASE_SERVICE_KEY payload:', e.message);
+    }
 }
 
 // Use the service_role key on the backend — bypasses RLS

@@ -56,7 +56,9 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
     const currentQuestion = (gameState?.questions && gameState.currentQuestionIndex >= 0)
         ? gameState.questions[gameState.currentQuestionIndex]
         : null;
-    const totalPlayers = gameState?.players ? Object.keys(gameState.players).length : 0;
+    const totalPlayers = gameState?.players
+        ? Object.values(gameState.players).filter((p: any) => p.online !== false).length
+        : 0;
 
     const resetForm = () => {
         setQuestionText('');

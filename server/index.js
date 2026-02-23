@@ -7,7 +7,7 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { checkLimit, isAdmin, DEFAULT_PLAN, getUsageSummary } from './planLimits.js';
+import { checkLimit, isAdmin, DEFAULT_PLAN, getUsageSummary, getPlanLimits } from './planLimits.js';
 import bcrypt from 'bcryptjs';
 import { supabase, TABLES } from './supabase.js';
 import { googlePhotosService } from './services/googlePhotos.js';
@@ -192,8 +192,13 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ success: false, message: 'Usuario no encontrado' });
         }
 
-        // 2. Verify password via Supabase Auth
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        // 2. Verify password without mutating the global service_role client
+        const tempClientFactory = await import('@supabase/supabase-js');
+        const tempSupabase = tempClientFactory.createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, {
+            auth: { persistSession: false, autoRefreshToken: false }
+        });
+
+        const { data: authData, error: authError } = await tempSupabase.auth.signInWithPassword({
             email,
             password
         });
@@ -261,12 +266,13 @@ app.post('/api/login', async (req, res) => {
                 const a = assignments[0];
                 staffEventId = a.event_id;
                 const p = a.permissions || {};
+                // Handle both legacy keys and new access_ prefix keys from types.ts
                 staffPermissions = {
-                    access_invitados: p.invitados || false,
-                    access_mesas: p.mesas || false,
-                    access_link: p.link || false,
-                    access_fotowall: p.fotowall || false,
-                    access_games: p.games || false
+                    access_invitados: p.access_invitados ?? p.invitados ?? false,
+                    access_mesas: p.access_mesas ?? p.mesas ?? false,
+                    access_link: p.access_link ?? p.link ?? false,
+                    access_fotowall: p.access_fotowall ?? p.fotowall ?? false,
+                    access_games: p.access_games ?? p.games ?? false
                 };
             }
 
@@ -399,8 +405,12 @@ app.post('/api/register', async (req, res) => {
 
 // Step 1: Redirect user to Google login
 app.get('/api/auth/google', (req, res) => {
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.headers['host'];
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${protocol}://${host}/api/auth/google/callback`;
+
     const state = req.query.state || '';
-    const authUrl = googleAuth.getAuthUrl(state);
+    const authUrl = googleAuth.getAuthUrl(redirectUri, state);
     console.log('[GOOGLE AUTH] Redirecting to Google:', authUrl);
     res.redirect(authUrl);
 });
@@ -408,6 +418,10 @@ app.get('/api/auth/google', (req, res) => {
 // Step 2: Handle callback from Google
 app.get('/api/auth/google/callback', async (req, res) => {
     try {
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+        const host = req.headers['host'];
+        const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${protocol}://${host}/api/auth/google/callback`;
+
         const { code, error, state } = req.query;
 
         if (error) {
@@ -421,7 +435,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
         // Exchange code for tokens
         console.log('[GOOGLE AUTH] Exchanging code for tokens...');
-        const tokens = await googleAuth.getTokens(code);
+        const tokens = await googleAuth.getTokens(code, redirectUri);
 
         // Get user profile
         console.log('[GOOGLE AUTH] Fetching user profile...');
@@ -545,8 +559,13 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
 // Helper: Map Supabase event object to Frontend structure
 const mapEventFromSupabase = (ev) => {
-    // fotowall_configs is returned as an array by the join
-    const fw = (ev.fotowall_configs && ev.fotowall_configs.length > 0) ? ev.fotowall_configs[0] : {};
+    // Handle fotowall_configs whether Supabase returns it as an array or a single object
+    let fw = {};
+    if (ev.fotowall_configs) {
+        fw = Array.isArray(ev.fotowall_configs)
+            ? (ev.fotowall_configs.length > 0 ? ev.fotowall_configs[0] : {})
+            : ev.fotowall_configs;
+    }
     return {
         id: ev.id,
         eventName: ev.name,
@@ -769,43 +788,46 @@ app.put(['/api/events', '/api/events/:id'], async (req, res) => {
         const id = req.params.id || req.body.id;
         const { eventName, date, time, location, message, hostName, giftType, giftDetail, image } = req.body;
 
-        // Update basic info
-        const { error } = await supabase
-            .from('events')
-            .update({
-                name: eventName,
-                date,
-                time,
-                location,
-                message,
-                host_name: hostName,
-                gift_type: giftType,
-                gift_detail: giftDetail,
-                image_url: image, // Map image -> image_url
-                dress_code: req.body.dressCode,
-                venue_notes: req.body.venueNotes,
-                arrival_tips: req.body.arrivalTips
-            })
-            .eq('id', id);
+        // Build update object only for defined fields to avoid empty updates
+        const eventUpdates = {};
+        if (eventName !== undefined) eventUpdates.name = eventName;
+        if (date !== undefined) eventUpdates.date = date;
+        if (time !== undefined) eventUpdates.time = time;
+        if (location !== undefined) eventUpdates.location = location;
+        if (message !== undefined) eventUpdates.message = message;
+        if (hostName !== undefined) eventUpdates.host_name = hostName;
+        if (giftType !== undefined) eventUpdates.gift_type = giftType;
+        if (giftDetail !== undefined) eventUpdates.gift_detail = giftDetail;
+        if (image !== undefined) eventUpdates.image_url = image;
+        if (req.body.dressCode !== undefined) eventUpdates.dress_code = req.body.dressCode;
+        if (req.body.venueNotes !== undefined) eventUpdates.venue_notes = req.body.venueNotes;
+        if (req.body.arrivalTips !== undefined) eventUpdates.arrival_tips = req.body.arrivalTips;
 
-        if (error) throw error;
+        if (Object.keys(eventUpdates).length > 0) {
+            const { error } = await supabase.from('events').update(eventUpdates).eq('id', id);
+            if (error) throw error;
+        }
 
         // Handle FotoWall updates if present
         if (req.body.fotowall) {
             const fw = req.body.fotowall;
-            // Update or upsert if missing? Assuming exist because created on POST
-            const { error: fwError } = await supabase
-                .from('fotowall_configs')
-                .update({
-                    album_url: fw.albumUrl,
-                    interval: fw.interval,
-                    shuffle: fw.shuffle,
-                    overlay_title: fw.overlayTitle,
-                    moderation_mode: fw.mode,
-                    filters: fw.filters
-                })
-                .eq('event_id', id);
-            if (fwError) console.warn("Error updating fotowall config:", fwError);
+            const fwUpdates = {};
+            if (fw.albumUrl !== undefined) fwUpdates.album_url = fw.albumUrl;
+            if (fw.interval !== undefined) fwUpdates.interval = fw.interval;
+            if (fw.shuffle !== undefined) fwUpdates.shuffle = fw.shuffle;
+            if (fw.overlayTitle !== undefined) fwUpdates.overlay_title = fw.overlayTitle;
+            if (fw.mode !== undefined) fwUpdates.moderation_mode = fw.mode;
+            if (fw.filters !== undefined) fwUpdates.filters = fw.filters;
+
+            // Check if exist, and then either insert or update
+            const { data: existing } = await supabase.from('fotowall_configs').select('event_id').eq('event_id', id).maybeSingle();
+            if (existing) {
+                const { error: fwError } = await supabase.from('fotowall_configs').update(fwUpdates).eq('event_id', id);
+                if (fwError) console.warn("Error updating fotowall config:", fwError);
+            } else {
+                const { error: fwError } = await supabase.from('fotowall_configs').insert({ event_id: id, ...fwUpdates });
+                if (fwError) console.warn("Error inserting fotowall config:", fwError);
+            }
         }
 
         res.json({ success: true });
@@ -894,20 +916,14 @@ app.get('/api/guests', async (req, res) => {
         let query = supabase.from('guests').select('*');
         if (eventId) {
             query = query.eq('event_id', eventId);
-        } else {
-            // Optional: Limit or warn if no eventId
-            // console.warn("âš ï¸ [GET /api/guests] No eventId provided, fetching all guests!");
         }
 
         const { data: guestsData, error } = await query;
         if (error) {
-            console.error(`âŒ [GET /api/guests] Error fetching:`, error);
+            console.error(`❌ [GET /api/guests] Error fetching:`, error);
             throw error;
         }
 
-        // console.log(`âœ… [GET /api/guests] Found ${guestsData?.length || 0} guests`);
-
-        // Map to frontend structure
         const guests = (guestsData || []).map(g => ({
             id: g.id,
             name: g.name,
@@ -917,7 +933,7 @@ app.get('/api/guests', async (req, res) => {
             confirmed: g.confirmed || { adults: 0, teens: 0, kids: 0, infants: 0 },
             companionNames: companionNamesFromDb(g.companion_names, g.allotted),
             sent: g.invitation_sent,
-            tableId: g.assigned_table_id // distinct from Notion relation, but useful?
+            tableId: g.assigned_table_id
         }));
 
         res.json(guests);
@@ -930,9 +946,8 @@ app.get('/api/guests', async (req, res) => {
 app.post('/api/guests', async (req, res) => {
     try {
         const { eventId, guest, userPlan, userRole } = req.body;
-        console.log(`ðŸ“ [POST /api/guests] Creating guest for event ${eventId}:`, guest.name);
+        console.log(`📝 [POST /api/guests] Creating guest for event ${eventId}:`, guest.name);
 
-        // 1. Check Limits
         if (!isAdmin(userRole)) {
             const { count, error: countError } = await supabase
                 .from('guests')
@@ -961,13 +976,10 @@ app.post('/api/guests', async (req, res) => {
             }
         }
 
-        // Validate guest object
         if (!guest || !guest.name) {
-            console.error(`âŒ [POST /api/guests] Invalid guest data:`, guest);
             return res.status(400).json({ error: "Guest name is required" });
         }
 
-        // 2. Insert Guest
         const { data: newGuest, error } = await supabase
             .from('guests')
             .insert({
@@ -1002,6 +1014,7 @@ app.put('/api/guests/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { guest } = req.body;
+        if (!guest) return res.status(400).json({ error: "Missing guest data" });
 
         if (!guest) {
             console.error(`âŒ [PUT /api/guests] Missing guest data for ID: ${id}`);
@@ -1019,20 +1032,11 @@ app.put('/api/guests/:id', async (req, res) => {
         if (guest.companionNames) updates.companion_names = companionNamesToDb(guest.companionNames);
         if (guest.sent !== undefined) updates.invitation_sent = guest.sent;
 
-        const { error } = await supabase
-            .from('guests')
-            .update(updates)
-            .eq('id', id);
-
-        if (error) {
-            console.error(`âŒ [PUT /api/guests] Update error for ${id}:`, error);
-            throw error;
-        }
-
-        console.log(`âœ… [PUT /api/guests] Guest updated: ${id}`);
+        const { error } = await supabase.from('guests').update(updates).eq('id', id);
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("âŒ Error updating guest:", error);
+        console.error("❌ Error updating guest:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1041,22 +1045,13 @@ app.patch('/api/guests/:id/rsvp', async (req, res) => {
     try {
         const { id } = req.params;
         const { status, confirmed, companionNames } = req.body;
-        console.log(`ðŸ“ [PATCH /api/guests/rsvp] RSVP update for ${id}:`, { status });
-
         const updates = {};
         if (status) updates.status = status;
         if (confirmed) updates.confirmed = confirmed;
         if (companionNames) updates.companion_names = companionNamesToDb(companionNames);
 
-        const { error } = await supabase
-            .from('guests')
-            .update(updates)
-            .eq('id', id);
-
-        if (error) {
-            console.error(`âŒ [PATCH /api/guests] RSVP update error for ${id}:`, error);
-            throw error;
-        }
+        const { error } = await supabase.from('guests').update(updates).eq('id', id);
+        if (error) throw error;
         res.json({ success: true });
     } catch (error) {
         console.error("âŒ RSVP Error:", error);
@@ -1869,24 +1864,36 @@ app.get('/api/staff-roster', async (req, res) => {
             .from('staff_profiles')
             .select(`
                 id,
-                description,
-                user:users (
-                    name,
-                    email,
-                    username
-                )
+                description
             `)
             .eq('owner_id', ownerId);
 
         if (error) throw error;
 
-        const formattedRoster = roster.map(item => ({
-            id: item.id,
-            name: item.user?.username || item.user?.name || item.user?.email,
-            email: item.user?.email,
-            description: item.description,
-            ownerId: ownerId
-        }));
+        // Fetch user data separately to avoid PostgREST ambiguous embed errors (fk mapping issue between owner_id vs id references)
+        let formattedRoster = [];
+
+        if (roster && roster.length > 0) {
+            const userIds = roster.map(r => r.id);
+            const { data: usersData, error: usersError } = await supabase
+                .from('users')
+                .select('id, username, email')
+                .in('id', userIds);
+
+            if (usersError) throw usersError;
+
+            // Map them
+            formattedRoster = roster.map(item => {
+                const userinfo = usersData.find(u => u.id === item.id);
+                return {
+                    id: item.id,
+                    name: userinfo?.username || userinfo?.name || userinfo?.email || 'Desconocido',
+                    email: userinfo?.email || '',
+                    description: item.description,
+                    ownerId: ownerId
+                };
+            });
+        }
 
         res.json(formattedRoster);
     } catch (error) {
@@ -1925,38 +1932,71 @@ app.post('/api/staff-roster', async (req, res) => {
         }
 
         // 3. Create or find User
-        const { data: existingUser } = await supabase.from('users').select('id').eq('email', email).single();
+        console.log(`[STAFF] Processing staff creation for ${email}`);
+        const { data: existingUser, error: checkError } = await supabase.from('users').select('id, role').eq('email', email.toLowerCase()).maybeSingle();
+
+        if (checkError) {
+            console.error("❌ Error checking existing user:", checkError);
+            throw checkError;
+        }
+
         let userId = existingUser?.id;
 
         if (!userId) {
+            // Try to create in auth.users first
+            console.log(`[STAFF] User ${email} not found in public.users, creating in auth...`);
             const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
                 email,
                 password: password || crypto.randomBytes(32).toString('hex'),
                 email_confirm: true
             });
-            if (authError) throw authError;
-            userId = authUser.user.id;
 
-            await supabase.from('users').upsert({
+            if (authError) {
+                // If user exists in auth but not in public.users (edge case)
+                if (authError.message.includes('already exists') || authError.status === 422) {
+                    console.log(`[STAFF] User ${email} already exists in auth, looking up ID...`);
+                    const { data: allUsers } = await supabase.auth.admin.listUsers();
+                    const foundAuth = allUsers?.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+                    if (foundAuth) {
+                        userId = foundAuth.id;
+                    } else {
+                        throw new Error(`Email already registered in system. Use a different email.`);
+                    }
+                } else {
+                    console.error("❌ Auth error creating staff:", authError);
+                    throw authError;
+                }
+            } else {
+                userId = authUser.user.id;
+            }
+
+            // Ensure profile exists in 'users' table
+            console.log(`[STAFF] Ensuring public profile for ${userId} (${email})`);
+            const { error: upsertUserError } = await supabase.from('users').upsert({
                 id: userId,
-                email,
+                email: email.toLowerCase(),
                 username: name || email.split('@')[0],
-                role: 'staff'
+                role: existingUser?.role || 'staff' // Keep existing role if they had one or default to staff
             });
+            if (upsertUserError) throw upsertUserError;
         }
 
-        // 4. Create Profile
+        // 4. Create or update Staff Profile
+        console.log(`[STAFF] Upserting staff profile for ${userId} owned by ${ownerId}`);
         const { error: profileError } = await supabase.from('staff_profiles').upsert({
             id: userId,
             description,
             owner_id: ownerId
         });
 
-        if (profileError) throw profileError;
+        if (profileError) {
+            console.error("❌ Profile error:", profileError);
+            throw profileError;
+        }
 
         res.json({ success: true, id: userId });
     } catch (error) {
-        console.error("âŒ Error creating staff roster member:", error);
+        console.error("❌ Error creating staff roster member:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -2020,6 +2060,9 @@ app.post('/api/staff-assignments', async (req, res) => {
                 staff_id: staffId,
                 event_id: eventId,
                 permissions: permissions || {}
+            }, {
+                // Add onConflict to handle updates instead of failing on duplicates
+                onConflict: 'staff_id,event_id'
             })
             .select()
             .single();
@@ -3296,8 +3339,8 @@ app.post('/api/bingo/generate-prompts', async (req, res) => {
         const prompts = await geminiService.generateBingoPrompts(theme, count);
         res.json({ prompts });
     } catch (error) {
-        console.error('Error generating bingo prompts:', error);
-        res.status(500).json({ error: 'Failed to generate prompts' });
+        console.error('❌ Error generating bingo prompts:', error.message, error.stack);
+        res.status(500).json({ error: `Failed to generate prompts: ${error.message}` });
     }
 });
 
@@ -3317,8 +3360,8 @@ app.post('/api/impostor/generate-tasks', async (req, res) => {
         console.log('[Impostor] Generated tasks OK:', { mainPrompt: tasks.mainPrompt.substring(0, 50), impostorPrompt: tasks.impostorPrompt.substring(0, 50) });
         res.json(tasks);
     } catch (error) {
-        console.error('Error generating impostor tasks:', error);
-        res.status(500).json({ error: 'Failed to generate tasks' });
+        console.error('❌ Error generating impostor tasks:', error.message, error.stack);
+        res.status(500).json({ error: `Failed to generate tasks: ${error.message}` });
     }
 });
 

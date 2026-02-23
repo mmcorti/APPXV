@@ -177,6 +177,10 @@ export const triviaService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ theme, count }),
         });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Error del servidor' }));
+            throw new Error(errorData.error || `Server error: ${response.status}`);
+        }
         return response.json();
     },
 
