@@ -911,6 +911,8 @@ function companionNamesFromDb(dbValue, allotted) {
 app.get('/api/guests', async (req, res) => {
     try {
         const { eventId } = req.query;
+        // console.log(`ðŸ“ [GET /api/guests] Fetching guests for event: ${eventId}`); // Verbose log
+
         let query = supabase.from('guests').select('*');
         if (eventId) {
             query = query.eq('event_id', eventId);
@@ -936,7 +938,7 @@ app.get('/api/guests', async (req, res) => {
 
         res.json(guests);
     } catch (error) {
-        console.error("❌ Error fetching guests:", error);
+        console.error("âŒ Error fetching guests:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -952,7 +954,10 @@ app.post('/api/guests', async (req, res) => {
                 .select('*', { count: 'exact', head: true })
                 .eq('event_id', eventId);
 
-            if (countError) throw countError;
+            if (countError) {
+                console.error(`âŒ [POST /api/guests] Error checking guest count:`, countError);
+                throw countError;
+            }
 
             const limitCheck = checkLimit({
                 plan: userPlan || DEFAULT_PLAN,
@@ -961,6 +966,7 @@ app.post('/api/guests', async (req, res) => {
             });
 
             if (!limitCheck.allowed) {
+                console.warn(`âš ï¸ [POST /api/guests] Limit reached for event ${eventId}: ${count}/${limitCheck.limit}`);
                 return res.status(403).json({
                     error: limitCheck.reason,
                     limitReached: true,
@@ -989,10 +995,17 @@ app.post('/api/guests', async (req, res) => {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error(`âŒ [POST /api/guests] Supabase insert error:`, error);
+            throw error;
+        }
+
+        console.log(`âœ… [POST /api/guests] Guest created: ${newGuest.id}`);
         res.json({ success: true, id: newGuest.id });
+
+
     } catch (error) {
-        console.error("❌ Error creating guest:", error);
+        console.error("âŒ Error creating guest:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1002,6 +1015,13 @@ app.put('/api/guests/:id', async (req, res) => {
         const { id } = req.params;
         const { guest } = req.body;
         if (!guest) return res.status(400).json({ error: "Missing guest data" });
+
+        if (!guest) {
+            console.error(`âŒ [PUT /api/guests] Missing guest data for ID: ${id}`);
+            return res.status(400).json({ error: "Missing guest data" });
+        }
+
+        console.log(`ðŸ“ [PUT /api/guests] Updating guest ${id}:`, guest.name);
 
         const updates = {};
         if (guest.name) updates.name = guest.name;
@@ -1034,7 +1054,7 @@ app.patch('/api/guests/:id/rsvp', async (req, res) => {
         if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("❌ RSVP Error:", error);
+        console.error("âŒ RSVP Error:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1904,7 +1924,7 @@ app.post('/api/staff-roster', async (req, res) => {
 
         if (currentCount >= limits.maxStaffRoster) {
             return res.status(403).json({
-                error: `Límite alcanzado: Tu plan ${plan.toUpperCase()} permite hasta ${limits.maxStaffRoster} miembros.`,
+                error: `LÃ­mite alcanzado: Tu plan ${plan.toUpperCase()} permite hasta ${limits.maxStaffRoster} miembros.`,
                 limitReached: true,
                 current: currentCount,
                 limit: limits.maxStaffRoster
