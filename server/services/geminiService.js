@@ -1,23 +1,47 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Verified models from user's AI Studio list (Jan 2026)
-const IMAGE_MODEL = 'gemini-2.0-flash';
+// Verified models from user's AI Studio list (Jan 2026)
+const IMAGE_MODEL = 'gemini-2.0-flash-exp'; // Use experimental for better multimodal support
 const TEXT_MODEL = 'gemini-2.0-flash';
 
 /**
- * Helper: clean AI JSON response that might be wrapped in markdown code fences
+ * Fallback: Generate image using OpenAI DALL-E 3
  */
-function cleanJsonResponse(text) {
-    let cleaned = text.trim();
-    // Strip markdown code fences: ```json ... ``` or ``` ... ```
-    if (cleaned.startsWith('```')) {
-        cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/, '');
+async function generateImageOpenAI(prompt) {
+    console.log('[GeminiService] Fallback: Generating with OpenAI DALL-E 3...');
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
+
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            model: 'dall-e-3',
+            prompt: prompt,
+            n: 1,
+            size: '1024x1024',
+            quality: 'standard',
+            response_format: 'b64_json'
+        })
+    });
+
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`OpenAI API Error: ${response.status} - ${errText}`);
     }
-    return cleaned;
+
+    const data = await response.json();
+    if (!data.data?.[0]?.b64_json) throw new Error('No image returned from OpenAI');
+
+    return `data:image/png;base64,${data.data[0].b64_json}`;
 }
 
 /**
- * Generate an image using Gemini API
+ * Generate an image using Gemini API or Fallback
  * @param {string} prompt - The image generation prompt
  * @returns {Promise<string>} - Base64 data URL of the generated image
  */
@@ -41,7 +65,7 @@ export async function generateImage(prompt) {
                 parts: [{ text: `Generate a high-quality image based on this description: ${prompt}. Output ONLY the image data.` }]
             }],
             generationConfig: {
-                responseModalities: ['IMAGE'],
+                responseModalities: ['image'], // Lowercase 'image' often preferred in newer SDKs
             }
         });
 
@@ -59,20 +83,28 @@ export async function generateImage(prompt) {
             }
         }
 
-        // Handle case where it returned text instead of image
-        const text = response.text ? response.text() : 'No text response';
-        console.log('[GeminiService] No image in response. Text:', text.substring(0, 200));
-        throw new Error(`AI generated text instead of an image: ${text.substring(0, 100)}...`);
+        // If no image, maybe it's text? Check if it suggests fallback
+        throw new Error('Model did not return image data');
+
     } catch (error) {
-        console.error('[GeminiService] Generation Error:', error);
-        // Extract more details if available
-        const details = error.response?.data?.error || error.message;
-        throw new Error(`Gemini API Error: ${details}`);
+        console.warn('[GeminiService] Gemini generation failed:', error.message);
+
+        // TRANSPARENT FALLBACK: If Gemini fails for ANY reason (expired key, modality error, etc.)
+        // and we have an OpenAI key, try DALL-E 3.
+        if (process.env.OPENAI_API_KEY) {
+            try {
+                return await generateImageOpenAI(prompt);
+            } catch (fallbackError) {
+                console.error('[GeminiService] Fallback also failed:', fallbackError.message);
+            }
+        }
+
+        throw new Error(`AI Generation Error (Gemini & Fallback failed): ${error.message}`);
     }
 }
 
 /**
- * Edit an image using Gemini vision capabilities
+ * Edit an image using Gemini vision capabilities or Fallback
  * @param {string} base64Image - Base64 encoded image (data URL format)
  * @param {string} prompt - Edit instructions
  * @returns {Promise<string>} - Base64 data URL of the edited image
@@ -89,7 +121,6 @@ export async function editImage(base64Image, prompt) {
 
     try {
         const model = genAI.getGenerativeModel({ model: IMAGE_MODEL }, { apiVersion: 'v1beta' });
-
         const cleanBase64 = base64Image.split(',')[1] || base64Image;
 
         const result = await model.generateContent({
@@ -106,7 +137,7 @@ export async function editImage(base64Image, prompt) {
                 ]
             }],
             generationConfig: {
-                responseModalities: ['IMAGE'],
+                responseModalities: ['image'],
             }
         });
 
@@ -123,10 +154,29 @@ export async function editImage(base64Image, prompt) {
 
         throw new Error('No edited image in response');
     } catch (error) {
-        console.error('[GeminiService] Edit error:', error);
-        throw new Error(`Gemini Edit Error: ${error.message}`);
+        console.warn('[GeminiService] Gemini edit failed:', error.message);
+
+        // Fallback to generating a NEW image with the prompt + context of the old one if editing fails
+        if (process.env.OPENAI_API_KEY && (error.message.includes('modalities') || error.message.includes('support'))) {
+            console.log('[GeminiService] Fallback to DALL-E for "edit" (will generate fresh version)');
+            return await generateImageOpenAI(`Based on the previous scene, create a new image with these changes: ${prompt}`);
+        }
+
+        throw new Error(`Edit Error: ${error.message}`);
     }
 }
+/**
+ * Helper: clean AI JSON response that might be wrapped in markdown code fences
+ */
+function cleanJsonResponse(text) {
+    let cleaned = text.trim();
+    // Strip markdown code fences: ```json ... ``` or ``` ... ```
+    if (cleaned.startsWith('```')) {
+        cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/, '');
+    }
+    return cleaned;
+}
+
 /**
  * Generate trivia questions using Gemini AI
  * @param {string} theme - The theme of the questions
