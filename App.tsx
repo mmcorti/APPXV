@@ -40,6 +40,10 @@ import ImpostorAdmin from './screens/ImpostorAdmin';
 import ImpostorBigScreen from './screens/ImpostorBigScreen';
 import ImpostorGuest from './screens/ImpostorGuest';
 import GoogleCallbackScreen from './screens/GoogleCallback';
+import PaymentSuccess from './screens/PaymentSuccess';
+import PaymentFailure from './screens/PaymentFailure';
+import PaymentPending from './screens/PaymentPending';
+import PricesScreen from './screens/Prices';
 import { InvitationData, User, Guest, Table, SeatedGuest, StaffPermissions } from './types';
 import { notionService } from './services/notion';
 import { PlanProvider } from './hooks/usePlan';
@@ -550,6 +554,9 @@ const App: React.FC = () => {
           <Route path="/" element={<WelcomeScreen />} />
           <Route path="/login" element={<LoginScreen onLogin={handleAuthSuccess} />} />
           <Route path="/google-callback" element={<GoogleCallbackScreen onLogin={handleAuthSuccess} />} />
+          <Route path="/payment/success" element={<PaymentSuccess />} />
+          <Route path="/payment/failure" element={<PaymentFailure />} />
+          <Route path="/payment/pending" element={<PaymentPending />} />
           <Route
             path="/register"
             element={<RegisterScreen onAuthSuccess={handleAuthSuccess} />}
@@ -597,6 +604,10 @@ const App: React.FC = () => {
           <Route
             path="/event-staff/:id"
             element={user ? <EventStaffAssignmentsScreen user={user} invitations={invitations} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/prices"
+            element={user ? <PricesScreen user={user} /> : <Navigate to="/login" />}
           />
           <Route
             path="/costs/:id"

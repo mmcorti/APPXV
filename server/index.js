@@ -3900,6 +3900,59 @@ app.post('/api/raffle/:eventId/join', (req, res) => {
     res.json({ success: true, participant });
 });
 
+// --- PAYMENTS ---
+import { createPaymentPreference, verifyPayment } from './services/paymentService.js';
+
+app.post('/api/payments/create-preference', async (req, res) => {
+    try {
+        const { planId, userEmail, userId } = req.body;
+        if (!planId || !userEmail || !userId) {
+            return res.status(400).json({ success: false, error: 'Missing required fields' });
+        }
+
+        const preference = await createPaymentPreference(planId, userEmail, userId);
+        res.json({ success: true, init_point: preference.init_point, preferenceId: preference.id });
+    } catch (error) {
+        console.error('Error creating preference:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/payments/webhook', async (req, res) => {
+    try {
+        const { type, data } = req.body;
+        // MercadoPago sends type='payment' and data.id
+        if (type === 'payment' && data && data.id) {
+            console.log(`[Webhook] Received payment notification for ID: ${data.id}`);
+            const paymentInfo = await verifyPayment(data.id);
+
+            if (paymentInfo && paymentInfo.status === 'approved') {
+                const userId = paymentInfo.external_reference || paymentInfo.metadata?.user_id;
+                const planId = paymentInfo.metadata?.plan_id;
+
+                if (userId && planId) {
+                    console.log(`[Webhook] Payment approved for user ${userId}, upgrading to ${planId}`);
+                    // Upgrade user plan in Supabase
+                    const { error } = await supabase
+                        .from('users')
+                        .update({ plan: planId })
+                        .eq('id', userId);
+
+                    if (error) {
+                        console.error('[Webhook] Error updating user plan:', error);
+                    } else {
+                        console.log(`[Webhook] User ${userId} successfully upgraded to ${planId}`);
+                    }
+                }
+            }
+        }
+        res.status(200).send('OK');
+    } catch (error) {
+        console.error('[Webhook] Error processing notification:', error);
+        res.status(500).send('Error');
+    }
+});
+
 // Catch-all for frontend
 app.get(/.*/, (req, res) => {
     res.sendFile(path.join(__dirname, '../dist', 'index.html'));
