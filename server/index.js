@@ -462,7 +462,8 @@ app.get('/api/auth/google/callback', async (req, res) => {
                 .from(TABLES.USERS)
                 .update({
                     google_id: profile.id,
-                    avatar_url: profile.picture || null
+                    avatar_url: profile.picture || null,
+                    username: userName // ensure username is set
                 })
                 .eq('id', userId);
         } else {
@@ -475,7 +476,11 @@ app.get('/api/auth/google/callback', async (req, res) => {
             const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
                 email: userEmail,
                 password: randomPassword,
-                email_confirm: true
+                email_confirm: true,
+                user_metadata: {
+                    name: profile.name,
+                    avatar_url: profile.picture
+                }
             });
 
             if (authError) {
@@ -515,17 +520,31 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
             if (!authId) throw new Error("Could not obtain User ID");
 
-            await supabase
+            // Note: Supabase trigger might have already created the public.users row.
+            // We should use an update rather than an insert/upsert if it exists.
+            const { error: upsertError } = await supabase
                 .from(TABLES.USERS)
-                .upsert({
-                    id: authId,
-                    email: userEmail,
+                .update({
                     username: profile.name,
-                    role: 'subscriber',
-                    plan: 'freemium',
                     google_id: profile.id,
                     avatar_url: profile.picture || null
-                });
+                })
+                .eq('id', authId);
+
+            // If update failed (because trigger didn't fire or row doesn't exist), try to insert
+            if (upsertError) {
+                await supabase
+                    .from(TABLES.USERS)
+                    .upsert({
+                        id: authId,
+                        email: userEmail,
+                        username: profile.name,
+                        role: 'subscriber',
+                        plan: 'freemium',
+                        google_id: profile.id,
+                        avatar_url: profile.picture || null
+                    });
+            }
 
             userId = authId;
             userName = profile.name;
@@ -533,7 +552,11 @@ app.get('/api/auth/google/callback', async (req, res) => {
         }
 
         // Redirect to frontend with user data
-        const FRONTEND_URL = state || process.env.FRONTEND_URL || '';
+        let FRONTEND_URL = state || process.env.FRONTEND_URL || '';
+        if (FRONTEND_URL.endsWith('/')) {
+            FRONTEND_URL = FRONTEND_URL.slice(0, -1);
+        }
+
         const userData = encodeURIComponent(JSON.stringify({
             id: userId,
             name: userName,
@@ -550,7 +573,10 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
     } catch (error) {
         console.error('[GOOGLE AUTH] Callback error:', error);
-        const FRONTEND_URL = req.query.state || process.env.FRONTEND_URL || '';
+        let FRONTEND_URL = req.query.state || process.env.FRONTEND_URL || '';
+        if (FRONTEND_URL.endsWith('/')) {
+            FRONTEND_URL = FRONTEND_URL.slice(0, -1);
+        }
         res.redirect(`${FRONTEND_URL}/#/google-callback?error=google_auth_failed&message=` + encodeURIComponent(error.message));
     }
 });

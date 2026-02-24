@@ -183,7 +183,7 @@ const WelcomeScreen: React.FC = () => {
                 key={idx}
                 className={`relative bg-white rounded-[40px] flex flex-col shadow-2xl transition-all duration-300 hover:scale-[1.02] ${plan.isPopular ? 'ring-[4px] ring-[#135bec] border-transparent' : 'border border-slate-100'}`}
               >
-                <div className={`${plan.color} py-8 px-4 text-center shadow-inner relative overflow-hidden`}>
+                <div className={`${plan.color} py-8 px-4 text-center shadow-inner relative overflow-hidden rounded-t-[40px]`}>
                   {plan.isPopular && (
                     <>
                       <div className="absolute top-0 left-1/2 transform -translate-x-1/2 bg-white px-5 py-1 rounded-b-xl shadow-xl z-20 flex items-center gap-1 border-x border-b border-slate-100">
