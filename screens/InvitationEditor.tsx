@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { InvitationData, ImageSize, User } from '../types';
 import { GeminiService } from '../services/gemini';
-import { notionService } from '../services/notion';
+import { apiService } from '../services/apiService';
 
 interface InvitationEditorProps {
   invitations: InvitationData[];
@@ -117,9 +117,9 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
     try {
       let resultUrl = '';
       if (type === 'generate') {
-        resultUrl = await notionService.generateAiImage(aiPrompt);
+        resultUrl = await apiService.generateAiImage(aiPrompt);
       } else {
-        resultUrl = await notionService.editAiImage(formData.image, aiPrompt);
+        resultUrl = await apiService.editAiImage(formData.image, aiPrompt);
       }
 
       setFormData(prev => ({ ...prev, image: resultUrl }));
@@ -241,7 +241,7 @@ const InvitationEditor: React.FC<InvitationEditorProps> = ({ invitations, onSave
       // If image is base64 (not a URL) or was just cropped, upload to Cloudinary
       if (dataToSave.image && dataToSave.image.startsWith('data:')) {
         console.log('📤 Uploading fixed image to Cloudinary...');
-        const cloudinaryUrl = await notionService.uploadImage(dataToSave.image);
+        const cloudinaryUrl = await apiService.uploadImage(dataToSave.image);
         dataToSave.image = cloudinaryUrl;
       }
 

@@ -45,7 +45,7 @@ import PaymentFailure from './screens/PaymentFailure';
 import PaymentPending from './screens/PaymentPending';
 import PricesScreen from './screens/Prices';
 import { InvitationData, User, Guest, Table, SeatedGuest, StaffPermissions } from './types';
-import { notionService } from './services/notion';
+import { apiService } from './services/apiService';
 import { PlanProvider } from './hooks/usePlan';
 
 const INITIAL_INVITATION: InvitationData = {
@@ -92,16 +92,16 @@ const App: React.FC = () => {
   const loadAllData = async (userEmail: string, staffId?: string) => {
     setLoading(true);
     try {
-      const events = await notionService.getEvents(userEmail, staffId);
+      const events = await apiService.getEvents(userEmail, staffId);
 
       const detailedEvents = await Promise.all(events.map(async (event) => {
         try {
           const [guests, tables] = await Promise.all([
-            notionService.getGuests(event.id).catch(e => {
+            apiService.getGuests(event.id).catch(e => {
               console.warn(`Failed to fetch guests for event ${event.id}`, e);
               return [];
             }),
-            notionService.getTables(event.id).catch(e => {
+            apiService.getTables(event.id).catch(e => {
               console.warn(`Failed to fetch tables for event ${event.id}`, e);
               return [];
             })
@@ -140,7 +140,7 @@ const App: React.FC = () => {
     }
 
     // Save to Notion with Creator Email included
-    notionService.saveEvent({ ...data, userEmail: user?.email }).catch(e => console.error("Event update failed:", e));
+    apiService.saveEvent({ ...data, userEmail: user?.email }).catch(e => console.error("Event update failed:", e));
   };
 
   const updateGuests = (id: string, newGuests: Guest[]) => {
@@ -150,8 +150,8 @@ const App: React.FC = () => {
   const refreshEventData = async (eventId: string) => {
     try {
       const [guestsResult, tablesResult] = await Promise.allSettled([
-        notionService.getGuests(eventId),
-        notionService.getTables(eventId)
+        apiService.getGuests(eventId),
+        apiService.getTables(eventId)
       ]);
       const guests = guestsResult.status === 'fulfilled' ? guestsResult.value : undefined;
       const tables = tablesResult.status === 'fulfilled' ? tablesResult.value : undefined;
@@ -186,7 +186,7 @@ const App: React.FC = () => {
     }));
 
     try {
-      await notionService.saveGuest(eventId, guest, {
+      await apiService.saveGuest(eventId, guest, {
         userPlan: user?.plan || 'freemium',
         userRole: user?.role || 'subscriber'
       });
@@ -240,7 +240,7 @@ const App: React.FC = () => {
             });
 
             // Update table assignments
-            await notionService.updateTableGuests(table.id, newAssignments);
+            await apiService.updateTableGuests(table.id, newAssignments);
           }
         }
       }
@@ -267,7 +267,7 @@ const App: React.FC = () => {
     }));
 
     try {
-      await notionService.deleteGuest(guestId);
+      await apiService.deleteGuest(guestId);
 
       // SYNC TABLE ASSIGNMENTS - remove deleted guest from all tables
       if (inv) {
@@ -287,7 +287,7 @@ const App: React.FC = () => {
                 status: a.status || 'pending'
               }));
 
-            await notionService.updateTableGuests(table.id, newAssignments);
+            await apiService.updateTableGuests(table.id, newAssignments);
           }
         }
       }
@@ -305,7 +305,7 @@ const App: React.FC = () => {
 
   const handleAddTable = async (eventId: string, tableName: string, capacity: number) => {
     try {
-      await notionService.saveTable(eventId, { name: tableName, capacity });
+      await apiService.saveTable(eventId, { name: tableName, capacity });
       await refreshEventData(eventId);
     } catch (e) {
       console.error("Table creation failed:", e);
@@ -323,7 +323,7 @@ const App: React.FC = () => {
     }));
 
     try {
-      await notionService.updateTable(tableId, name, capacity);
+      await apiService.updateTable(tableId, name, capacity);
       await refreshEventData(eventId);
     } catch (e) {
       console.error("Table update failed:", e);
@@ -353,7 +353,7 @@ const App: React.FC = () => {
     }));
 
     try {
-      await notionService.updateTableGuests(tableId, assignments);
+      await apiService.updateTableGuests(tableId, assignments);
       await refreshEventData(eventId);
     } catch (e) {
       console.error("Table assignment failed:", e);
@@ -363,7 +363,7 @@ const App: React.FC = () => {
 
   const handleDeleteTable = async (eventId: string, tableId: string) => {
     try {
-      await notionService.deleteTable(tableId);
+      await apiService.deleteTable(tableId);
       await refreshEventData(eventId);
     } catch (e) {
       console.error("Table deletion failed:", e);
@@ -382,7 +382,7 @@ const App: React.FC = () => {
 
     try {
       const orders = orderedTableIds.map((tableId, index) => ({ tableId, order: index }));
-      await notionService.reorderTables(orders);
+      await apiService.reorderTables(orders);
       await refreshEventData(eventId);
     } catch (e) {
       console.error("Table reorder failed:", e);
@@ -394,7 +394,7 @@ const App: React.FC = () => {
     try {
       // Remove the temporary ID so saving treats it as a new creation (POST)
       const { id, ...dataWithoutId } = data;
-      const savedResponse = await notionService.saveEvent({
+      const savedResponse = await apiService.saveEvent({
         ...dataWithoutId,
         userEmail: user?.email,
         userPlan: user?.plan || 'freemium',
@@ -429,7 +429,7 @@ const App: React.FC = () => {
       // Delete all tables first (continue even if some fail)
       for (const table of inv.tables || []) {
         try {
-          await notionService.deleteTable(table.id);
+          await apiService.deleteTable(table.id);
           console.log(`✅ Deleted table: ${table.id}`);
         } catch (tableError) {
           console.warn(`⚠️ Failed to delete table ${table.id}:`, tableError);
@@ -439,7 +439,7 @@ const App: React.FC = () => {
       // Delete all guests (continue even if some fail)
       for (const guest of inv.guests || []) {
         try {
-          await notionService.deleteGuest(guest.id.toString());
+          await apiService.deleteGuest(guest.id.toString());
           console.log(`✅ Deleted guest: ${guest.id}`);
         } catch (guestError) {
           console.warn(`⚠️ Failed to delete guest ${guest.id}:`, guestError);
@@ -448,7 +448,7 @@ const App: React.FC = () => {
 
       // Finally delete the event itself
       console.log(`🗑️ Deleting event: ${eventId}`);
-      await notionService.deleteEvent(eventId);
+      await apiService.deleteEvent(eventId);
       console.log(`✅ Event ${eventId} deleted successfully`);
     } catch (e) {
       console.error("❌ Event deletion failed:", e);
@@ -493,11 +493,11 @@ const App: React.FC = () => {
     if (publicMatch && !user && invitations.length === 0) {
       setLoading(true);
       const eventId = publicMatch[1];
-      notionService.getEvent(eventId)
+      apiService.getEvent(eventId)
         .then(async (event) => {
           if (event) {
-            const guests = await notionService.getGuests(event.id);
-            const tables = await notionService.getTables(event.id);
+            const guests = await apiService.getGuests(event.id);
+            const tables = await apiService.getTables(event.id);
             setInvitations([{ ...event, guests, tables }]);
           }
         })
@@ -675,7 +675,7 @@ const App: React.FC = () => {
 
               if (guest) {
                 // UPDATE EXISTING GUEST
-                await notionService.updateRSVP(
+                await apiService.updateRSVP(
                   guest.id as string,
                   guestData.status as string,
                   guestData.confirmed as any,
@@ -740,7 +740,7 @@ const App: React.FC = () => {
                     }
 
                     // Update table assignments
-                    await notionService.updateTableGuests(table.id, newAssignments);
+                    await apiService.updateTableGuests(table.id, newAssignments);
                   }
                 }
 
@@ -767,7 +767,7 @@ const App: React.FC = () => {
                   sent: false
                 };
 
-                await notionService.saveGuest(invId, newGuest);
+                await apiService.saveGuest(invId, newGuest);
                 await refreshEventData(invId);
 
                 updateGuests(invId, [...inv.guests, newGuest]);

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { notionService } from '../services/notion';
+import { apiService } from '../services/apiService';
 import { StaffPermissions } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -24,7 +24,7 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
     setError('');
 
     try {
-      const user = await notionService.login(email, password);
+      const user = await apiService.login(email, password);
       onLogin(user.id, user.name, user.email, user.role, user.permissions, user.eventId, user.plan);
       navigate('/dashboard');
     } catch (err: any) {

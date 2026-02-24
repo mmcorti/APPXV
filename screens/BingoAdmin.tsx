@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { bingoService, BingoGameState, BingoPrompt, BingoSubmission } from '../services/bingoService';
-import { notionService } from '../services/notion';
+import { apiService } from '../services/apiService';
 import { User } from '../types';
 
 interface BingoAdminProps {
@@ -78,7 +78,7 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
             const reader = new FileReader();
             reader.onloadend = async () => {
                 const base64 = reader.result as string;
-                const url = await notionService.uploadImage(base64);
+                const url = await apiService.uploadImage(base64);
                 setCustomImage(url);
                 await handleSaveSettings(url);
             };

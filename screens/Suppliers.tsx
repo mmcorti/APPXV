@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { notionService } from '../services/notion';
+import { apiService } from '../services/apiService';
 import { UpgradePrompt } from '../components/UpgradePrompt';
 import { usePlan } from '../hooks/usePlan';
 
@@ -44,7 +44,7 @@ const Suppliers: React.FC = () => {
         if (!eventId) return;
         setLoading(true);
         try {
-            const data = await notionService.getSuppliers(eventId);
+            const data = await apiService.getSuppliers(eventId);
             setSuppliers(data);
         } catch (error) {
             console.error('Error loading suppliers:', error);
@@ -56,7 +56,7 @@ const Suppliers: React.FC = () => {
     const loadCategories = async () => {
         if (!eventId) return;
         try {
-            const data = await notionService.getExpenseCategories(eventId);
+            const data = await apiService.getExpenseCategories(eventId);
             setCategories(data);
         } catch (error) {
             console.error('Error loading categories:', error);
@@ -74,9 +74,9 @@ const Suppliers: React.FC = () => {
         setSaving(true);
         try {
             if (editingId) {
-                await notionService.updateSupplier(editingId, formData);
+                await apiService.updateSupplier(editingId, formData);
             } else {
-                await notionService.createSupplier(eventId, formData, { userPlan: currentPlan });
+                await apiService.createSupplier(eventId, formData, { userPlan: currentPlan });
             }
             setShowForm(false);
             setFormData({ name: '', category: '', phone: '', email: '' });
@@ -99,7 +99,7 @@ const Suppliers: React.FC = () => {
     const handleDelete = async (id: string) => {
         if (!confirm('¿Eliminar este proveedor?')) return;
         try {
-            await notionService.deleteSupplier(id);
+            await apiService.deleteSupplier(id);
             loadSuppliers();
         } catch (error) {
             console.error('Error deleting supplier:', error);

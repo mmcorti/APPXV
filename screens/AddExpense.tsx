@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { notionService } from '../services/notion';
+import { apiService } from '../services/apiService';
 import { User } from '../types';
 
 interface AddExpenseProps {
@@ -77,7 +77,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ user }) => {
 
     const loadStaff = async () => {
         try {
-            const data = await notionService.getStaffAssignments(eventId!);
+            const data = await apiService.getStaffAssignments(eventId!);
             setStaffAssignments(data);
         } catch (error) {
             console.error('Error loading staff:', error);
@@ -87,7 +87,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ user }) => {
     const loadExpense = async () => {
         try {
             setLoading(true);
-            const expenses = await notionService.getExpenses(eventId!);
+            const expenses = await apiService.getExpenses(eventId!);
             const expense = expenses.find((e: any) => e.id === expenseId);
             if (expense) {
                 setCategory(expense.category || '');
@@ -95,7 +95,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ user }) => {
                 setStaff(expense.staff || '');
                 setTotalAmount(expense.total || 0);
                 // Load existing payments from the Payments database
-                const existingPayments = await notionService.getPayments(expenseId!);
+                const existingPayments = await apiService.getPayments(expenseId!);
                 if (existingPayments.length > 0) {
                     setPayments(existingPayments.map((p: any) => ({
                         id: Date.now() + Math.random(),
@@ -118,7 +118,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ user }) => {
 
     const loadParticipants = async () => {
         try {
-            const data = await notionService.getParticipants(eventId!);
+            const data = await apiService.getParticipants(eventId!);
             setParticipants(data);
         } catch (error) {
             console.error('Error loading participants:', error);
@@ -127,7 +127,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ user }) => {
 
     const loadCategories = async () => {
         try {
-            const data = await notionService.getExpenseCategories(eventId!);
+            const data = await apiService.getExpenseCategories(eventId!);
             setCategories(data);
         } catch (error) {
             console.error('Error loading categories:', error);
@@ -136,7 +136,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ user }) => {
 
     const loadSuppliers = async () => {
         try {
-            const data = await notionService.getSuppliers(eventId!);
+            const data = await apiService.getSuppliers(eventId!);
             setSuppliers(data);
         } catch (error) {
             console.error('Error loading suppliers:', error);
@@ -210,14 +210,14 @@ const AddExpense: React.FC<AddExpenseProps> = ({ user }) => {
             let expenseIdToUse = expenseId;
 
             if (isEditMode && expenseId) {
-                await notionService.updateExpense(expenseId, expenseData);
+                await apiService.updateExpense(expenseId, expenseData);
                 // Delete old payments (simpler strategy for now)
-                const oldPayments = await notionService.getPayments(expenseId);
+                const oldPayments = await apiService.getPayments(expenseId);
                 for (const oldP of oldPayments) {
-                    await notionService.deletePayment(oldP.id);
+                    await apiService.deletePayment(oldP.id);
                 }
             } else {
-                const newExpense = await notionService.createExpense(eventId, expenseData);
+                const newExpense = await apiService.createExpense(eventId, expenseData);
                 expenseIdToUse = newExpense.id;
             }
 
@@ -228,14 +228,14 @@ const AddExpense: React.FC<AddExpenseProps> = ({ user }) => {
                     let finalReceiptUrl = payment.receiptUrl;
                     if (payment.receiptUrl && payment.receiptUrl.startsWith('data:image')) {
                         try {
-                            finalReceiptUrl = await notionService.uploadImage(payment.receiptUrl);
+                            finalReceiptUrl = await apiService.uploadImage(payment.receiptUrl);
                         } catch (err) {
                             console.error('Receipt upload failed:', err);
                             finalReceiptUrl = '';
                         }
                     }
 
-                    await notionService.createPayment(expenseIdToUse, {
+                    await apiService.createPayment(expenseIdToUse, {
                         participantId: payment.participantId,
                         amount: payment.amount,
                         date: payment.date,

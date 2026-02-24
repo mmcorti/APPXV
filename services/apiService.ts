@@ -3,7 +3,7 @@ import { InvitationData, Guest, Table } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
-export const notionService = {
+export const apiService = {
     async uploadImage(base64Image: string): Promise<string> {
         const res = await fetch(`${API_URL}/upload-image`, {
             method: 'POST',

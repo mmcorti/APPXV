@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { User, Guest } from '../types';
 import { impostorService, ImpostorState } from '../services/impostorService';
-import { notionService } from '../services/notion';
+import { apiService } from '../services/apiService';
 
 interface ImpostorAdminProps {
     user: User | null;
@@ -50,7 +50,7 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
         try {
             const [currentState, eventGuests] = await Promise.all([
                 impostorService.getState(eventId),
-                notionService.getGuests(eventId)
+                apiService.getGuests(eventId)
             ]);
 
             setState(currentState);
@@ -102,7 +102,7 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
             const reader = new FileReader();
             reader.onloadend = async () => {
                 const base64 = reader.result as string;
-                const url = await notionService.uploadImage(base64);
+                const url = await apiService.uploadImage(base64);
                 setCustomImage(url);
                 await handleSaveConfigWithImage(url);
             };

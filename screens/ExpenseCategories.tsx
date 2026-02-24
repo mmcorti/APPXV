@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { notionService } from '../services/notion';
+import { apiService } from '../services/apiService';
 
 interface Category {
     id: string;
@@ -27,7 +27,7 @@ const ExpenseCategories: React.FC = () => {
         if (!eventId) return;
         setLoading(true);
         try {
-            const data = await notionService.getExpenseCategories(eventId);
+            const data = await apiService.getExpenseCategories(eventId);
             setCategories(data);
         } catch (error) {
             console.error('Error loading categories:', error);
@@ -40,7 +40,7 @@ const ExpenseCategories: React.FC = () => {
         if (!eventId || !newCategoryName.trim()) return;
         setSaving(true);
         try {
-            await notionService.createExpenseCategory(eventId, {
+            await apiService.createExpenseCategory(eventId, {
                 name: newCategoryName.trim(),
                 icon: 'category',
                 subtitle: ''
@@ -57,7 +57,7 @@ const ExpenseCategories: React.FC = () => {
     const handleEdit = async (id: string) => {
         if (!editName.trim()) return;
         try {
-            await notionService.updateExpenseCategory(id, { name: editName.trim() });
+            await apiService.updateExpenseCategory(id, { name: editName.trim() });
             setEditingId(null);
             loadCategories();
         } catch (error) {
@@ -68,7 +68,7 @@ const ExpenseCategories: React.FC = () => {
     const handleDelete = async (id: string) => {
         if (!confirm('¿Eliminar esta categoría?')) return;
         try {
-            await notionService.deleteExpenseCategory(id);
+            await apiService.deleteExpenseCategory(id);
             loadCategories();
         } catch (error) {
             console.error('Error deleting category:', error);

@@ -8,7 +8,7 @@ import {
     OptionKey,
 } from '../services/triviaService';
 import { User } from '../types';
-import { notionService } from '../services/notion';
+import { apiService } from '../services/apiService';
 
 interface TriviaAdminProps {
     user: User;
@@ -167,7 +167,7 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
             reader.onloadend = async () => {
                 const base64 = reader.result as string;
                 // @ts-ignore
-                const url = await notionService.uploadImage(base64);
+                const url = await apiService.uploadImage(base64);
                 setBgUrl(url);
                 await handleSaveBackground(url);
             };

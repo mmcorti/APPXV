@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { notionService } from '../services/notion';
+import { apiService } from '../services/apiService';
 import { StaffPermissions } from '../types';
 
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '';
@@ -75,7 +75,7 @@ const RegisterScreen: React.FC<RegisterProps> = ({ onAuthSuccess }) => {
     try {
       const captchaToken = await getRecaptchaToken();
 
-      const user = await notionService.register({
+      const user = await apiService.register({
         username: username.toLowerCase(),
         name,
         email: recoveryEmail,
