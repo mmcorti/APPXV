@@ -189,14 +189,14 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
             <motion.button
               whileHover={{ scale: 1.05, translateY: -2 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => navigate('/login')} // Redirect to login to re-evaluate plan if they buy
+              onClick={() => navigate('/prices')}
               className={`hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${currentPlan === PLANS_FE.FREE
                 ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_10px_20px_rgba(139,92,246,0.3)]'
                 : 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-[0_10px_20px_rgba(245,158,11,0.3)]'
                 }`}
             >
               <span className="material-symbols-outlined text-[16px]">stars</span>
-              {currentPlan === PLANS_FE.FREE ? 'Mejorar a Premium' : 'Mejorar a VIP'}
+              {currentPlan === PLANS_FE.FREE ? 'Mejorar a Invitado Especial' : 'Mejorar a VIP'}
             </motion.button>
           )}
 

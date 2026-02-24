@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { usePlan, PLANS_FE } from '../hooks/usePlan';
 import { useNavigate } from 'react-router-dom';
 
@@ -12,6 +12,7 @@ interface UpgradePromptProps {
 export const UpgradePrompt: React.FC<UpgradePromptProps> = ({ resourceName, currentCount, limit, showAlways = false }) => {
     const { currentPlan } = usePlan();
     const navigate = useNavigate();
+    const [isDismissed, setIsDismissed] = useState(false);
 
     const isFree = currentPlan === PLANS_FE.FREE;
     const isAtLimit = currentCount >= limit;
@@ -22,7 +23,7 @@ export const UpgradePrompt: React.FC<UpgradePromptProps> = ({ resourceName, curr
 
     const shouldShow = isFree ? (showAlways || isAtLimit) : isAtLimit;
 
-    if (!shouldShow) return null;
+    if (!shouldShow || isDismissed) return null;
 
     const getNextPlanName = () => {
         if (currentPlan === PLANS_FE.FREE) return 'Invitado Especial';
@@ -31,21 +32,32 @@ export const UpgradePrompt: React.FC<UpgradePromptProps> = ({ resourceName, curr
     };
 
     const getNextLimit = () => {
-        // This logic could be more dynamic by looking up the next plan in PLAN_LIMITS_FE, but for now hardcoded for simplicity of UX message
-        if (currentPlan === PLANS_FE.FREE) return '100';
-        if (currentPlan === PLANS_FE.PREMIUM) return '200';
+        if (resourceName === 'eventos') {
+            if (currentPlan === PLANS_FE.FREE) return '5';
+            if (currentPlan === PLANS_FE.PREMIUM) return '20';
+        } else if (resourceName === 'invitados') {
+            if (currentPlan === PLANS_FE.FREE) return '100';
+            if (currentPlan === PLANS_FE.PREMIUM) return '200';
+        }
         return 'Ilimitado';
     };
 
     return (
         <div className={`
-            flex flex-col md:flex-row items-center justify-between gap-4 
-            p-5 rounded-[32px] border
+            relative flex flex-col md:flex-row items-center justify-between gap-4 
+            p-5 rounded-[32px] border pr-12
             ${isAtLimit
                 ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30 shadow-[0_10px_30px_rgba(239,68,68,0.1)]'
                 : 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900/30 shadow-[0_10px_30px_rgba(59,130,246,0.1)]'}
             transition-all animate-in fade-in slide-in-from-bottom-2
         `}>
+            <button
+                onClick={() => setIsDismissed(true)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                title="Cerrar banner"
+            >
+                <span className="material-symbols-outlined text-xl">close</span>
+            </button>
             <div className="flex items-start gap-3">
                 <span className={`material-symbols-outlined ${isAtLimit ? 'text-red-500' : 'text-blue-500'}`}>
                     {isAtLimit ? 'lock' : 'info'}
