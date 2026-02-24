@@ -129,17 +129,24 @@ const App: React.FC = () => {
     }
   }, [user]);
 
-  // Handle Google OAuth callback
+  // Handle Google OAuth callback attached to the URL (either pre-hash or inside hash)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    // Collect params from both window.location.search and window.location.hash
+    let paramsSource = window.location.search;
+    if (window.location.hash.includes('?')) {
+      paramsSource = window.location.hash.substring(window.location.hash.indexOf('?'));
+    }
+    const params = new URLSearchParams(paramsSource);
+
     const googleAuth = params.get('googleAuth');
     const userData = params.get('user');
     const error = params.get('error');
 
     if (error) {
       console.error('[GOOGLE AUTH] Error:', error, params.get('message'));
-      // Clean URL
-      window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+      // Clean URL: keep path and the route hash without the query part
+      const cleanHash = window.location.hash.split('?')[0];
+      window.history.replaceState({}, document.title, window.location.pathname + cleanHash);
       return;
     }
 
@@ -160,7 +167,7 @@ const App: React.FC = () => {
         setUser(userObj);
         localStorage.setItem('appxv_user', JSON.stringify(userObj));
 
-        // Clean URL and redirect to dashboard
+        // Clean URL and force redirect to dashboard
         window.history.replaceState({}, document.title, window.location.pathname + '#/dashboard');
       } catch (e) {
         console.error('[GOOGLE AUTH] Failed to parse user data:', e);
