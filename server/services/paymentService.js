@@ -20,7 +20,7 @@ const PLAN_DETAILS = {
  * @param {string} userId User's UUID from Supabase
  * @returns {Promise<Object>} The init_point and preference ID
  */
-export const createPaymentPreference = async (planId, userEmail, userId) => {
+export const createPaymentPreference = async (planId, userEmail, userId, requestBaseUrl = '') => {
     const accessToken = process.env.MP_ACCESS_TOKEN;
     if (!accessToken) {
         console.warn('[PaymentService] Warning: MP_ACCESS_TOKEN not configured. Returning dummy URL for testing.');
@@ -39,10 +39,17 @@ export const createPaymentPreference = async (planId, userEmail, userId) => {
     const client = new MercadoPagoConfig({ accessToken });
     const preference = new Preference(client);
 
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    // Local dev webhook testing often requires ngrok. 
-    // Example: MP_WEBHOOK_URL=https://your-ngrok-url.ngrok-free.app/api/payments/webhook
-    const webhookUrl = process.env.MP_WEBHOOK_URL || `${baseUrl.replace('5173', '3000')}/api/payments/webhook`;
+    // GCloud/Render dynamically resolve the frontend URL based on the incoming request.
+    // Fallback to explicit FRONTEND_URL, or hardcoded Render URL for safety.
+    let baseUrl = requestBaseUrl || process.env.FRONTEND_URL || 'https://appxv.onrender.com';
+    baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash if any
+
+    // Ensure it's not http://localhost if MP blocks it for your account
+    if (baseUrl.includes('localhost')) {
+        console.warn('[PaymentService] Localhost detected for baseUrl, some MP accounts block localhost auto_return urls.');
+    }
+
+    const webhookUrl = process.env.MP_WEBHOOK_URL || `${baseUrl}/api/payments/webhook`;
 
     try {
         console.log(`[PaymentService] Creating preference for user ${userEmail}, plan ${planId}`);

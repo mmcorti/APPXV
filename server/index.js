@@ -3910,7 +3910,11 @@ app.post('/api/payments/create-preference', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Missing required fields' });
         }
 
-        const preference = await createPaymentPreference(planId, userEmail, userId);
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+        const host = req.headers.host;
+        const requestBaseUrl = `${protocol}://${host}`;
+
+        const preference = await createPaymentPreference(planId, userEmail, userId, requestBaseUrl);
         res.json({ success: true, init_point: preference.init_point, preferenceId: preference.id });
     } catch (error) {
         console.error('Error creating preference:', error);
@@ -3951,6 +3955,12 @@ app.post('/api/payments/webhook', async (req, res) => {
         console.error('[Webhook] Error processing notification:', error);
         res.status(500).send('Error');
     }
+});
+
+app.get('/payment/:status', (req, res) => {
+    // MercadoPago redirect interceptor to adapt to HashRouter
+    // example: /payment/success -> /#/payment/success
+    res.redirect(`/#/payment/${req.params.status}`);
 });
 
 // Catch-all for frontend
