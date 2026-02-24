@@ -16,9 +16,21 @@ const GoogleCallbackScreen: React.FC<GoogleCallbackProps> = ({ onLogin }) => {
             return;
         }
 
-        const googleAuth = searchParams.get('googleAuth');
-        const userData = searchParams.get('user');
-        const error = searchParams.get('error');
+        let googleAuth = searchParams.get('googleAuth');
+        let userData = searchParams.get('user');
+        let error = searchParams.get('error');
+
+        // Fallback for HashRouter edge cases if params are before the hash
+        if (!googleAuth && !error) {
+            let paramsSource = window.location.search;
+            if (window.location.hash.includes('?')) {
+                paramsSource = window.location.hash.substring(window.location.hash.indexOf('?'));
+            }
+            const fallbackParams = new URLSearchParams(paramsSource);
+            googleAuth = googleAuth || fallbackParams.get('googleAuth');
+            userData = userData || fallbackParams.get('user');
+            error = error || fallbackParams.get('error');
+        }
 
         if (error) {
             console.error('[GOOGLE AUTH] Error:', error, searchParams.get('message'));
