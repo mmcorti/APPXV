@@ -31,6 +31,7 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
   const [isCreating, setIsCreating] = useState(false);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [limitError, setLimitError] = useState<string | null>(null);
+  const [showUserExperienceBanner, setShowUserExperienceBanner] = useState(true);
   const { currentPlan, limits } = usePlan(); // Use hook for normalized plan
 
   useEffect(() => {
@@ -229,8 +230,14 @@ const DashboardScreen: React.FC<DashboardProps> = ({ user, invitations, onAddEve
                 />
               )}
               {/* General upgrade teaser for free users */}
-              {currentPlan === PLANS_FE.FREE && usage && usage.events.current < usage.events.limit && (
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[40px] p-8 text-white shadow-2xl flex items-center justify-between border border-white/10">
+              {currentPlan === PLANS_FE.FREE && usage && usage.events.current < usage.events.limit && showUserExperienceBanner && (
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[40px] p-8 text-white shadow-2xl flex items-center justify-between border border-white/10 relative group">
+                  <button
+                    onClick={() => setShowUserExperienceBanner(false)}
+                    className="absolute top-4 right-6 text-white/50 hover:text-white transition-colors p-2"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">close</span>
+                  </button>
                   <div>
                     <h3 className="font-bold text-xl mb-1 tracking-tight">Mejora tu experiencia</h3>
                     <p className="text-sm text-blue-100/80">Accede a IA, más invitados y herramientas premium.</p>

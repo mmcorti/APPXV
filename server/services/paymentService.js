@@ -3,12 +3,12 @@ import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 const PLAN_DETAILS = {
     especial: {
         title: 'Plan Especial - APPXV',
-        price: 25000,
+        price: 25,
         description: 'Suscripción Plan Especial (5 eventos, 100 invitados)'
     },
     vip: {
         title: 'Plan VIP - APPXV',
-        price: 75000,
+        price: 75,
         description: 'Suscripción Plan VIP (20 eventos, 200 invitados)'
     }
 };
