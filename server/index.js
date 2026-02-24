@@ -503,13 +503,22 @@ app.get('/api/auth/google/callback', async (req, res) => {
 
                     // Let's log deeply.
                     console.error('[GOOGLE AUTH] User in Auth but not public.users. syncing...');
-                    // Try to get user by email from admin API
-                    const { data: { users } } = await supabase.auth.admin.listUsers();
-                    const found = users.find(u => u.email === userEmail);
-                    if (found) {
-                        authId = found.id;
-                    } else {
-                        throw authError;
+                    // Find user across all pages in auth.users
+                    let page = 1;
+                    while (true) {
+                        const { data: { users }, error: listError } = await supabase.auth.admin.listUsers({ page, perPage: 100 });
+                        if (listError || !users || users.length === 0) break;
+
+                        const found = users.find(u => u.email === userEmail);
+                        if (found) {
+                            authId = found.id;
+                            break;
+                        }
+                        page++;
+                    }
+
+                    if (!authId) {
+                        throw authError; // User definitely not found, throw original error
                     }
                 } else {
                     throw authError;
