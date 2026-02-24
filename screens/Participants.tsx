@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { notionService } from '../services/notion';
+import { apiService } from '../services/apiService';
 import { UpgradePrompt } from '../components/UpgradePrompt';
 import { usePlan } from '../hooks/usePlan';
 
@@ -31,7 +31,7 @@ const Participants: React.FC = () => {
         if (!eventId) return;
         setLoading(true);
         try {
-            const data = await notionService.getParticipants(eventId);
+            const data = await apiService.getParticipants(eventId);
             setParticipants(data);
         } catch (error) {
             console.error('Error loading participants:', error);
@@ -46,9 +46,9 @@ const Participants: React.FC = () => {
         setSaving(true);
         try {
             if (editingId) {
-                await notionService.updateParticipant(editingId, formData);
+                await apiService.updateParticipant(editingId, formData);
             } else {
-                await notionService.createParticipant(eventId, formData);
+                await apiService.createParticipant(eventId, formData);
             }
             setShowForm(false);
             setFormData({ name: '', weight: 1 });
@@ -71,7 +71,7 @@ const Participants: React.FC = () => {
     const handleDelete = async (id: string) => {
         if (!confirm('¿Eliminar este participante?')) return;
         try {
-            await notionService.deleteParticipant(id);
+            await apiService.deleteParticipant(id);
             loadParticipants();
         } catch (error) {
             console.error('Error deleting participant:', error);
@@ -101,10 +101,10 @@ const Participants: React.FC = () => {
                         onClick={async () => {
                             if (!confirm('¿Importar miembros del Staff asignados a este evento? Se agregarán con peso 0 (solo registro de pagos).')) return;
                             try {
-                                const staff = await notionService.getStaffAssignments(eventId!);
+                                const staff = await apiService.getStaffAssignments(eventId!);
                                 for (const member of staff) {
                                     if (!participants.find(p => p.name === member.name)) {
-                                        await notionService.createParticipant(eventId!, { name: member.name, weight: 0 });
+                                        await apiService.createParticipant(eventId!, { name: member.name, weight: 0 });
                                     }
                                 }
                                 loadParticipants();

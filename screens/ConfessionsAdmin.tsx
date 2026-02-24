@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { User } from '../types';
 import { confessionsService, ConfessionsState } from '../services/confessionsService';
-import { notionService } from '../services/notion';
+import { apiService } from '../services/apiService';
 
 interface ConfessionsAdminProps {
     user: User | null;
@@ -64,7 +64,7 @@ const ConfessionsAdmin: React.FC<ConfessionsAdminProps> = ({ user }) => {
             reader.onloadend = async () => {
                 const base64 = reader.result as string;
                 // @ts-ignore
-                const url = await notionService.uploadImage(base64);
+                const url = await apiService.uploadImage(base64);
                 setBgUrl(url);
                 await handleSaveBackground(url);
             };

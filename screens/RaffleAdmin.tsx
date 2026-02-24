@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { raffleService } from '../services/raffleService';
-import { notionService } from '../services/notion';
+import { apiService } from '../services/apiService';
 import { RaffleState, RaffleMode } from '../game-types/raffleTypes';
 import { User } from '../types';
 
@@ -69,7 +69,7 @@ const RaffleAdmin: React.FC<RaffleAdminProps> = ({ user }) => {
             const reader = new FileReader();
             reader.onloadend = async () => {
                 const base64 = reader.result as string;
-                const url = await notionService.uploadImage(base64);
+                const url = await apiService.uploadImage(base64);
                 setCustomImage(url);
                 await handleSaveConfig(url);
             };

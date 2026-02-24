@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { notionService } from '../services/notion';
+import { apiService } from '../services/apiService';
 
 interface Balance {
     participantId: string;
@@ -38,7 +38,7 @@ const BalanceSummary: React.FC = () => {
         if (!eventId) return;
         setLoading(true);
         try {
-            const result = await notionService.getBalances(eventId);
+            const result = await apiService.getBalances(eventId);
             setData(result);
         } catch (error) {
             console.error('Error loading balances:', error);

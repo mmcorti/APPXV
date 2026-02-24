@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { notionService } from '../services/notion';
+import { apiService } from '../services/apiService';
 import { InvitationData } from '../types';
 import { UpgradePrompt } from '../components/UpgradePrompt';
 import { usePlan } from '../hooks/usePlan';
@@ -39,7 +39,7 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
         if (!id) return;
         setLoading(true);
         try {
-            const data = await notionService.getExpenses(id);
+            const data = await apiService.getExpenses(id);
             setExpenses(data);
         } catch (error) {
             console.error('Error loading expenses:', error);
@@ -53,7 +53,7 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
         if (!confirm('¿Estás seguro de que quieres eliminar este gasto?')) return;
 
         try {
-            await notionService.deleteExpense(expenseId);
+            await apiService.deleteExpense(expenseId);
             setExpenses(prev => prev.filter(exp => exp.id !== expenseId));
         } catch (error) {
             console.error('Error deleting expense:', error);
