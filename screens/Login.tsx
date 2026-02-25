@@ -18,6 +18,11 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [recoveryMessage, setRecoveryMessage] = useState({ type: '', text: '' });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -32,6 +37,27 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
       setError('Credenciales inválidas o error de conexión. Verifica los datos e intenta nuevamente.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRecovery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recoveryEmail) return;
+    setRecoveryLoading(true);
+    setRecoveryMessage({ type: '', text: '' });
+
+    try {
+      await apiService.recoverPassword(recoveryEmail);
+      setRecoveryMessage({ type: 'success', text: 'Se ha enviado un correo con instrucciones para recuperar tu contraseña.' });
+      setTimeout(() => {
+        setShowRecoveryModal(false);
+        setRecoveryEmail('');
+        setRecoveryMessage({ type: '', text: '' });
+      }, 3000);
+    } catch (err: any) {
+      setRecoveryMessage({ type: 'error', text: err.message || 'Error al solicitar recuperación.' });
+    } finally {
+      setRecoveryLoading(false);
     }
   };
 
@@ -107,7 +133,7 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
             <div className="space-y-2">
               <div className="flex justify-between items-center px-1">
                 <label className="text-slate-300 text-sm font-semibold">Contraseña</label>
-                <button type="button" className="text-indigo-400 text-xs font-bold hover:text-indigo-300 transition-colors">¿Olvidaste tu clave?</button>
+                <button type="button" onClick={() => setShowRecoveryModal(true)} className="text-indigo-400 text-xs font-bold hover:text-indigo-300 transition-colors">¿Olvidaste tu clave?</button>
               </div>
               <div className="relative group">
                 <input
@@ -174,6 +200,69 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
           ¿No tienes cuenta? <button onClick={() => navigate('/register')} className="text-indigo-400 font-bold hover:text-indigo-300 transition-colors">Regístrate ahora</button>
         </p>
       </motion.div>
+
+      {/* Recovery Modal */}
+      <AnimatePresence>
+        {showRecoveryModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-sm shadow-2xl relative"
+            >
+              <button
+                onClick={() => setShowRecoveryModal(false)}
+                className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+
+              <h3 className="text-xl font-bold text-white mb-2">Recuperar Contraseña</h3>
+              <p className="text-sm text-slate-400 mb-6">Ingresa tu correo y te enviaremos un enlace para restablecerla.</p>
+
+              <form onSubmit={handleRecovery} className="space-y-4">
+                <div className="relative group">
+                  <input
+                    className="w-full bg-slate-800 border border-white/5 rounded-2xl p-4 pl-12 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    placeholder="ejemplo@correo.com"
+                    type="email"
+                    value={recoveryEmail}
+                    onChange={(e) => setRecoveryEmail(e.target.value)}
+                    required
+                  />
+                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400">mail</span>
+                </div>
+
+                {recoveryMessage.text && (
+                  <div className={`text-sm p-3 rounded-xl ${recoveryMessage.type === 'error' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-green-500/10 text-green-400 border border-green-500/20'}`}>
+                    {recoveryMessage.text}
+                  </div>
+                )}
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="submit"
+                  disabled={recoveryLoading}
+                  className="w-full h-12 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl transition-colors disabled:opacity-70 flex justify-center items-center"
+                >
+                  {recoveryLoading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    "Enviar Enlace"
+                  )}
+                </motion.button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

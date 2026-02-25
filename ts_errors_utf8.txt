@@ -1,0 +1,2 @@
+﻿screens/StaffRoster.tsx(69,19): error TS2304: Cannot find name 'apiService'.
+services/gemini.ts(70,7): error TS2353: Object literal may only specify known properties, and 'generationConfig' does not exist in type 'GenerateContentParameters'.
