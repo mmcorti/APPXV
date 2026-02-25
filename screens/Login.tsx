@@ -47,13 +47,13 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
     setRecoveryMessage({ type: '', text: '' });
 
     try {
-      await apiService.recoverPassword(recoveryEmail);
-      setRecoveryMessage({ type: 'success', text: 'Se ha enviado un correo con instrucciones para recuperar tu contraseña.' });
+      const res = await apiService.recoverPassword(recoveryEmail);
+      setRecoveryMessage({ type: 'success', text: `Se ha enviado un correo con instrucciones a ${res.maskedEmail}` });
       setTimeout(() => {
         setShowRecoveryModal(false);
         setRecoveryEmail('');
         setRecoveryMessage({ type: '', text: '' });
-      }, 3000);
+      }, 5000);
     } catch (err: any) {
       setRecoveryMessage({ type: 'error', text: err.message || 'Error al solicitar recuperación.' });
     } finally {

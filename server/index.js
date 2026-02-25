@@ -180,13 +180,43 @@ app.post('/api/auth/recover', async (req, res) => {
         const { email } = req.body;
         if (!email) return res.status(400).json({ error: 'Email requerido' });
 
+        // 1. Check if user exists
+        const { data: user, error: findError } = await supabase
+            .from('users')
+            .select('email')
+            .eq('email', email.toLowerCase())
+            .single();
+
+        if (findError || !user) {
+            return res.status(404).json({ error: 'No se encontró una cuenta con ese correo electrónico.' });
+        }
+
         const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
             redirectTo: `${baseUrl}/#/update-password`
         });
 
         if (error) throw error;
-        res.json({ success: true });
+
+        // 2. Obfuscate email (e.g. ma***o@g***.com)
+        const [name, domain] = user.email.split('@');
+        let maskedEmail = user.email;
+        if (domain) {
+            const maskedName = name.length > 3
+                ? name.substring(0, 2) + '*'.repeat(name.length - 3) + name.slice(-1)
+                : name[0] + '*'.repeat(name.length - 1);
+
+            const domainParts = domain.split('.');
+            const mainDomain = domainParts[0];
+            const maskedMainDomain = mainDomain.length > 2
+                ? mainDomain.substring(0, 1) + '*'.repeat(mainDomain.length - 2) + mainDomain.slice(-1)
+                : mainDomain[0] + '*'.repeat(mainDomain.length - 1);
+
+            domainParts[0] = maskedMainDomain;
+            maskedEmail = `${maskedName}@${domainParts.join('.')}`;
+        }
+
+        res.json({ success: true, maskedEmail });
     } catch (e) {
         console.error('❌ Error sending recovery email:', e);
         res.status(500).json({ error: e.message });
