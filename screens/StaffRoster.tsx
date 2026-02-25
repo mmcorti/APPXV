@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { User } from '../types';
 import { UpgradePrompt } from '../components/UpgradePrompt';
 import { usePlan } from '../hooks/usePlan';
+import { apiService } from '../services/apiService';
 
 interface StaffRosterProps {
     user: User;
@@ -23,6 +25,10 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
     const [roster, setRoster] = useState<RosterMember[]>([]);
     const [loading, setLoading] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
+
+    const [editingPasswordId, setEditingPasswordId] = useState<string | null>(null);
+    const [newStaffPassword, setNewStaffPassword] = useState('');
+    const [updatingPassword, setUpdatingPassword] = useState(false);
 
     // New member form
     const [newName, setNewName] = useState('');
@@ -52,6 +58,25 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
     useEffect(() => {
         fetchRoster();
     }, [user]);
+
+    const handleUpdatePassword = async (staffId: string) => {
+        if (!user.id || !newStaffPassword || newStaffPassword.length < 6) {
+            alert('La nueva contraseña debe tener al menos 6 caracteres.');
+            return;
+        }
+
+        setUpdatingPassword(true);
+        try {
+            await apiService.updateStaffPassword(staffId, newStaffPassword, user.id);
+            alert('Contraseña actualizada correctamente.');
+            setEditingPasswordId(null);
+            setNewStaffPassword('');
+        } catch (e: any) {
+            alert(e.message || 'Error al actualizar contraseña.');
+        } finally {
+            setUpdatingPassword(false);
+        }
+    };
 
     const handleCreate = async () => {
         if (!user.id) {
@@ -224,31 +249,76 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
                         </p>
                     ) : (
                         roster.map(member => (
-                            <div key={member.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center group hover:shadow-md transition-shadow">
-                                <div className="flex items-center gap-4">
-                                    <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
-                                        <span className="material-symbols-outlined">person</span>
-                                    </div>
-                                    <div>
-                                        <h3 className="font-semibold text-gray-900">{member.name}</h3>
-                                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                                            <span>{member.email}</span>
-                                            {member.description && (
-                                                <>
-                                                    <span>•</span>
-                                                    <span className="bg-gray-100 px-2 py-0.5 rounded text-xs text-gray-700">{member.description}</span>
-                                                </>
-                                            )}
+                            <div key={member.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col group hover:shadow-md transition-shadow">
+                                <div className="flex justify-between items-center w-full">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500">
+                                            <span className="material-symbols-outlined">person</span>
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-gray-900">{member.name}</h3>
+                                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                                                <span>{member.email}</span>
+                                                {member.description && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span className="bg-gray-100 px-2 py-0.5 rounded text-xs text-gray-700">{member.description}</span>
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setEditingPasswordId(editingPasswordId === member.id ? null : member.id)}
+                                            className={`p-2 rounded-full transition-colors ${editingPasswordId === member.id ? 'bg-indigo-100 text-indigo-600' : 'text-gray-400 hover:text-indigo-500 hover:bg-indigo-50'}`}
+                                            title="Cambiar contraseña"
+                                        >
+                                            <span className="material-symbols-outlined">key</span>
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(member.id)}
+                                            className="text-gray-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors"
+                                            title="Eliminar del equipo"
+                                        >
+                                            <span className="material-symbols-outlined">delete</span>
+                                        </button>
+                                    </div>
                                 </div>
-                                <button
-                                    onClick={() => handleDelete(member.id)}
-                                    className="text-gray-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors"
-                                    title="Eliminar del equipo"
-                                >
-                                    <span className="material-symbols-outlined">delete</span>
-                                </button>
+
+                                <AnimatePresence>
+                                    {editingPasswordId === member.id && (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            className="mt-4 pt-4 border-t border-gray-100 overflow-hidden"
+                                        >
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Nueva Contraseña para {member.name}</label>
+                                            <div className="flex gap-3">
+                                                <input
+                                                    type="password"
+                                                    value={newStaffPassword}
+                                                    onChange={e => setNewStaffPassword(e.target.value)}
+                                                    placeholder="Mínimo 6 caracteres"
+                                                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                />
+                                                <button
+                                                    onClick={() => handleUpdatePassword(member.id)}
+                                                    disabled={updatingPassword || newStaffPassword.length < 6}
+                                                    className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors font-medium shadow-sm flex items-center gap-2"
+                                                >
+                                                    {updatingPassword ? (
+                                                        <>
+                                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                            Guardando...
+                                                        </>
+                                                    ) : "Guardar"}
+                                                </button>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         ))
                     )}

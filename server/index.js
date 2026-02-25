@@ -174,6 +174,51 @@ app.post('/api/ai/edit-image', async (req, res) => {
     }
 });
 
+// --- AUTH: RECOVER PASSWORD ---
+app.post('/api/auth/recover', async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ error: 'Email requerido' });
+
+        const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${baseUrl}/#/update-password`
+        });
+
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (e) {
+        console.error('❌ Error sending recovery email:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/auth/update-password', async (req, res) => {
+    try {
+        const { accessToken, newPassword } = req.body;
+        if (!accessToken || !newPassword) return res.status(400).json({ error: 'Faltan datos requeridos' });
+
+        const tempClientFactory = await import('@supabase/supabase-js');
+        const tempSupabase = tempClientFactory.createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, {
+            global: { headers: { Authorization: `Bearer ${accessToken}` } },
+            auth: { persistSession: false, autoRefreshToken: false }
+        });
+
+        const { data: { user }, error: userError } = await tempSupabase.auth.getUser();
+        if (userError || !user) throw new Error('Token inválido o expirado');
+
+        const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, {
+            password: newPassword
+        });
+
+        if (updateError) throw updateError;
+        res.json({ success: true });
+    } catch (e) {
+        console.error('❌ Error updating password:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // --- LOGIN ---
 app.post('/api/login', async (req, res) => {
     const email = req.body.email?.trim();
@@ -2117,8 +2162,42 @@ app.delete('/api/staff-roster/:id', async (req, res) => {
         if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        console.error("âŒ Error deleting staff roster:", error);
+        console.error("❌ Error deleting staff roster:", error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+app.put('/api/staff-roster/:id/password', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { newPassword, ownerId } = req.body;
+
+        if (!newPassword || !ownerId) {
+            return res.status(400).json({ error: 'newPassword y ownerId requeridos' });
+        }
+
+        // Verify this staff member actually belongs to this owner
+        const { data: profile, error: profileError } = await supabase
+            .from('staff_profiles')
+            .select('id')
+            .eq('id', id)
+            .eq('owner_id', ownerId)
+            .single();
+
+        if (profileError || !profile) {
+            return res.status(403).json({ error: 'No tienes permiso para modificar la contraseña de este usuario' });
+        }
+
+        // Force password update
+        const { error: updateError } = await supabase.auth.admin.updateUserById(id, {
+            password: newPassword
+        });
+
+        if (updateError) throw updateError;
+        res.json({ success: true });
+    } catch (e) {
+        console.error('❌ Error changing staff password:', e);
+        res.status(500).json({ error: e.message });
     }
 });
 

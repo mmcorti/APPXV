@@ -57,6 +57,39 @@ export const apiService = {
         return data.user;
     },
 
+    async recoverPassword(email: string) {
+        const res = await fetch(`${API_URL}/auth/recover`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Failed to send recovery email');
+        return data;
+    },
+
+    async updatePassword(accessToken: string, newPasswordHash: string) {
+        const res = await fetch(`${API_URL}/auth/update-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accessToken, newPassword: newPasswordHash })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Failed to update password');
+        return data;
+    },
+
+    async updateStaffPassword(staffId: string, newPasswordHash: string, ownerId: string) {
+        const res = await fetch(`${API_URL}/staff-roster/${staffId}/password`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ newPassword: newPasswordHash, ownerId })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Failed to update staff password');
+        return data;
+    },
+
     async getEvent(id: string): Promise<InvitationData> {
         const res = await fetch(`${API_URL}/events/${id}`);
         if (!res.ok) throw new Error('Failed to fetch event');

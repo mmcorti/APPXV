@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import WelcomeScreen from './screens/Welcome';
 import LoginScreen from './screens/Login';
+import UpdatePasswordScreen from './screens/UpdatePassword';
 import RegisterScreen from './screens/Register';
 import DashboardScreen from './screens/Dashboard';
 import InvitationEditor from './screens/InvitationEditor';
@@ -524,6 +525,7 @@ const App: React.FC = () => {
             path="/register"
             element={<RegisterScreen onAuthSuccess={handleAuthSuccess} />}
           />
+          <Route path="/update-password" element={<UpdatePasswordScreen />} />
           <Route
             path="/dashboard"
             element={user ? <DashboardScreen user={user} invitations={invitations} loading={loading} onAddEvent={addInvitation} onDeleteEvent={handleDeleteEvent} onLogout={handleLogout} onRefresh={() => loadAllData(user.email, (user.role === 'event_staff' || user.role === 'staff') ? user.id : undefined)} /> : <Navigate to="/login" />}
