@@ -96,6 +96,7 @@ export const getPlanLimits = (planName) => {
         'invitado especial': 'premium',
         'invitado_especial': 'premium',
         'special': 'premium',
+        'especial': 'premium',
         'free': 'freemium',
         'general': 'freemium'
     };

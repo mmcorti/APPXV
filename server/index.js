@@ -4066,10 +4066,36 @@ app.post('/api/payments/webhook', async (req, res) => {
     }
 });
 
-app.get('/payment/:status', (req, res) => {
+app.get('/payment/:status', async (req, res) => {
+    try {
+        const { status } = req.params;
+        const paymentId = req.query.payment_id || req.query.collection_id;
+
+        if (status === 'success' && paymentId) {
+            console.log(`[Frontend Fallback] Verifying payment ID: ${paymentId}`);
+            const paymentInfo = await verifyPayment(paymentId);
+
+            if (paymentInfo && paymentInfo.status === 'approved') {
+                const userId = paymentInfo.external_reference || paymentInfo.metadata?.user_id;
+                const planId = paymentInfo.metadata?.plan_id;
+
+                if (userId && planId) {
+                    console.log(`[Frontend Fallback] Payment approved for user ${userId}, upgrading to ${planId}`);
+                    await supabase
+                        .from('users')
+                        .update({ plan: planId })
+                        .eq('id', userId);
+                }
+            }
+        }
+    } catch (e) {
+        console.error('[Frontend Fallback] Error verifying payment:', e);
+    }
+
     // MercadoPago redirect interceptor to adapt to HashRouter
     // example: /payment/success -> /#/payment/success
-    res.redirect(`/#/payment/${req.params.status}`);
+    const queryString = Object.keys(req.query).length > 0 ? '?' + new URLSearchParams(req.query).toString() : '';
+    res.redirect(`/#/payment/${req.params.status}${queryString}`);
 });
 
 // Catch-all for frontend
