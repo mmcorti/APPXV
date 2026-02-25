@@ -1105,8 +1105,82 @@ app.delete('/api/guests/:id', async (req, res) => {
 });
 
 
-// --- SUBSCRIBERS (Staff) ---
+// --- PLATFORM SUBSCRIBERS (For SuperAdmin) ---
 app.get('/api/subscribers', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .in('role', ['subscriber', 'admin']);
+        if (error) throw error;
+
+        const result = data.map(u => ({
+            id: u.id,
+            name: u.username || u.email,
+            email: u.email,
+            plan: u.plan || 'freemium',
+            permissions: {} // Platform subscribers don't use this, but frontend expects it
+        }));
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/subscribers', async (req, res) => {
+    try {
+        const { name, email, password, plan, userRole } = req.body;
+        if (!isAdmin(userRole)) return res.status(403).json({ error: 'No admin' });
+
+        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true
+        });
+        if (authError) throw authError;
+
+        await supabase.from('users').upsert({
+            id: authData.user.id,
+            email,
+            username: name || email.split('@')[0],
+            role: 'subscriber',
+            plan: plan || 'freemium'
+        });
+
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.put('/api/subscribers/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, plan } = req.body;
+        const updateData = {};
+        if (name) updateData.username = name;
+        if (plan) updateData.plan = plan;
+
+        if (Object.keys(updateData).length > 0) {
+            await supabase.from('users').update(updateData).eq('id', id);
+        }
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.delete('/api/subscribers/:id', async (req, res) => {
+    try {
+        await supabase.auth.admin.deleteUser(req.params.id);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// --- STAFF ASSIGNMENTS ---
+app.get('/api/staff-assignments', async (req, res) => {
     try {
         const { eventId } = req.query;
         if (!eventId) return res.status(400).json({ error: "eventId is required" });
@@ -1145,7 +1219,7 @@ app.get('/api/subscribers', async (req, res) => {
     }
 });
 
-app.post('/api/subscribers', async (req, res) => {
+app.post('/api/staff-assignments', async (req, res) => {
     try {
         const { eventId, name, email, password, permissions, userRole } = req.body;
 
@@ -1215,7 +1289,7 @@ app.post('/api/subscribers', async (req, res) => {
     }
 });
 
-app.put('/api/subscribers/:id', async (req, res) => {
+app.put('/api/staff-assignments/:id', async (req, res) => {
     try {
         const { id } = req.params; // Assignment ID
         const { permissions } = req.body;
@@ -1234,7 +1308,7 @@ app.put('/api/subscribers/:id', async (req, res) => {
     }
 });
 
-app.delete('/api/subscribers/:id', async (req, res) => {
+app.delete('/api/staff-assignments/:id', async (req, res) => {
     try {
         const { error } = await supabase
             .from('staff_assignments')
@@ -3992,10 +4066,36 @@ app.post('/api/payments/webhook', async (req, res) => {
     }
 });
 
-app.get('/payment/:status', (req, res) => {
+app.get('/payment/:status', async (req, res) => {
+    try {
+        const { status } = req.params;
+        const paymentId = req.query.payment_id || req.query.collection_id;
+
+        if (status === 'success' && paymentId) {
+            console.log(`[Frontend Fallback] Verifying payment ID: ${paymentId}`);
+            const paymentInfo = await verifyPayment(paymentId);
+
+            if (paymentInfo && paymentInfo.status === 'approved') {
+                const userId = paymentInfo.external_reference || paymentInfo.metadata?.user_id;
+                const planId = paymentInfo.metadata?.plan_id;
+
+                if (userId && planId) {
+                    console.log(`[Frontend Fallback] Payment approved for user ${userId}, upgrading to ${planId}`);
+                    await supabase
+                        .from('users')
+                        .update({ plan: planId })
+                        .eq('id', userId);
+                }
+            }
+        }
+    } catch (e) {
+        console.error('[Frontend Fallback] Error verifying payment:', e);
+    }
+
     // MercadoPago redirect interceptor to adapt to HashRouter
     // example: /payment/success -> /#/payment/success
-    res.redirect(`/#/payment/${req.params.status}`);
+    const queryString = Object.keys(req.query).length > 0 ? '?' + new URLSearchParams(req.query).toString() : '';
+    res.redirect(`/#/payment/${req.params.status}${queryString}`);
 });
 
 // Catch-all for frontend

@@ -101,6 +101,7 @@ export const PlanProvider: React.FC<{ children: ReactNode; userPlan?: string }> 
             'invitado especial': 'PREMIUM',
             'invitado_especial': 'PREMIUM',
             'special': 'PREMIUM',
+            'especial': 'PREMIUM',
             'vip': 'VIP',
             'honor': 'HONOR'
         };
