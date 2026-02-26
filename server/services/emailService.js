@@ -5,7 +5,7 @@ export const sendRecoveryEmail = async (toEmail, recoveryLink) => {
         const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
         const smtpPort = parseInt(process.env.SMTP_PORT, 10) || 465;
         const smtpUser = process.env.SMTP_USER;
-        const smtpPass = process.env.SMTP_PASS;
+        const smtpPass = process.env.SMTP_PASS ? process.env.SMTP_PASS.replace(/\s+/g, '') : undefined;
 
         if (!smtpUser || !smtpPass) {
             console.warn('⚠️ SMTP credentials are not configured. Cannot send recovery email. Logged recovery link instead:', recoveryLink);
