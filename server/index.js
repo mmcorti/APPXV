@@ -16,6 +16,7 @@ import { uploadImage } from './services/imageUpload.js';
 import { raffleGameService } from './services/raffleGameService.js';
 import { confessionsGameService } from './services/confessionsGameService.js';
 import { impostorGameService } from './services/impostorGameService.js';
+import { sendRecoveryEmail } from './services/emailService.js';
 import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -183,24 +184,40 @@ app.post('/api/auth/recover', async (req, res) => {
         // 1. Check if user exists
         const { data: user, error: findError } = await supabase
             .from('users')
-            .select('email')
+            .select('email, recovery_email')
             .eq('email', email.toLowerCase())
             .single();
 
         if (findError || !user) {
-            return res.status(404).json({ error: 'No se encontró una cuenta con ese correo electrónico.' });
+            return res.status(404).json({ error: 'No se encontró una cuenta con ese nombre de usuario.' });
+        }
+
+        if (!user.recovery_email) {
+            return res.status(400).json({ error: 'Esta cuenta no tiene un correo de recuperación configurado.' });
         }
 
         const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-        const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-            redirectTo: `${baseUrl}/#/update-password`
+
+        // Use Supabase Admin API to generate the recovery link
+        const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+            type: 'recovery',
+            email: user.email,
+            options: {
+                redirectTo: `${baseUrl}/#/update-password`
+            }
         });
 
-        if (error) throw error;
+        if (linkError) throw linkError;
 
-        // 2. Obfuscate email (e.g. ma***o@g***.com)
-        const [name, domain] = user.email.split('@');
-        let maskedEmail = user.email;
+        // Send the recovery email manually using Nodemailer
+        const sent = await sendRecoveryEmail(user.recovery_email, linkData.properties.action_link);
+        if (!sent) {
+            console.warn('Recover link was generated but email could not be sent due to unconfigured SMTP:', linkData.properties.action_link);
+        }
+
+        // 2. Obfuscate recovery email (e.g. ma***o@g***.com)
+        const [name, domain] = user.recovery_email.split('@');
+        let maskedEmail = user.recovery_email;
         if (domain) {
             const maskedName = name.length > 3
                 ? name.substring(0, 2) + '*'.repeat(name.length - 3) + name.slice(-1)

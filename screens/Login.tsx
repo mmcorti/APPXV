@@ -19,7 +19,7 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
 
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
-  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [recoveryUsername, setRecoveryUsername] = useState('');
   const [recoveryLoading, setRecoveryLoading] = useState(false);
   const [recoveryMessage, setRecoveryMessage] = useState({ type: '', text: '' });
 
@@ -42,16 +42,17 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
 
   const handleRecovery = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!recoveryEmail) return;
+    if (!recoveryUsername) return;
     setRecoveryLoading(true);
     setRecoveryMessage({ type: '', text: '' });
 
     try {
-      const res = await apiService.recoverPassword(recoveryEmail);
+      const formattedEmail = `${recoveryUsername.toLowerCase().trim()}@appxv.app`;
+      const res = await apiService.recoverPassword(formattedEmail);
       setRecoveryMessage({ type: 'success', text: `Se ha enviado un correo con instrucciones a ${res.maskedEmail}` });
       setTimeout(() => {
         setShowRecoveryModal(false);
-        setRecoveryEmail('');
+        setRecoveryUsername('');
         setRecoveryMessage({ type: '', text: '' });
       }, 5000);
     } catch (err: any) {
@@ -224,19 +225,21 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
               </button>
 
               <h3 className="text-xl font-bold text-white mb-2">Recuperar Contraseña</h3>
-              <p className="text-sm text-slate-400 mb-6">Ingresa tu correo y te enviaremos un enlace para restablecerla.</p>
+              <p className="text-sm text-slate-400 mb-6">Ingresa tu usuario y te enviaremos un enlace a tu correo de recuperación.</p>
 
               <form onSubmit={handleRecovery} className="space-y-4">
                 <div className="relative group">
                   <input
-                    className="w-full bg-slate-800 border border-white/5 rounded-2xl p-4 pl-12 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                    placeholder="ejemplo@correo.com"
-                    type="email"
-                    value={recoveryEmail}
-                    onChange={(e) => setRecoveryEmail(e.target.value)}
+                    className="w-full bg-slate-800 border border-white/5 rounded-2xl p-4 pl-12 pr-[140px] text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    placeholder="tu.usuario"
+                    type="text"
+                    value={recoveryUsername}
+                    onChange={(e) => setRecoveryUsername(e.target.value.toLowerCase().replace(/[^a-z0-9._]/g, ''))}
                     required
+                    maxLength={30}
                   />
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400">mail</span>
+                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400">person</span>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-400/80 font-bold text-sm bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">@appxv.app</span>
                 </div>
 
                 {recoveryMessage.text && (
