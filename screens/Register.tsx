@@ -40,6 +40,9 @@ const RegisterScreen: React.FC<RegisterProps> = ({ onAuthSuccess }) => {
   const isPasswordValid = password.length >= 8;
   const doPasswordsMatch = password === confirmPassword && confirmPassword.length > 0;
 
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const isRecoveryEmailValid = emailRegex.test(recoveryEmail);
+
   const getRecaptchaToken = async (): Promise<string> => {
     if (!RECAPTCHA_SITE_KEY || !(window as any).grecaptcha) return '';
     return new Promise((resolve) => {
@@ -59,6 +62,10 @@ const RegisterScreen: React.FC<RegisterProps> = ({ onAuthSuccess }) => {
     // Client-side validations
     if (!isUsernameValid) {
       setError('El usuario debe tener entre 3 y 30 caracteres (letras, números, puntos y guiones bajos)');
+      return;
+    }
+    if (!isRecoveryEmailValid) {
+      setError('Por favor ingresa un email de recuperación válido');
       return;
     }
     if (!isPasswordValid) {
@@ -234,17 +241,14 @@ const RegisterScreen: React.FC<RegisterProps> = ({ onAuthSuccess }) => {
                 </div>
               </motion.div>
 
-              {/* Recovery Email (optional) */}
+              {/* Recovery Email */}
               <motion.div
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 }}
                 className="space-y-2"
               >
-                <div className="flex items-center gap-2 ml-1">
-                  <label className="text-slate-300 text-sm font-semibold">Email de recuperación</label>
-                  <span className="text-slate-600 text-xs">(opcional)</span>
-                </div>
+                <label className="text-slate-300 text-sm font-semibold ml-1">Email de recuperación</label>
                 <div className="relative group">
                   <input
                     className="w-full bg-slate-800/50 border border-white/5 rounded-2xl p-4 pl-12 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all group-hover:bg-slate-800/80"
@@ -252,9 +256,16 @@ const RegisterScreen: React.FC<RegisterProps> = ({ onAuthSuccess }) => {
                     type="email"
                     value={recoveryEmail}
                     onChange={(e) => setRecoveryEmail(e.target.value)}
+                    required
                   />
                   <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-400 transition-colors">mail</span>
                 </div>
+                {recoveryEmail && !isRecoveryEmailValid && (
+                  <p className="text-amber-400 text-xs ml-1 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">info</span>
+                    Email inválido
+                  </p>
+                )}
               </motion.div>
 
               {/* Password */}
@@ -337,7 +348,7 @@ const RegisterScreen: React.FC<RegisterProps> = ({ onAuthSuccess }) => {
                 whileHover={{ scale: 1.01, translateY: -2 }}
                 whileTap={{ scale: 0.98 }}
                 type="submit"
-                disabled={loading || !isUsernameValid || !isPasswordValid || !doPasswordsMatch}
+                disabled={loading || !isUsernameValid || !isPasswordValid || !doPasswordsMatch || !isRecoveryEmailValid}
                 className="w-full h-14 mt-2 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-bold rounded-2xl shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/40 disabled:opacity-50 disabled:grayscale transition-all flex items-center justify-center gap-2"
               >
                 {loading ? (
