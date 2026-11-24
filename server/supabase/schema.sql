@@ -381,7 +381,24 @@ CREATE POLICY "Users: ver propio perfil"
 
 CREATE POLICY "Users: actualizar propio perfil"
   ON public.users FOR UPDATE
-  USING (auth.uid() = id);
+  USING (auth.uid() = id)
+  WITH CHECK (
+    auth.uid() = id
+    AND role = (SELECT u.role FROM public.users u WHERE u.id = auth.uid())
+    AND plan = (SELECT u.plan FROM public.users u WHERE u.id = auth.uid())
+  );
+
+-- Políticas para staff_profiles y staff_assignments
+CREATE POLICY "StaffProfiles: ver propio o de dueño"
+  ON public.staff_profiles FOR SELECT
+  USING (auth.uid() = id OR auth.uid() = owner_id);
+
+CREATE POLICY "StaffAssignments: ver asignado o dueño del evento"
+  ON public.staff_assignments FOR SELECT
+  USING (
+    auth.uid() = staff_id
+    OR event_id IN (SELECT id FROM public.events WHERE creator_id = auth.uid())
+  );
 
 -- Políticas para events (creador ve sus eventos)
 CREATE POLICY "Events: creador puede todo"

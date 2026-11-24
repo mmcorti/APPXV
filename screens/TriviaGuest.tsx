@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import {
     triviaService,
@@ -17,7 +17,10 @@ const TriviaGuest: React.FC = () => {
     const [playerId, setPlayerId] = useState<string | null>(localStorage.getItem(`${PLAYER_ID_KEY}_${eventId}`));
     const [playerName, setPlayerName] = useState<string>(localStorage.getItem(`${PLAYER_NAME_KEY}_${eventId}`) || '');
     const [inputName, setInputName] = useState('');
+    const [joinError, setJoinError] = useState<string | null>(null);
+    const [joining, setJoining] = useState(false);
     const [timeLeft, setTimeLeft] = useState(0);
+    const resyncingRef = useRef(false);
 
     useEffect(() => {
         if (!eventId) return;
@@ -25,22 +28,26 @@ const TriviaGuest: React.FC = () => {
         return unsubscribe;
     }, [eventId, playerId]);
 
-    // Validar sesión con el servidor (Resync)
+    // Validar sesión con el servidor (Resync sin loop infinito)
     useEffect(() => {
         if (!gameState || !playerId || !playerName || !eventId) return;
 
-        // Si tengo un ID local pero NO estoy en la lista del servidor, me vuelvo a unir sigilosamente
-        if (gameState.players && !gameState.players[playerId]) {
+        // Si tengo un ID local pero NO estoy en la lista del servidor, intento re-unirme una vez
+        if (gameState.players && !gameState.players[playerId] && !resyncingRef.current) {
+            resyncingRef.current = true;
             console.log('🔄 Sincronizando sesión perdida con el servidor...');
             triviaService.joinPlayer(eventId, playerId, playerName).then(() => {
                 console.log('✅ Re-unido exitosamente');
+                setJoinError(null);
             }).catch(err => {
                 console.error('Error al re-unirse:', err);
-                // Si falla, limpiar local storage para obligar a loguearse de nuevo
+                setJoinError(err.message || 'No se pudo reconectar a la partida.');
                 localStorage.removeItem(`${PLAYER_ID_KEY}_${eventId}`);
                 localStorage.removeItem(`${PLAYER_NAME_KEY}_${eventId}`);
                 setPlayerId(null);
                 setPlayerName('');
+            }).finally(() => {
+                resyncingRef.current = false;
             });
         }
     }, [gameState?.players, playerId, eventId, playerName]);
@@ -66,13 +73,22 @@ const TriviaGuest: React.FC = () => {
     }, [gameState?.currentQuestionIndex, gameState?.questionStartTime, eventId]);
 
     const handleJoin = async () => {
-        if (!inputName.trim() || !eventId) return;
+        const trimmed = inputName.trim();
+        if (!trimmed || !eventId || joining) return;
+        setJoining(true);
+        setJoinError(null);
         const newId = crypto.randomUUID();
-        localStorage.setItem(`${PLAYER_ID_KEY}_${eventId}`, newId);
-        localStorage.setItem(`${PLAYER_NAME_KEY}_${eventId}`, inputName);
-        setPlayerId(newId);
-        setPlayerName(inputName);
-        await triviaService.joinPlayer(eventId, newId, inputName);
+        try {
+            await triviaService.joinPlayer(eventId, newId, trimmed);
+            localStorage.setItem(`${PLAYER_ID_KEY}_${eventId}`, newId);
+            localStorage.setItem(`${PLAYER_NAME_KEY}_${eventId}`, trimmed);
+            setPlayerId(newId);
+            setPlayerName(trimmed);
+        } catch (err: any) {
+            setJoinError(err.message || 'No se pudo unir al juego.');
+        } finally {
+            setJoining(false);
+        }
     };
 
     const handleAnswer = async (option: OptionKey) => {
@@ -114,9 +130,14 @@ const TriviaGuest: React.FC = () => {
                     maxLength={20}
                     autoFocus
                 />
+                {joinError && (
+                    <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/15 border border-red-500/40 text-red-300 text-sm font-medium">
+                        {joinError}
+                    </div>
+                )}
                 <button
                     onClick={handleJoin}
-                    disabled={!inputName.trim()}
+                    disabled={!inputName.trim() || joining}
                     className="bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white font-bold py-4 rounded-xl text-xl shadow-lg transition-all active:scale-95"
                 >
                     UNIRME

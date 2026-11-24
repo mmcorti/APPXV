@@ -8,7 +8,7 @@ export const sendRecoveryEmail = async (toEmail, recoveryLink) => {
         const smtpPass = process.env.SMTP_PASS ? process.env.SMTP_PASS.replace(/\s+/g, '') : undefined;
 
         if (!smtpUser || !smtpPass) {
-            console.warn('⚠️ SMTP credentials are not configured. Cannot send recovery email. Logged recovery link instead:', recoveryLink);
+            console.warn('⚠️ SMTP credentials are not configured. Cannot send recovery email.');
             return false;
         }
 

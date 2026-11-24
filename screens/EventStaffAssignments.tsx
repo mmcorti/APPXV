@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { InvitationData, User, StaffPermissions } from '../types';
+import { getAuthHeaders } from '../services/authHeaders';
 
 interface Assignment {
     id: string;
@@ -87,7 +88,7 @@ const EventStaffAssignmentsScreen: React.FC<Props> = ({ user, invitations }) => 
         try {
             const res = await fetch(`${API_URL}/staff-assignments`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     eventId: event?.id,
                     staffId: selectedStaffId,
@@ -113,7 +114,7 @@ const EventStaffAssignmentsScreen: React.FC<Props> = ({ user, invitations }) => 
     const handleDelete = async (assignmentId: string) => {
         if (!confirm('¿Quitar acceso a este evento?')) return;
         try {
-            await fetch(`${API_URL}/staff-assignments/${assignmentId}`, { method: 'DELETE' });
+            await fetch(`${API_URL}/staff-assignments/${assignmentId}`, { method: 'DELETE', headers: getAuthHeaders() });
             setAssignments(prev => prev.filter(a => a.id !== assignmentId));
         } catch (e) {
             console.error('Error unassigning:', e);

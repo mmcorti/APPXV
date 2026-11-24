@@ -1,5 +1,8 @@
 
+import { loadGameSession, scheduleGamePersist } from './gameSessionStore.js';
+
 const games = {};
+const loadPromises = new Map();
 
 const createInitialState = (eventId) => ({
     eventId,
@@ -8,13 +11,55 @@ const createInitialState = (eventId) => ({
     messages: [] // Array of { id, text, author, timestamp, color, rotate }
 });
 
+const persistConfessions = (eventId) => {
+    scheduleGamePersist(eventId, 'confessions', () => {
+        const game = games[eventId];
+        if (!game) return null;
+        return {
+            status: game.status || 'ACTIVE',
+            config: {
+                backgroundUrl: game.backgroundUrl || '',
+            },
+            state: {
+                messages: Array.isArray(game.messages) ? game.messages.slice(-100) : [],
+            },
+        };
+    });
+};
+
 export const confessionsGameService = {
+    ensureGame: async (eventId) => {
+        if (games[eventId]) return games[eventId];
+        if (!loadPromises.has(eventId)) {
+            loadPromises.set(eventId, (async () => {
+                const base = createInitialState(eventId);
+                const saved = await loadGameSession(eventId, 'confessions');
+                if (saved) {
+                    const cfg = saved.config || {};
+                    const st = saved.state || {};
+                    games[eventId] = {
+                        ...base,
+                        status: saved.status || base.status,
+                        backgroundUrl: cfg.backgroundUrl ?? base.backgroundUrl,
+                        messages: Array.isArray(st.messages) ? st.messages : [],
+                    };
+                } else if (!games[eventId]) {
+                    games[eventId] = base;
+                }
+                return games[eventId];
+            })().finally(() => loadPromises.delete(eventId)));
+        }
+        return loadPromises.get(eventId);
+    },
+
     getGame: (eventId) => {
         if (!games[eventId]) {
             games[eventId] = createInitialState(eventId);
         }
         return games[eventId];
     },
+
+    persist: (eventId) => persistConfessions(eventId),
 
     updateConfig: (eventId, { backgroundUrl, status }) => {
         const game = confessionsGameService.getGame(eventId);

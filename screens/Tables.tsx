@@ -34,9 +34,7 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
   // Drag and drop state
   const [draggedId, setDraggedId] = useState<string | null>(null);
 
-  if (!invitation) return <div className="p-10 text-center font-bold">Evento no encontrado</div>;
-
-  const tables = invitation.tables || [];
+  const tables = invitation?.tables || [];
 
   const openEditModal = (table: Table) => {
     setEditTableName(table.name);
@@ -112,8 +110,8 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
 
   // Lista de invitados disponibles (no declinados y que no estén ya sentados)
   const availablePool = useMemo(() => {
-    const tableList = invitation.tables || [];
-    const guestList = invitation.guests || [];
+    const tableList = invitation?.tables || [];
+    const guestList = invitation?.guests || [];
 
     // Generate a set of unique keys for already seated guests/companions
     // KEY: guestId-companionIndex (without name, since names can change)
@@ -212,6 +210,8 @@ const TablesScreen: React.FC<TablesScreenProps> = ({ invitations, onAddTable, on
       return (a.companionIndex || -1) - (b.companionIndex || -1);
     });
   }, [invitation?.guests, invitation?.tables]);
+
+  if (!invitation) return <div className="p-10 text-center font-bold">Evento no encontrado</div>;
 
   const handleAddTable = (e: React.FormEvent) => {
     e.preventDefault();

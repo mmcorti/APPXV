@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 interface GoogleCallbackProps {
-    onLogin: (id: string, name: string, email: string, role?: string, permissions?: any, eventId?: string, plan?: string) => void;
+    onLogin: (id: string, name: string, email: string, role?: string, permissions?: any, eventId?: string, plan?: string, token?: string) => void;
 }
 
 const GoogleCallbackScreen: React.FC<GoogleCallbackProps> = ({ onLogin }) => {
@@ -54,7 +54,8 @@ const GoogleCallbackScreen: React.FC<GoogleCallbackProps> = ({ onLogin }) => {
                     parsed.role || 'subscriber',
                     {}, // permissions
                     undefined, // eventId
-                    parsed.plan || 'freemium'
+                    parsed.plan || 'freemium',
+                    parsed.token
                 );
 
                 // Redirect to dashboard with replace to prevent back navigation

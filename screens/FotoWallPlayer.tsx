@@ -12,20 +12,22 @@ interface FotoWallPlayerProps {
 }
 
 const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations, user }) => {
-  const plan = user?.plan || 'freemium';
   const { id } = useParams<{ id: string }>();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Helper to get player config from event (Notion) with localStorage/navState fallbacks
-  const getPlayerConfig = () => {
+  const eventFromProps = invitations.find(i => i.id === id);
+  const [remoteEvent, setRemoteEvent] = useState<InvitationData | null>(null);
+  const [configResolved, setConfigResolved] = useState<boolean>(Boolean(eventFromProps?.fotowall));
+  const event = eventFromProps || remoteEvent || undefined;
+  const plan = event?.ownerPlan || user?.plan || 'freemium';
+
+  // Helper to get player config from event (DB) with localStorage/navState fallbacks
+  const getPlayerConfig = useCallback((sourceEvent?: InvitationData) => {
     const navState = location.state as any;
+    const fw = (sourceEvent || event)?.fotowall;
 
-    // Priority: 1. Event (Notion), 2. navState, 3. localStorage (fallback)
-    const fw = event?.fotowall;
-
-    // Check config key for transition/fallback
     const configKey = `fotowall_config_${id}`;
     const configSaved = localStorage.getItem(configKey);
     let localConfig: any = {};
@@ -37,19 +39,16 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations, user
       url: fw?.albumUrl || navState?.url || localConfig.albumUrl || '',
       interval: fw?.interval || navState?.config?.interval || localConfig.interval || 5,
       shuffle: fw?.shuffle ?? navState?.config?.shuffle ?? localConfig.shuffle ?? false,
-      prioritizeNew: true, // Internal behavior
+      prioritizeNew: true,
       overlayTitle: fw?.overlayTitle || localConfig.overlayTitle || ''
     };
-  };
+  }, [event, id, location.state]);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const event = invitations.find(i => i.id === id);
-
-  // REACTIVE STATE - updates when localStorage changes
-  const [albumUrl, setAlbumUrl] = useState(() => getPlayerConfig().url);
-  const [intervalSeconds, setIntervalSeconds] = useState(() => getPlayerConfig().interval || 5);
-  const [shuffle, setShuffle] = useState(() => getPlayerConfig().shuffle || false);
-  const [overlayTitle, setOverlayTitle] = useState(() => getPlayerConfig().overlayTitle || '');
+  // REACTIVE STATE - updates when event loads or localStorage changes
+  const [albumUrl, setAlbumUrl] = useState(() => getPlayerConfig(eventFromProps).url);
+  const [intervalSeconds, setIntervalSeconds] = useState(() => getPlayerConfig(eventFromProps).interval || 5);
+  const [shuffle, setShuffle] = useState(() => getPlayerConfig(eventFromProps).shuffle || false);
+  const [overlayTitle, setOverlayTitle] = useState(() => getPlayerConfig(eventFromProps).overlayTitle || '');
 
   const [photos, setPhotos] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -60,8 +59,48 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations, user
 
   const intervalTime = intervalSeconds * 1000;
 
-  // Get moderation settings from event (Notion) or localStorage
-  const getModerationSettings = () => {
+  // Hydrate event directly from backend when opened standalone (e.g. TV / incognito without session)
+  useEffect(() => {
+    if (!id) {
+      setConfigResolved(true);
+      setIsLoading(false);
+      return;
+    }
+
+    if (eventFromProps?.fotowall) {
+      const cfg = getPlayerConfig(eventFromProps);
+      setAlbumUrl(cfg.url);
+      setIntervalSeconds(cfg.interval || 5);
+      setShuffle(cfg.shuffle || false);
+      setOverlayTitle(cfg.overlayTitle || '');
+      setConfigResolved(true);
+      return;
+    }
+
+    let cancelled = false;
+    fetch(`${API_URL}/events/${id}`)
+      .then(res => (res.ok ? res.json() : null))
+      .then((fetched: InvitationData | null) => {
+        if (cancelled) return;
+        if (fetched) {
+          setRemoteEvent(fetched);
+          const cfg = getPlayerConfig(fetched);
+          if (cfg.url) setAlbumUrl(cfg.url);
+          if (cfg.interval) setIntervalSeconds(cfg.interval);
+          setShuffle(cfg.shuffle || false);
+          if (cfg.overlayTitle) setOverlayTitle(cfg.overlayTitle);
+        }
+      })
+      .catch(err => console.warn('[FotoWallPlayer] Could not fetch event config:', err))
+      .finally(() => {
+        if (!cancelled) setConfigResolved(true);
+      });
+
+    return () => { cancelled = true; };
+  }, [id, eventFromProps]);
+
+  // Get moderation settings from event (DB) or localStorage
+  const getModerationSettings = useCallback(() => {
     if (event?.fotowall) {
       return {
         mode: event.fotowall.mode,
@@ -78,14 +117,16 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations, user
         return { mode: 'manual', filters: {} };
       }
     }
-    return { mode: 'manual', filters: {} }; // Default to manual if nothing found
-  };
+    return { mode: 'manual', filters: {} };
+  }, [event, id]);
 
   // Fetch photos helper
   const loadPhotos = useCallback(async () => {
-    if (!albumUrl) return;
+    if (!albumUrl) {
+      if (configResolved) setIsLoading(false);
+      return;
+    }
     try {
-      // Always use moderated endpoint, it handles mode internally
       const endpoint = `${API_URL}/fotowall/album/moderated`;
       const currentSettings = getModerationSettings();
 
@@ -104,7 +145,6 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations, user
 
       console.log('[FotoWallPlayer] API Response:', data);
 
-      // The moderated endpoint ALWAYS returns { photos: [], stats: {} }
       const photosArray = data.photos || [];
 
       if (data.stats) {
@@ -113,7 +153,6 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations, user
 
       if (Array.isArray(photosArray)) {
         setPhotos(prev => {
-          // Naive "New Photo" detection: if length increased
           if (photosArray.length > prev.length && prev.length > 0) {
             setShowNewBadge(true);
           }
@@ -125,7 +164,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations, user
     } finally {
       setIsLoading(false);
     }
-  }, [albumUrl, id]);
+  }, [albumUrl, configResolved, getModerationSettings, plan]);
 
 
   // Initial load
@@ -206,7 +245,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations, user
 
   const currentPhoto = photos[currentIndex];
 
-  if (isLoading || !currentPhoto) {
+  if (isLoading) {
     return (
       <div className="bg-black w-screen h-screen flex items-center justify-center text-white">
         <div className="flex flex-col items-center gap-4">
@@ -214,7 +253,25 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations, user
           <p className="animate-pulse font-bold">Cargando fotos...</p>
         </div>
       </div>
-    )
+    );
+  }
+
+  if (!albumUrl || !currentPhoto) {
+    return (
+      <div className="bg-black w-screen h-screen flex items-center justify-center text-white p-8 text-center">
+        <div className="flex flex-col items-center gap-4 max-w-md">
+          <span className="material-symbols-outlined text-6xl text-pink-500/80">photo_library</span>
+          <h2 className="text-2xl font-bold">
+            {!albumUrl ? 'Álbum de FotoWall no configurado' : 'Esperando fotos del evento'}
+          </h2>
+          <p className="text-slate-400 text-sm">
+            {!albumUrl
+              ? 'Configurá el enlace de Google Photos desde el panel de FotoWall para mostrar la proyección en vivo.'
+              : 'Todavía no hay fotos aprobadas en este álbum. La pantalla se actualizará automáticamente cada 20 segundos.'}
+          </p>
+        </div>
+      </div>
+    );
   }
 
 

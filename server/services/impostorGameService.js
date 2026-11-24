@@ -6,8 +6,55 @@
 
 // Add import
 import { checkLimit } from '../planLimits.js';
+import { loadGameSession, scheduleGamePersist } from './gameSessionStore.js';
 
 const gameSessions = new Map();
+const loadPromises = new Map();
+
+const createInitialSession = () => ({
+    status: 'WAITING', // WAITING, SUBMITTING, VOTING, REVEAL
+    hostPlan: 'freemium', // Default
+    config: {
+        playerCount: 20,
+        impostorCount: 1,
+        mainPrompt: "Nombrá una canción que hace bailar a toda la fiesta",
+        impostorPrompt: "Nombrá una canción tranquila para escuchar manejando",
+        knowsRole: true,
+        customImageUrl: 'https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png'
+    },
+    round: 1,
+    players: [], // { id, name, role: 'CIVILIAN'|'IMPOSTOR', answer, avatar }
+    lobby: [], // { id, name, avatar } - People who joined but aren't playing this round
+    votes: {}, // { voterId: targetPlayerId }
+    activePlayers: [], // The selected group for the current round
+    eliminatedPlayers: [], // Players eliminated in previous rounds
+    lastEliminated: null, // { id, name, role, round }
+    winner: null // 'PUBLIC' or 'IMPOSTOR'
+});
+
+const persistImpostor = (eventId) => {
+    scheduleGamePersist(eventId, 'impostor', () => {
+        const session = gameSessions.get(eventId);
+        if (!session) return null;
+        return {
+            status: session.status || 'WAITING',
+            config: {
+                hostPlan: session.hostPlan || 'freemium',
+                ...(session.config || {}),
+            },
+            state: {
+                round: session.round || 1,
+                players: session.players || [],
+                lobby: session.lobby || [],
+                votes: session.votes || {},
+                activePlayers: session.activePlayers || [],
+                eliminatedPlayers: session.eliminatedPlayers || [],
+                lastEliminated: session.lastEliminated || null,
+                winner: session.winner || null,
+            },
+        };
+    });
+};
 
 const evaluateWinState = (session) => {
     const remainingImpostors = session.activePlayers.filter(p => p.role === 'IMPOSTOR').length;
@@ -30,31 +77,47 @@ const evaluateWinState = (session) => {
 };
 
 export const impostorGameService = {
+    ensureSession: async (eventId) => {
+        if (gameSessions.has(eventId)) return gameSessions.get(eventId);
+        if (!loadPromises.has(eventId)) {
+            loadPromises.set(eventId, (async () => {
+                const base = createInitialSession();
+                const saved = await loadGameSession(eventId, 'impostor');
+                if (saved) {
+                    const cfg = saved.config || {};
+                    const st = saved.state || {};
+                    const { hostPlan, ...restCfg } = cfg;
+                    gameSessions.set(eventId, {
+                        ...base,
+                        status: saved.status || base.status,
+                        hostPlan: hostPlan || base.hostPlan,
+                        config: { ...base.config, ...restCfg },
+                        round: st.round || 1,
+                        players: Array.isArray(st.players) ? st.players : [],
+                        lobby: Array.isArray(st.lobby) ? st.lobby.map(p => ({ ...p, online: false })) : [],
+                        votes: st.votes && typeof st.votes === 'object' ? st.votes : {},
+                        activePlayers: Array.isArray(st.activePlayers) ? st.activePlayers.map(p => ({ ...p, online: false })) : [],
+                        eliminatedPlayers: Array.isArray(st.eliminatedPlayers) ? st.eliminatedPlayers : [],
+                        lastEliminated: st.lastEliminated ?? null,
+                        winner: st.winner ?? null,
+                    });
+                } else if (!gameSessions.has(eventId)) {
+                    gameSessions.set(eventId, base);
+                }
+                return gameSessions.get(eventId);
+            })().finally(() => loadPromises.delete(eventId)));
+        }
+        return loadPromises.get(eventId);
+    },
+
     getOrCreateSession: (eventId) => {
         if (!gameSessions.has(eventId)) {
-            gameSessions.set(eventId, {
-                status: 'WAITING', // WAITING, SUBMITTING, VOTING, REVEAL
-                hostPlan: 'freemium', // Default
-                config: {
-                    playerCount: 20,
-                    impostorCount: 1,
-                    mainPrompt: "Nombrá una canción que hace bailar a toda la fiesta",
-                    impostorPrompt: "Nombrá una canción tranquila para escuchar manejando",
-                    knowsRole: true,
-                    customImageUrl: 'https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png'
-                },
-                round: 1,
-                players: [], // { id, name, role: 'CIVILIAN'|'IMPOSTOR', answer, avatar }
-                lobby: [], // { id, name, avatar } - People who joined but aren't playing this round
-                votes: {}, // { voterId: targetPlayerId }
-                activePlayers: [], // The selected group for the current round
-                eliminatedPlayers: [], // Players eliminated in previous rounds
-                lastEliminated: null, // { id, name, role, round }
-                winner: null // 'PUBLIC' or 'IMPOSTOR'
-            });
+            gameSessions.set(eventId, createInitialSession());
         }
         return gameSessions.get(eventId);
     },
+
+    persist: (eventId) => persistImpostor(eventId),
 
     joinSession: (eventId, player) => {
         const session = impostorGameService.getOrCreateSession(eventId);

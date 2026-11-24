@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { InvitationData, ImageSize, User } from '../types';
-import { GeminiService } from '../services/gemini';
 import { apiService } from '../services/apiService';
 
 interface InvitationEditorProps {

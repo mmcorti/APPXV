@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import WelcomeScreen from './screens/Welcome';
 import LoginScreen from './screens/Login';
@@ -84,8 +84,13 @@ const INITIAL_INVITATION: InvitationData = {
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('appxv_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('appxv_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      localStorage.removeItem('appxv_user');
+      return null;
+    }
   });
   const [invitations, setInvitations] = useState<InvitationData[]>([]);
   const [loading, setLoading] = useState(window.location.hash.includes('#/rsvp/'));
@@ -122,6 +127,40 @@ const App: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const refreshUserProfile = useCallback(async () => {
+    const fresh = await apiService.getCurrentUser();
+    if (!fresh) return;
+    setUser(prev => {
+      if (!prev) return prev;
+      const nextRole = (fresh.role as User['role']) || prev.role;
+      const rawPlan = ((fresh.plan || prev.plan || 'freemium') as string).toLowerCase() as User['plan'];
+      const nextPlan: User['plan'] = nextRole === 'admin'
+        ? (rawPlan === 'vip' ? 'vip' : 'honor')
+        : rawPlan;
+      const nextName = fresh.name || prev.name;
+
+      if (prev.role === nextRole && prev.plan === nextPlan && prev.name === nextName) {
+        return prev;
+      }
+
+      const updated: User = {
+        ...prev,
+        name: nextName,
+        role: nextRole,
+        plan: nextPlan,
+        permissions: fresh.permissions || prev.permissions,
+      };
+      localStorage.setItem('appxv_user', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (user?.token) {
+      refreshUserProfile().catch(() => {});
+    }
+  }, [user?.token, refreshUserProfile]);
 
   useEffect(() => {
     if (user) {
@@ -460,10 +499,10 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAuthSuccess = (id: string, name: string, email: string, role?: string, permissions?: StaffPermissions, eventId?: string, plan?: string) => {
+  const handleAuthSuccess = (id: string, name: string, email: string, role?: string, permissions?: StaffPermissions, eventId?: string, plan?: string, token?: string) => {
     const userRole = (role as 'admin' | 'subscriber' | 'event_staff' | 'staff') || 'subscriber';
-    // Admins always have VIP plan regardless of Notion data
-    const userPlan = userRole === 'admin' ? 'vip' : ((plan || 'freemium') as string).toLowerCase() as 'freemium' | 'premium' | 'vip';
+    const normalizedPlan = ((plan || 'freemium') as string).toLowerCase() as 'freemium' | 'premium' | 'vip' | 'honor';
+    const userPlan = userRole === 'admin' ? (normalizedPlan === 'vip' ? 'vip' : 'honor') : normalizedPlan;
 
     const userObj: User = {
       id,
@@ -471,6 +510,7 @@ const App: React.FC = () => {
       email,
       role: userRole,
       plan: userPlan,
+      token,
       permissions,
       eventId,
       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=135bec&color=fff`
@@ -518,7 +558,7 @@ const App: React.FC = () => {
           <Route path="/" element={<WelcomeScreen />} />
           <Route path="/login" element={<LoginScreen onLogin={handleAuthSuccess} />} />
           <Route path="/google-callback" element={<GoogleCallbackScreen onLogin={handleAuthSuccess} />} />
-          <Route path="/payment/success" element={<PaymentSuccess />} />
+          <Route path="/payment/success" element={<PaymentSuccess onRefreshUser={refreshUserProfile} />} />
           <Route path="/payment/failure" element={<PaymentFailure />} />
           <Route path="/payment/pending" element={<PaymentPending />} />
           <Route
@@ -679,9 +719,13 @@ const App: React.FC = () => {
             element={<LocationScreen invitations={invitations} />}
           />
           <Route path="/rsvp/:id" element={<GuestRSVPScreen loading={loading} invitations={invitations} onRsvpSubmit={async (invId, guestData) => {
+            const normalizeName = (val?: string) =>
+              (val || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+
             const inv = invitations.find(i => i.id === invId);
             if (inv) {
-              const guest = inv.guests.find(g => g.name.toLowerCase() === guestData.name?.toLowerCase());
+              const targetName = normalizeName(guestData.name);
+              const guest = inv.guests.find(g => normalizeName(g.name) === targetName);
 
               if (guest) {
                 // UPDATE EXISTING GUEST
@@ -691,8 +735,6 @@ const App: React.FC = () => {
                   guestData.confirmed as any,
                   guestData.companionNames as any
                 );
-
-                await refreshEventData(invId);
 
                 // SYNC TABLE ASSIGNMENTS after RSVP change
                 const tables = inv.tables || [];
@@ -724,7 +766,6 @@ const App: React.FC = () => {
 
                       newAssignments = table.guests.map(a => {
                         if (a.guestId === guest.id?.toString()) {
-                          // Find updated name by companion index
                           const idx = a.companionIndex ?? -1;
                           const updatedName = idx >= 0 && idx < allNames.length
                             ? allNames[idx]
@@ -749,23 +790,21 @@ const App: React.FC = () => {
                       });
                     }
 
-                    // Update table assignments
                     await apiService.updateTableGuests(table.id, newAssignments);
                   }
                 }
 
-                const updatedGuests = inv.guests.map(g => g.name === guestData.name ? { ...g, ...guestData as Guest } : g);
-                updateGuests(invId, updatedGuests);
+                // Refresh authoritative guests & tables from DB (never overwrite with stale closures)
+                await refreshEventData(invId);
               } else {
                 // CREATE NEW GUEST (from Public Link)
                 const confirmedData = guestData.confirmed || { adults: 1, teens: 0, kids: 0, infants: 0 };
 
                 const newGuest: Guest = {
-                  id: Date.now(), // Temporary ID
+                  id: Date.now(),
                   name: guestData.name || 'Invitado',
                   email: '',
                   status: guestData.status || 'confirmed',
-                  // Use confirmed values for allotted since this is a new guest confirming attendance
                   allotted: {
                     adults: confirmedData.adults || 0,
                     teens: confirmedData.teens || 0,
@@ -777,10 +816,11 @@ const App: React.FC = () => {
                   sent: false
                 };
 
-                await apiService.saveGuest(invId, newGuest);
+                await apiService.saveGuest(invId, newGuest, {
+                  userPlan: inv.ownerPlan || user?.plan,
+                  userRole: user?.role
+                });
                 await refreshEventData(invId);
-
-                updateGuests(invId, [...inv.guests, newGuest]);
               }
             }
           }} />} />

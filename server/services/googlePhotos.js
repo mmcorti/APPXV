@@ -1,8 +1,10 @@
 
+import { assertSafeGooglePhotosUrl } from '../utils/urlGuard.js';
+
 /**
  * Service to extract photos from a public Google Photos shared album.
  * Note: This relies on parsing the HTML structure which may change.
- * Updated to use fetch() for Vercel/serverless compatibility.
+ * Updated to use fetch() for serverless compatibility with SSRF protection.
  */
 export const googlePhotosService = {
     /**
@@ -10,18 +12,15 @@ export const googlePhotosService = {
      * Uses fetch with redirect: 'manual' to capture the Location header
      */
     resolveUrl: async (url) => {
-        console.log(`[GooglePhotos] Resolving URL: ${url}`);
-
-        if (!url.includes('goo.gl') && !url.includes('google.com')) {
-            console.log(`[GooglePhotos] URL does not need resolution`);
-            return url;
-        }
+        const safeUrl = assertSafeGooglePhotosUrl(url);
+        console.log(`[GooglePhotos] Resolving URL: ${safeUrl}`);
 
         try {
             // Use fetch with manual redirect to get the Location header
-            const response = await fetch(url, {
+            const response = await fetch(safeUrl, {
                 method: 'HEAD',
                 redirect: 'manual',
+                signal: AbortSignal.timeout(15000),
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                 }
@@ -31,16 +30,16 @@ export const googlePhotosService = {
             console.log(`[GooglePhotos] Response status: ${response.status}, Location: ${location}`);
 
             if (response.status >= 300 && response.status < 400 && location) {
-                console.log(`[GooglePhotos] Resolved to: ${location}`);
-                return location;
+                const safeLocation = assertSafeGooglePhotosUrl(location, true);
+                console.log(`[GooglePhotos] Resolved to: ${safeLocation}`);
+                return safeLocation;
             }
 
             console.log(`[GooglePhotos] No redirect, using original URL`);
-            return url;
+            return safeUrl;
         } catch (error) {
             console.error(`[GooglePhotos] Error resolving URL:`, error.message);
-            // If resolution fails, try using the original URL
-            return url;
+            return safeUrl;
         }
     },
 
@@ -49,12 +48,15 @@ export const googlePhotosService = {
      */
     getAlbumPhotos: async (albumUrl) => {
         try {
-            console.log(`[GooglePhotos] Getting photos from: ${albumUrl}`);
+            const safeInputUrl = assertSafeGooglePhotosUrl(albumUrl);
+            console.log(`[GooglePhotos] Getting photos from: ${safeInputUrl}`);
 
-            const finalUrl = await googlePhotosService.resolveUrl(albumUrl);
+            const finalUrl = await googlePhotosService.resolveUrl(safeInputUrl);
+            assertSafeGooglePhotosUrl(finalUrl, true);
             console.log(`[GooglePhotos] Fetching album HTML from: ${finalUrl}`);
 
             const response = await fetch(finalUrl, {
+                signal: AbortSignal.timeout(15000),
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',

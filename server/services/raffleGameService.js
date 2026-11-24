@@ -2,29 +2,85 @@
 // Similar to Bingo, but simpler logic.
 import { googlePhotosService } from './googlePhotos.js';
 import { checkLimit } from '../planLimits.js';
+import { loadGameSession, scheduleGamePersist } from './gameSessionStore.js';
 
 const games = {};
+const loadPromises = new Map();
 
 const createInitialState = (eventId) => ({
     eventId,
-    status: 'IDLE', // IDLE, WAITING, WINNER
+    status: 'IDLE', // IDLE, WAITING, COUNTDOWN, WINNER
     mode: 'PHOTO', // PHOTO, PARTICIPANT
     googlePhotosUrl: '',
     customImageUrl: '',
     participants: {}, // map id -> {id, name, joinedAt}
-    winner: null
+    winner: null,
+    hostPlan: 'freemium'
 });
 
+const persistRaffle = (eventId) => {
+    scheduleGamePersist(eventId, 'raffle', () => {
+        const game = games[eventId];
+        if (!game) return null;
+        return {
+            status: game.status || 'IDLE',
+            config: {
+                mode: game.mode || 'PHOTO',
+                googlePhotosUrl: game.googlePhotosUrl || '',
+                customImageUrl: game.customImageUrl || '',
+                hostPlan: game.hostPlan || 'freemium',
+            },
+            state: {
+                participants: game.participants || {},
+                winner: game.winner || null,
+            },
+        };
+    });
+};
+
 export const raffleGameService = {
+    ensureGame: async (eventId) => {
+        if (games[eventId]) return games[eventId];
+        if (!loadPromises.has(eventId)) {
+            loadPromises.set(eventId, (async () => {
+                const base = createInitialState(eventId);
+                const saved = await loadGameSession(eventId, 'raffle');
+                if (saved) {
+                    const cfg = saved.config || {};
+                    const st = saved.state || {};
+                    const hydratedParticipants = {};
+                    if (st.participants && typeof st.participants === 'object') {
+                        for (const [pid, p] of Object.entries(st.participants)) {
+                            hydratedParticipants[pid] = { ...p, online: false };
+                        }
+                    }
+                    games[eventId] = {
+                        ...base,
+                        status: saved.status === 'COUNTDOWN' ? (st.winner ? 'WINNER' : 'WAITING') : (saved.status || base.status),
+                        mode: cfg.mode || base.mode,
+                        googlePhotosUrl: cfg.googlePhotosUrl ?? base.googlePhotosUrl,
+                        customImageUrl: cfg.customImageUrl ?? base.customImageUrl,
+                        hostPlan: cfg.hostPlan || base.hostPlan,
+                        participants: hydratedParticipants,
+                        winner: st.winner ?? null,
+                    };
+                } else if (!games[eventId]) {
+                    games[eventId] = base;
+                }
+                return games[eventId];
+            })().finally(() => loadPromises.delete(eventId)));
+        }
+        return loadPromises.get(eventId);
+    },
+
     getGame: (eventId) => {
         if (!games[eventId]) {
-            games[eventId] = {
-                ...createInitialState(eventId),
-                hostPlan: 'freemium' // Default
-            };
+            games[eventId] = createInitialState(eventId);
         }
         return games[eventId];
     },
+
+    persist: (eventId) => persistRaffle(eventId),
 
     updateConfig: (eventId, { googlePhotosUrl, customImageUrl, mode, hostPlan }) => {
         const game = raffleGameService.getGame(eventId);

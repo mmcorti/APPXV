@@ -160,7 +160,7 @@ export function scheduleBingoPersist(eventId, state) {
     if (!UUID_REGEX.test(eventId)) return;
 
     if (persistTimers.has(eventId)) {
-        clearTimeout(persistTimers.get(eventId));
+        clearTimeout(persistTimers.get(eventId).timer);
     }
 
     const timer = setTimeout(async () => {
@@ -168,7 +168,18 @@ export function scheduleBingoPersist(eventId, state) {
         await persistBingoSessionNow(eventId, state);
     }, 250);
 
-    persistTimers.set(eventId, timer);
+    persistTimers.set(eventId, { timer, state });
+}
+
+export async function flushPendingBingoPersists() {
+    const entries = Array.from(persistTimers.entries());
+    persistTimers.clear();
+    await Promise.allSettled(
+        entries.map(async ([eventId, entry]) => {
+            clearTimeout(entry.timer);
+            await persistBingoSessionNow(eventId, entry.state);
+        })
+    );
 }
 
 async function persistBingoSessionNow(eventId, state) {

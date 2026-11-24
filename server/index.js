@@ -17,7 +17,10 @@ import { raffleGameService } from './services/raffleGameService.js';
 import { confessionsGameService } from './services/confessionsGameService.js';
 import { impostorGameService } from './services/impostorGameService.js';
 import { sendRecoveryEmail } from './services/emailService.js';
-import { uploadBingoPhoto, loadBingoSession, scheduleBingoPersist, listBingoPhotos, buildBingoPhotosZip } from './bingoStorage.js';
+import { uploadBingoPhoto, loadBingoSession, scheduleBingoPersist, flushPendingBingoPersists, listBingoPhotos, buildBingoPhotosZip } from './bingoStorage.js';
+import { loadGameSession, scheduleGamePersist, flushAllPendingGameSessions } from './services/gameSessionStore.js';
+import { signSessionToken, requireAuth, requireAdmin } from './middleware/auth.js';
+import { assertSafeExternalImageUrl, sanitizeFrontendRedirect } from './utils/urlGuard.js';
 import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -61,7 +64,7 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.get('/api/debug-mapping', async (req, res) => {
+app.get('/api/debug-mapping', requireAdmin, async (req, res) => {
     try {
         const { data, error } = await supabase.from(TABLES.USERS).select('id').limit(1);
         res.json({
@@ -149,15 +152,19 @@ app.post('/api/ai/edit-image', async (req, res) => {
             return res.status(400).json({ error: 'Image and prompt are required' });
         }
 
-        // If image is a URL, fetch it and convert to base64
+        // If image is a URL, validate against SSRF and convert to base64
         if (image.startsWith('http://') || image.startsWith('https://')) {
-            console.log('ðŸ”„ Fetching image from URL for editing...');
-            const response = await fetch(image);
+            const safeUrl = assertSafeExternalImageUrl(image);
+            console.log('🔄 Fetching image from URL for editing...');
+            const response = await fetch(safeUrl, { signal: AbortSignal.timeout(15000) });
+            if (!response.ok) {
+                throw new Error(`No se pudo descargar la imagen (${response.status})`);
+            }
             const arrayBuffer = await response.arrayBuffer();
             const base64 = Buffer.from(arrayBuffer).toString('base64');
             const contentType = response.headers.get('content-type') || 'image/png';
             image = `data:${contentType};base64,${base64}`;
-            console.log('âœ… Image fetched and converted to base64');
+            console.log('✅ Image fetched and converted to base64');
         }
 
         console.log('ðŸŽ¨ AI editing image with prompt:', prompt);
@@ -275,10 +282,11 @@ app.post('/api/login', async (req, res) => {
 
     try {
         // 1. Find user by email in public.users
+        const normalizedEmail = String(email || '').trim().toLowerCase();
         const { data: user, error } = await supabase
             .from(TABLES.USERS)
             .select('*')
-            .eq('email', email)
+            .eq('email', normalizedEmail)
             .single();
 
         if (error || !user) {
@@ -292,18 +300,20 @@ app.post('/api/login', async (req, res) => {
         });
 
         const { data: authData, error: authError } = await tempSupabase.auth.signInWithPassword({
-            email,
+            email: normalizedEmail,
             password
         });
 
         if (authError) {
-            console.log(`âŒ Password mismatch for ${email}: ${authError.message}`);
-            return res.status(401).json({ success: false, message: 'ContraseÃ±a incorrecta' });
+            console.log(`❌ Password mismatch for ${normalizedEmail}: ${authError.message}`);
+            return res.status(401).json({ success: false, message: 'Contraseña incorrecta' });
         }
+
+        const sessionToken = signSessionToken({ id: user.id, email: user.email, role: user.role });
 
         // 3. Handle based on role
         if (user.role === 'admin') {
-            console.log(`âœ… Admin login successful: ${email}`);
+            console.log(`✅ Admin login successful: ${normalizedEmail}`);
             return res.json({
                 success: true,
                 user: {
@@ -311,6 +321,8 @@ app.post('/api/login', async (req, res) => {
                     email: user.email,
                     name: user.username || user.email,
                     role: 'admin',
+                    plan: user.plan || 'honor',
+                    token: sessionToken,
                     permissions: {
                         access_invitados: true,
                         access_mesas: true,
@@ -323,7 +335,7 @@ app.post('/api/login', async (req, res) => {
         }
 
         if (user.role === 'subscriber') {
-            console.log(`âœ… Subscriber login successful: ${email} (plan: ${user.plan})`);
+            console.log(`✅ Subscriber login successful: ${normalizedEmail} (plan: ${user.plan})`);
             return res.json({
                 success: true,
                 user: {
@@ -332,6 +344,7 @@ app.post('/api/login', async (req, res) => {
                     name: user.username || user.email,
                     role: 'subscriber',
                     plan: user.plan || 'freemium',
+                    token: sessionToken,
                     permissions: {
                         access_invitados: true,
                         access_mesas: true,
@@ -344,9 +357,8 @@ app.post('/api/login', async (req, res) => {
         }
 
         if (user.role === 'staff') {
-            console.log(`âœ… Staff login successful: ${email}`);
+            console.log(`✅ Staff login successful: ${normalizedEmail}`);
 
-            // Fetch first staff assignment for permissions + eventId
             let staffPermissions = {};
             let staffEventId = undefined;
             const { data: assignments } = await supabase
@@ -359,7 +371,6 @@ app.post('/api/login', async (req, res) => {
                 const a = assignments[0];
                 staffEventId = a.event_id;
                 const p = a.permissions || {};
-                // Handle both legacy keys and new access_ prefix keys from types.ts
                 staffPermissions = {
                     access_invitados: p.access_invitados ?? p.invitados ?? false,
                     access_mesas: p.access_mesas ?? p.mesas ?? false,
@@ -376,6 +387,7 @@ app.post('/api/login', async (req, res) => {
                     email: user.email,
                     name: user.username || user.email,
                     role: 'staff',
+                    token: sessionToken,
                     permissions: staffPermissions,
                     eventId: staffEventId
                 }
@@ -411,22 +423,27 @@ app.post('/api/register', async (req, res) => {
             return res.status(400).json({ success: false, message: 'La contraseÃ±a debe tener al menos 8 caracteres' });
         }
 
-        // 2. Verify reCAPTCHA v3 token
+        // 2. Verify reCAPTCHA v3 token (fail closed when configured)
         const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY;
-        if (recaptchaSecret && captchaToken) {
+        if (recaptchaSecret) {
+            if (!captchaToken) {
+                return res.status(400).json({ success: false, message: 'Verificación de seguridad requerida.' });
+            }
             try {
                 const captchaResponse = await fetch('https://www.google.com/recaptcha/api/siteverify', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `secret=${recaptchaSecret}&response=${captchaToken}`
+                    signal: AbortSignal.timeout(10000),
+                    body: new URLSearchParams({ secret: recaptchaSecret, response: captchaToken })
                 });
                 const captchaResult = await captchaResponse.json();
-                console.log(`ðŸ¤– reCAPTCHA score: ${captchaResult.score}`);
-                if (!captchaResult.success || captchaResult.score < 0.5) {
-                    return res.status(403).json({ success: false, message: 'VerificaciÃ³n de seguridad fallida. Intenta de nuevo.' });
+                console.log(`🤖 reCAPTCHA score: ${captchaResult.score}`);
+                if (!captchaResult.success || (typeof captchaResult.score === 'number' && captchaResult.score < 0.5)) {
+                    return res.status(403).json({ success: false, message: 'Verificación de seguridad fallida. Intenta de nuevo.' });
                 }
             } catch (captchaError) {
-                console.warn('âš ï¸ reCAPTCHA verification failed, proceeding anyway:', captchaError.message);
+                console.error('⚠️ reCAPTCHA verification error:', captchaError.message);
+                return res.status(503).json({ success: false, message: 'No se pudo completar la verificación de seguridad. Intenta nuevamente.' });
             }
         }
 
@@ -470,6 +487,8 @@ app.post('/api/register', async (req, res) => {
 
         console.log(`âœ… New user registered: ${appxvEmail} (ID: ${authUser.user.id})`);
 
+        const sessionToken = signSessionToken({ id: authUser.user.id, email: appxvEmail, role: 'subscriber' });
+
         return res.json({
             success: true,
             user: {
@@ -478,12 +497,13 @@ app.post('/api/register', async (req, res) => {
                 email: appxvEmail,
                 role: 'subscriber',
                 plan: 'freemium',
+                token: sessionToken,
                 permissions: {
-                    access_invitados: false,
-                    access_mesas: false,
-                    access_link: false,
-                    access_fotowall: false,
-                    access_games: false
+                    access_invitados: true,
+                    access_mesas: true,
+                    access_link: true,
+                    access_fotowall: true,
+                    access_games: true
                 }
             }
         });
@@ -655,11 +675,9 @@ app.get('/api/auth/google/callback', async (req, res) => {
             userRole = 'subscriber';
         }
 
-        // Redirect to frontend with user data
-        let FRONTEND_URL = state || process.env.FRONTEND_URL || '';
-        if (FRONTEND_URL.endsWith('/')) {
-            FRONTEND_URL = FRONTEND_URL.slice(0, -1);
-        }
+        // Redirect to frontend with validated origin + signed session token
+        const FRONTEND_URL = sanitizeFrontendRedirect(state);
+        const sessionToken = signSessionToken({ id: userId, email: profile.email, role: userRole });
 
         const userData = encodeURIComponent(JSON.stringify({
             id: userId,
@@ -667,20 +685,17 @@ app.get('/api/auth/google/callback', async (req, res) => {
             email: profile.email,
             plan: userPlan,
             role: userRole,
+            token: sessionToken,
             avatar: profile.picture
         }));
 
         console.log('[GOOGLE AUTH] Login successful, redirecting to frontend...');
         const redirectUrl = `${FRONTEND_URL}/#/google-callback?googleAuth=success&user=${userData}`;
-        console.log('[GOOGLE AUTH] Redirect URL:', redirectUrl);
         res.redirect(redirectUrl);
 
     } catch (error) {
         console.error('[GOOGLE AUTH] Callback error:', error);
-        let FRONTEND_URL = req.query.state || process.env.FRONTEND_URL || '';
-        if (FRONTEND_URL.endsWith('/')) {
-            FRONTEND_URL = FRONTEND_URL.slice(0, -1);
-        }
+        const FRONTEND_URL = sanitizeFrontendRedirect(req.query.state);
         res.redirect(`${FRONTEND_URL}/#/google-callback?error=google_auth_failed&message=` + encodeURIComponent(error.message));
     }
 });
@@ -889,7 +904,7 @@ app.post('/api/events', async (req, res) => {
                 message,
                 image_url: image,
                 host_name: hostName,
-                gift_type: giftType,
+                gift_type: (giftType === 'alias' || giftType === 'list') ? giftType : null,
                 gift_detail: giftDetail,
                 dress_code: req.body.dressCode,
                 venue_notes: req.body.venueNotes,
@@ -926,7 +941,7 @@ app.put(['/api/events', '/api/events/:id'], async (req, res) => {
         if (location !== undefined) eventUpdates.location = location;
         if (message !== undefined) eventUpdates.message = message;
         if (hostName !== undefined) eventUpdates.host_name = hostName;
-        if (giftType !== undefined) eventUpdates.gift_type = giftType;
+        if (giftType !== undefined) eventUpdates.gift_type = (giftType === 'alias' || giftType === 'list') ? giftType : null;
         if (giftDetail !== undefined) eventUpdates.gift_detail = giftDetail;
         if (image !== undefined) eventUpdates.image_url = image;
         if (req.body.dressCode !== undefined) eventUpdates.dress_code = req.body.dressCode;
@@ -1201,7 +1216,7 @@ app.delete('/api/guests/:id', async (req, res) => {
 
 
 // --- PLATFORM SUBSCRIBERS (For SuperAdmin) ---
-app.get('/api/subscribers', async (req, res) => {
+app.get('/api/subscribers', requireAdmin, async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('users')
@@ -1222,13 +1237,14 @@ app.get('/api/subscribers', async (req, res) => {
     }
 });
 
-app.post('/api/subscribers', async (req, res) => {
+app.post('/api/subscribers', requireAdmin, async (req, res) => {
     try {
-        const { name, email, password, plan, userRole } = req.body;
-        if (!isAdmin(userRole)) return res.status(403).json({ error: 'No admin' });
+        const { name, email, password, plan } = req.body;
+        const normalizedEmail = String(email || '').trim().toLowerCase();
+        const dbPlan = normalizePlanForDb(plan) || 'freemium';
 
         const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-            email,
+            email: normalizedEmail,
             password,
             email_confirm: true
         });
@@ -1236,10 +1252,10 @@ app.post('/api/subscribers', async (req, res) => {
 
         await supabase.from('users').upsert({
             id: authData.user.id,
-            email,
-            username: name || email.split('@')[0],
+            email: normalizedEmail,
+            username: name || normalizedEmail.split('@')[0],
             role: 'subscriber',
-            plan: plan || 'freemium'
+            plan: dbPlan
         });
 
         res.json({ success: true });
@@ -1248,16 +1264,21 @@ app.post('/api/subscribers', async (req, res) => {
     }
 });
 
-app.put('/api/subscribers/:id', async (req, res) => {
+app.put('/api/subscribers/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const { name, plan } = req.body;
         const updateData = {};
         if (name) updateData.username = name;
-        if (plan) updateData.plan = plan;
+        if (plan) {
+            const dbPlan = normalizePlanForDb(plan);
+            if (!dbPlan) return res.status(400).json({ error: 'Plan inválido' });
+            updateData.plan = dbPlan;
+        }
 
         if (Object.keys(updateData).length > 0) {
-            await supabase.from('users').update(updateData).eq('id', id);
+            const { error } = await supabase.from('users').update(updateData).eq('id', id);
+            if (error) throw error;
         }
         res.json({ success: true });
     } catch (e) {
@@ -1265,8 +1286,11 @@ app.put('/api/subscribers/:id', async (req, res) => {
     }
 });
 
-app.delete('/api/subscribers/:id', async (req, res) => {
+app.delete('/api/subscribers/:id', requireAdmin, async (req, res) => {
     try {
+        if (req.params.id === req.user.id) {
+            return res.status(400).json({ error: 'No podés eliminar tu propia cuenta de administrador.' });
+        }
         await supabase.auth.admin.deleteUser(req.params.id);
         res.json({ success: true });
     } catch (e) {
@@ -1274,149 +1298,7 @@ app.delete('/api/subscribers/:id', async (req, res) => {
     }
 });
 
-// --- STAFF ASSIGNMENTS ---
-app.get('/api/staff-assignments', async (req, res) => {
-    try {
-        const { eventId } = req.query;
-        if (!eventId) return res.status(400).json({ error: "eventId is required" });
-
-        // Get assignments for this event
-        const { data: assignments, error } = await supabase
-            .from('staff_assignments')
-            .select(`
-                id,
-                permissions,
-                user:users (
-                    id,
-                    email,
-                    role,
-                    username
-                )
-            `)
-            .eq('event_id', eventId);
-
-        if (error) throw error;
-
-        // Map to frontend structure
-        const subscribers = assignments.map(a => ({
-            id: a.id,
-            userId: a.user?.id,
-            name: a.user?.username || a.user?.email,
-            email: a.user?.email,
-            plan: 'freemium', // Staff inherits owner's plan, return 'freemium' as placeholder
-            permissions: a.permissions || {}
-        }));
-
-        res.json(subscribers);
-    } catch (error) {
-        console.error("âŒ Error fetching subscribers:", error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/staff-assignments', async (req, res) => {
-    try {
-        const { eventId, name, email, password, permissions, userRole } = req.body;
-
-        // Admin Check
-        if (!isAdmin(userRole)) {
-            return res.status(403).json({ error: 'Solo los administradores pueden crear suscriptores' });
-        }
-
-        // 1. Check if user exists by email
-        const { data: existingUser } = await supabase
-            .from('users')
-            .select('id, email')
-            .eq('email', email)
-            .single();
-
-        let userId = existingUser?.id;
-
-        if (!userId) {
-            // 2. Create Auth User
-            const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-                email,
-                password,
-                email_confirm: true
-            });
-
-            if (authError) throw authError;
-            userId = authData.user.id;
-
-            // Upsert profile to ensure name/role key
-            await supabase.from('users').upsert({
-                id: userId,
-                email: email,
-                username: name || email.split('@')[0],
-                role: 'staff'
-            });
-        }
-
-        // 3. Check if assignment exists
-        const { data: existingAssign } = await supabase
-            .from('staff_assignments')
-            .select('id')
-            .eq('event_id', eventId)
-            .eq('staff_id', userId)
-            .single();
-
-        if (existingAssign) {
-            return res.status(409).json({ error: 'Staff member already assigned' });
-        }
-
-        // 4. Create Assignment
-        const { data: newAssign, error: assignError } = await supabase
-            .from('staff_assignments')
-            .insert({
-                event_id: eventId,
-                staff_id: userId,
-                permissions: permissions || {}
-            })
-            .select()
-            .single();
-
-        if (assignError) throw assignError;
-
-        res.json({ success: true, id: newAssign.id });
-    } catch (error) {
-        console.error("âŒ Error creating staff:", error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.put('/api/staff-assignments/:id', async (req, res) => {
-    try {
-        const { id } = req.params; // Assignment ID
-        const { permissions } = req.body;
-
-        if (permissions) {
-            const { error } = await supabase
-                .from('staff_assignments')
-                .update({ permissions })
-                .eq('id', id);
-            if (error) throw error;
-        }
-
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.delete('/api/staff-assignments/:id', async (req, res) => {
-    try {
-        const { error } = await supabase
-            .from('staff_assignments')
-            .delete()
-            .eq('id', req.params.id);
-
-        if (error) throw error;
-        res.json({ success: true });
-    } catch (error) {
-        console.error("Error deleting subscriber:", error);
-        res.status(500).json({ error: error.message });
-    }
-});
+// (Unified /api/staff-assignments routes are registered below alongside /api/staff-roster)
 
 // ========================================
 // TABLES ENDPOINTS
@@ -2106,66 +1988,75 @@ app.get('/api/staff-roster', async (req, res) => {
     }
 });
 
-app.post('/api/staff-roster', async (req, res) => {
+app.post('/api/staff-roster', requireAuth, async (req, res) => {
     try {
         const { name, email, password, description, ownerId } = req.body;
+        const effectiveOwnerId = (req.user.role === 'admin' && ownerId) ? ownerId : req.user.id;
 
-        if (!email || !ownerId) {
+        if (!email || !effectiveOwnerId) {
             return res.status(400).json({ error: 'Email and OwnerId are required' });
         }
 
         // 1. Get Owner to check limits
-        const { data: owner } = await supabase.from('users').select('plan').eq('id', ownerId).single();
+        const { data: owner } = await supabase.from('users').select('plan, role').eq('id', effectiveOwnerId).single();
         const plan = (owner?.plan || 'freemium').toLowerCase();
 
         // 2. Count current roster members
         const { count: currentCount } = await supabase
             .from('staff_profiles')
             .select('*', { count: 'exact', head: true })
-            .eq('owner_id', ownerId);
+            .eq('owner_id', effectiveOwnerId);
 
         const limits = getPlanLimits(plan);
 
-        if (currentCount >= limits.maxStaffRoster) {
+        if (owner?.role !== 'admin' && currentCount >= limits.maxStaffRoster) {
             return res.status(403).json({
-                error: `LÃ­mite alcanzado: Tu plan ${plan.toUpperCase()} permite hasta ${limits.maxStaffRoster} miembros.`,
+                error: `Límite alcanzado: Tu plan ${plan.toUpperCase()} permite hasta ${limits.maxStaffRoster} miembros.`,
                 limitReached: true,
                 current: currentCount,
                 limit: limits.maxStaffRoster
             });
         }
 
-        // 3. Create or find User
-        console.log(`[STAFF] Processing staff creation for ${email}`);
-        const { data: existingUser, error: checkError } = await supabase.from('users').select('id, role').eq('email', email.toLowerCase()).maybeSingle();
+        // 3. Create or find User (NEVER hijack an existing admin/subscriber or another owner's staff)
+        const normalizedEmail = String(email).trim().toLowerCase();
+        console.log(`[STAFF] Processing staff creation for ${normalizedEmail}`);
+        const { data: existingUser, error: checkError } = await supabase.from('users').select('id, role').eq('email', normalizedEmail).maybeSingle();
 
         if (checkError) {
             console.error("❌ Error checking existing user:", checkError);
             throw checkError;
         }
 
+        if (existingUser && existingUser.role !== 'staff') {
+            return res.status(403).json({ error: 'Ese correo pertenece a una cuenta existente (admin/suscriptor) y no puede vincularse como staff.' });
+        }
+
+        if (existingUser) {
+            const { data: existingProfile } = await supabase
+                .from('staff_profiles')
+                .select('owner_id')
+                .eq('id', existingUser.id)
+                .maybeSingle();
+            if (existingProfile && existingProfile.owner_id !== effectiveOwnerId && req.user.role !== 'admin') {
+                return res.status(403).json({ error: 'Este miembro de staff ya pertenece a otro organizador.' });
+            }
+        }
+
         let userId = existingUser?.id;
 
         if (!userId) {
             // Try to create in auth.users first
-            console.log(`[STAFF] User ${email} not found in public.users, creating in auth...`);
+            console.log(`[STAFF] User ${normalizedEmail} not found in public.users, creating in auth...`);
             const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-                email,
+                email: normalizedEmail,
                 password: password || crypto.randomBytes(32).toString('hex'),
                 email_confirm: true
             });
 
             if (authError) {
-                // If user exists in auth but not in public.users (edge case)
                 if (authError.message.includes('already exists') || authError.status === 422) {
-                    console.log(`[STAFF] User ${email} already exists in auth, looking up ID...`);
-                    const { data: allUsers } = await supabase.auth.admin.listUsers();
-                    const foundAuth = allUsers?.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
-                    if (foundAuth) {
-                        userId = foundAuth.id;
-                    } else {
-                        throw new Error(`Email already registered in system. Use a different email.`);
-                    }
+                    return res.status(409).json({ error: 'Ese correo ya está registrado en el sistema. Usá otro correo.' });
                 } else {
                     console.error("❌ Auth error creating staff:", authError);
                     throw authError;
@@ -2175,22 +2066,22 @@ app.post('/api/staff-roster', async (req, res) => {
             }
 
             // Ensure profile exists in 'users' table
-            console.log(`[STAFF] Ensuring public profile for ${userId} (${email})`);
+            console.log(`[STAFF] Ensuring public profile for ${userId} (${normalizedEmail})`);
             const { error: upsertUserError } = await supabase.from('users').upsert({
                 id: userId,
-                email: email.toLowerCase(),
-                username: name || email.split('@')[0],
-                role: existingUser?.role || 'staff' // Keep existing role if they had one or default to staff
+                email: normalizedEmail,
+                username: name || normalizedEmail.split('@')[0],
+                role: 'staff'
             });
             if (upsertUserError) throw upsertUserError;
         }
 
         // 4. Create or update Staff Profile
-        console.log(`[STAFF] Upserting staff profile for ${userId} owned by ${ownerId}`);
+        console.log(`[STAFF] Upserting staff profile for ${userId} owned by ${effectiveOwnerId}`);
         const { error: profileError } = await supabase.from('staff_profiles').upsert({
             id: userId,
             description,
-            owner_id: ownerId
+            owner_id: effectiveOwnerId
         });
 
         if (profileError) {
@@ -2205,10 +2096,13 @@ app.post('/api/staff-roster', async (req, res) => {
     }
 });
 
-app.delete('/api/staff-roster/:id', async (req, res) => {
+app.delete('/api/staff-roster/:id', requireAuth, async (req, res) => {
     try {
-        // Just delete the profile, keeping the user
-        const { error } = await supabase.from('staff_profiles').delete().eq('id', req.params.id);
+        let query = supabase.from('staff_profiles').delete().eq('id', req.params.id);
+        if (req.user.role !== 'admin') {
+            query = query.eq('owner_id', req.user.id);
+        }
+        const { error } = await query;
         if (error) throw error;
         res.json({ success: true });
     } catch (error) {
@@ -2217,13 +2111,20 @@ app.delete('/api/staff-roster/:id', async (req, res) => {
     }
 });
 
-app.put('/api/staff-roster/:id/password', async (req, res) => {
+app.put('/api/staff-roster/:id/password', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const { newPassword, ownerId } = req.body;
+        const effectiveOwnerId = (req.user.role === 'admin' && ownerId) ? ownerId : req.user.id;
 
-        if (!newPassword || !ownerId) {
-            return res.status(400).json({ error: 'newPassword y ownerId requeridos' });
+        if (!newPassword || newPassword.length < 8) {
+            return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres' });
+        }
+
+        // Verify target user is actually staff (never allow resetting admin/subscriber passwords here)
+        const { data: targetUser } = await supabase.from('users').select('role').eq('id', id).maybeSingle();
+        if (!targetUser || targetUser.role !== 'staff') {
+            return res.status(403).json({ error: 'Solo se puede cambiar la contraseña de cuentas de staff' });
         }
 
         // Verify this staff member actually belongs to this owner
@@ -2231,7 +2132,7 @@ app.put('/api/staff-roster/:id/password', async (req, res) => {
             .from('staff_profiles')
             .select('id')
             .eq('id', id)
-            .eq('owner_id', ownerId)
+            .eq('owner_id', effectiveOwnerId)
             .single();
 
         if (profileError || !profile) {
@@ -2288,7 +2189,7 @@ app.get('/api/staff-assignments', async (req, res) => {
     }
 });
 
-app.post('/api/staff-assignments', async (req, res) => {
+app.post('/api/staff-assignments', requireAuth, async (req, res) => {
     try {
         const { name, staffId, eventId, permissions } = req.body;
 
@@ -2313,7 +2214,21 @@ app.post('/api/staff-assignments', async (req, res) => {
     }
 });
 
-app.delete('/api/staff-assignments/:id', async (req, res) => {
+app.put('/api/staff-assignments/:id', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { permissions } = req.body;
+        if (permissions) {
+            const { error } = await supabase.from('staff_assignments').update({ permissions }).eq('id', id);
+            if (error) throw error;
+        }
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/staff-assignments/:id', requireAuth, async (req, res) => {
     try {
         const { error } = await supabase.from('staff_assignments').delete().eq('id', req.params.id);
         if (error) throw error;
@@ -2936,31 +2851,95 @@ app.get('/api/events/:eventId/balances', async (req, res) => {
 
 // In-memory trivia game state (per event)
 const triviaGames = {};
+const triviaLoadPromises = {};
 
 // SSE clients (per event)
 const triviaClients = {};
 
+const createInitialTriviaState = (eventId) => ({
+    eventId,
+    status: 'WAITING',
+    hostPlan: 'freemium', // Default
+    questions: [],
+    currentQuestionIndex: -1,
+    questionStartTime: null,
+    isAnswerRevealed: false,
+    backgroundUrl: 'https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png',
+    players: {}
+});
+
 // Helper to get or create game state
 const getTriviaState = (eventId) => {
     if (!triviaGames[eventId]) {
-        triviaGames[eventId] = {
-            eventId,
-            status: 'WAITING',
-            hostPlan: 'freemium', // Default
-            questions: [],
-            currentQuestionIndex: -1,
-            questionStartTime: null,
-            isAnswerRevealed: false,
-            backgroundUrl: 'https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png',
-            players: {}
-        };
+        triviaGames[eventId] = createInitialTriviaState(eventId);
     }
     return triviaGames[eventId];
+};
+
+// Hydrate trivia state from Supabase game_sessions on first access
+const ensureTriviaState = async (eventId) => {
+    if (triviaGames[eventId]) return triviaGames[eventId];
+    if (!triviaLoadPromises[eventId]) {
+        triviaLoadPromises[eventId] = (async () => {
+            const base = createInitialTriviaState(eventId);
+            const saved = await loadGameSession(eventId, 'trivia');
+            if (saved) {
+                const cfg = saved.config || {};
+                const st = saved.state || {};
+                const now = Date.now();
+                const hydratedPlayers = {};
+                if (st.players && typeof st.players === 'object') {
+                    for (const [pid, player] of Object.entries(st.players)) {
+                        hydratedPlayers[pid] = { ...player, online: false, lastSeen: now };
+                    }
+                }
+                triviaGames[eventId] = {
+                    ...base,
+                    status: saved.status || base.status,
+                    hostPlan: cfg.hostPlan || base.hostPlan,
+                    backgroundUrl: cfg.backgroundUrl ?? base.backgroundUrl,
+                    questions: Array.isArray(cfg.questions) ? cfg.questions : [],
+                    currentQuestionIndex: typeof st.currentQuestionIndex === 'number' ? st.currentQuestionIndex : -1,
+                    questionStartTime: st.questionStartTime ?? null,
+                    isAnswerRevealed: Boolean(st.isAnswerRevealed),
+                    players: hydratedPlayers,
+                };
+            } else if (!triviaGames[eventId]) {
+                triviaGames[eventId] = base;
+            }
+            return triviaGames[eventId];
+        })().finally(() => {
+            delete triviaLoadPromises[eventId];
+        });
+    }
+    return triviaLoadPromises[eventId];
+};
+
+const persistTriviaState = (eventId) => {
+    scheduleGamePersist(eventId, 'trivia', () => {
+        const state = triviaGames[eventId];
+        if (!state) return null;
+        return {
+            status: state.status || 'WAITING',
+            config: {
+                hostPlan: state.hostPlan || 'freemium',
+                backgroundUrl: state.backgroundUrl || '',
+                questions: state.questions || [],
+            },
+            state: {
+                currentQuestionIndex: state.currentQuestionIndex ?? -1,
+                questionStartTime: state.questionStartTime ?? null,
+                isAnswerRevealed: Boolean(state.isAnswerRevealed),
+                players: state.players || {},
+            },
+        };
+    });
 };
 
 // Broadcast state to all SSE clients for an event
 const broadcastTriviaState = (eventId) => {
     const state = getTriviaState(eventId);
+    persistTriviaState(eventId);
     const clients = triviaClients[eventId] || [];
     const data = JSON.stringify(state);
 
@@ -2971,16 +2950,19 @@ const broadcastTriviaState = (eventId) => {
             console.error('SSE write error:', e);
         }
     });
-    console.log(`ðŸ“¡ [TRIVIA] Broadcast to ${clients.length} clients for event ${eventId.substring(0, 8)}...`);
+    console.log(`[TRIVIA] Broadcast to ${clients.length} clients for event ${eventId.substring(0, 8)}...`);
 };
 
 // SSE endpoint for real-time updates
-app.get('/api/trivia/:eventId/stream', (req, res) => {
+app.get('/api/trivia/:eventId/stream', async (req, res) => {
     const { eventId } = req.params;
-    const { clientId } = req.query; // Track who is connecting
-    console.log(`ðŸ“¡ [TRIVIA SSE] Client ${clientId || 'unknown'} connected for event ${eventId.substring(0, 8)}...`);
+    const { clientId } = req.query;
+    console.log(`[TRIVIA SSE] Client ${clientId || 'unknown'} connected for event ${eventId.substring(0, 8)}...`);
 
-    // SSE headers
+    let closed = false;
+    let keepAlive = null;
+    let state = null;
+
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache, no-transform',
@@ -2990,50 +2972,61 @@ app.get('/api/trivia/:eventId/stream', (req, res) => {
     });
     res.write(': ok\n\n');
 
-    // Add client to list
+    // Register close handler before awaiting DB hydration
+    req.on('close', () => {
+        closed = true;
+        console.log(`[TRIVIA SSE] Client ${clientId || 'unknown'} disconnected from event ${eventId.substring(0, 8)}...`);
+        if (keepAlive) clearInterval(keepAlive);
+        if (triviaClients[eventId]) {
+            triviaClients[eventId] = triviaClients[eventId].filter(c => c !== res);
+        }
+        if (clientId && state?.players?.[clientId]) {
+            state.players[clientId].online = false;
+            broadcastTriviaState(eventId);
+        }
+    });
+
+    state = await ensureTriviaState(eventId);
+    if (closed) return;
+
     if (!triviaClients[eventId]) {
         triviaClients[eventId] = [];
     }
     triviaClients[eventId].push(res);
 
-    // Send current state immediately
-    const state = getTriviaState(eventId);
-
-    // Update player last seen if they are a participant
     if (clientId && state.players[clientId]) {
         state.players[clientId].lastSeen = Date.now();
         state.players[clientId].online = true;
-        // If they were offline, broadcast their return immediately
         broadcastTriviaState(eventId);
     }
 
-    res.write(`data: ${JSON.stringify(state)}\n\n`);
+    try {
+        res.write(`data: ${JSON.stringify(state)}\n\n`);
+    } catch {
+        // client closed
+    }
 
-    // Keep-alive ping every 30 seconds
-    const keepAlive = setInterval(() => {
-        res.write(': ping\n\n');
-        // Update presence if player exists
-        if (clientId && state.players[clientId]) {
-            state.players[clientId].lastSeen = Date.now();
-            if (!state.players[clientId].online) {
-                state.players[clientId].online = true;
-                broadcastTriviaState(eventId);
+    keepAlive = setInterval(() => {
+        if (closed) {
+            clearInterval(keepAlive);
+            return;
+        }
+        try {
+            res.write(': ping\n\n');
+            if (clientId && state.players[clientId]) {
+                state.players[clientId].lastSeen = Date.now();
+                if (!state.players[clientId].online) {
+                    state.players[clientId].online = true;
+                    broadcastTriviaState(eventId);
+                }
+            }
+        } catch {
+            clearInterval(keepAlive);
+            if (triviaClients[eventId]) {
+                triviaClients[eventId] = triviaClients[eventId].filter(c => c !== res);
             }
         }
     }, 30000);
-
-    // Remove client on disconnect
-    req.on('close', () => {
-        console.log(`ðŸ“¡ [TRIVIA SSE] Client ${clientId || 'unknown'} disconnected from event ${eventId.substring(0, 8)}...`);
-        clearInterval(keepAlive);
-        triviaClients[eventId] = triviaClients[eventId].filter(c => c !== res);
-
-        // Mark player as offline but persist data
-        if (clientId && state.players[clientId]) {
-            state.players[clientId].online = false;
-            broadcastTriviaState(eventId);
-        }
-    });
 });
 
 // Garbage Collector: Cleanup inactive players every minute
@@ -3063,21 +3056,20 @@ setInterval(() => {
 }, 60 * 1000); // Run every minute
 
 // Get current game state
-app.get('/api/trivia/:eventId', (req, res) => {
+app.get('/api/trivia/:eventId', async (req, res) => {
     const { eventId } = req.params;
-    const state = getTriviaState(eventId);
+    const state = await ensureTriviaState(eventId);
     res.json(state);
 });
 
 // Add question
-app.post('/api/trivia/:eventId/questions', (req, res) => {
+app.post('/api/trivia/:eventId/questions', async (req, res) => {
     const { eventId } = req.params;
     const { text, options, correctOption, durationSeconds, userPlan, userRole } = req.body;
 
-    const state = getTriviaState(eventId);
-    if (userPlan) state.hostPlan = userPlan; // Update plan from admin action
+    const state = await ensureTriviaState(eventId);
+    if (userPlan) state.hostPlan = userPlan;
 
-    // Plan limit check (admins bypass)
     if (!isAdmin(userRole)) {
         const limitCheck = checkLimit({
             plan: userPlan || 'freemium',
@@ -3109,11 +3101,11 @@ app.post('/api/trivia/:eventId/questions', (req, res) => {
 });
 
 // Update all questions duration (Bulk Action)
-app.put('/api/trivia/:eventId/questions/duration', (req, res) => {
+app.put('/api/trivia/:eventId/questions/duration', async (req, res) => {
     const { eventId } = req.params;
     const { durationSeconds } = req.body;
 
-    const state = getTriviaState(eventId);
+    const state = await ensureTriviaState(eventId);
     const newDuration = parseInt(durationSeconds) || 10;
 
     state.questions.forEach(q => {
@@ -3125,11 +3117,11 @@ app.put('/api/trivia/:eventId/questions/duration', (req, res) => {
 });
 
 // Update question
-app.put('/api/trivia/:eventId/questions/:questionId', (req, res) => {
+app.put('/api/trivia/:eventId/questions/:questionId', async (req, res) => {
     const { eventId, questionId } = req.params;
     const updates = req.body;
 
-    const state = getTriviaState(eventId);
+    const state = await ensureTriviaState(eventId);
     const idx = state.questions.findIndex(q => q.id === questionId);
     if (idx >= 0) {
         state.questions[idx] = { ...state.questions[idx], ...updates };
@@ -3141,10 +3133,10 @@ app.put('/api/trivia/:eventId/questions/:questionId', (req, res) => {
 });
 
 // Delete question
-app.delete('/api/trivia/:eventId/questions/:questionId', (req, res) => {
+app.delete('/api/trivia/:eventId/questions/:questionId', async (req, res) => {
     const { eventId, questionId } = req.params;
 
-    const state = getTriviaState(eventId);
+    const state = await ensureTriviaState(eventId);
     state.questions = state.questions.filter(q => q.id !== questionId);
 
     broadcastTriviaState(eventId);
@@ -3152,9 +3144,9 @@ app.delete('/api/trivia/:eventId/questions/:questionId', (req, res) => {
 });
 
 // Start game
-app.post('/api/trivia/:eventId/start', (req, res) => {
+app.post('/api/trivia/:eventId/start', async (req, res) => {
     const { eventId } = req.params;
-    const state = getTriviaState(eventId);
+    const state = await ensureTriviaState(eventId);
 
     state.status = 'PLAYING';
     state.currentQuestionIndex = -1;
@@ -3165,9 +3157,9 @@ app.post('/api/trivia/:eventId/start', (req, res) => {
 });
 
 // Next question
-app.post('/api/trivia/:eventId/next', (req, res) => {
+app.post('/api/trivia/:eventId/next', async (req, res) => {
     const { eventId } = req.params;
-    const state = getTriviaState(eventId);
+    const state = await ensureTriviaState(eventId);
 
     const nextIndex = state.currentQuestionIndex + 1;
     if (nextIndex >= state.questions.length) {
@@ -3183,9 +3175,9 @@ app.post('/api/trivia/:eventId/next', (req, res) => {
 });
 
 // Reveal answer
-app.post('/api/trivia/:eventId/reveal', (req, res) => {
+app.post('/api/trivia/:eventId/reveal', async (req, res) => {
     const { eventId } = req.params;
-    const state = getTriviaState(eventId);
+    const state = await ensureTriviaState(eventId);
 
     state.isAnswerRevealed = true;
 
@@ -3194,9 +3186,9 @@ app.post('/api/trivia/:eventId/reveal', (req, res) => {
 });
 
 // End game
-app.post('/api/trivia/:eventId/end', (req, res) => {
+app.post('/api/trivia/:eventId/end', async (req, res) => {
     const { eventId } = req.params;
-    const state = getTriviaState(eventId);
+    const state = await ensureTriviaState(eventId);
 
     state.status = 'FINISHED';
     state.currentQuestionIndex = -1;
@@ -3206,18 +3198,13 @@ app.post('/api/trivia/:eventId/end', (req, res) => {
 });
 
 // Reset game
-app.post('/api/trivia/:eventId/reset', (req, res) => {
+app.post('/api/trivia/:eventId/reset', async (req, res) => {
     const { eventId } = req.params;
+    const prev = await ensureTriviaState(eventId);
 
     triviaGames[eventId] = {
-        eventId,
-        status: 'WAITING',
-        questions: [],
-        currentQuestionIndex: -1,
-        questionStartTime: null,
-        isAnswerRevealed: false,
-        backgroundUrl: 'https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png',
-        players: {}
+        ...createInitialTriviaState(eventId),
+        hostPlan: prev.hostPlan || 'freemium',
     };
 
     broadcastTriviaState(eventId);
@@ -3225,24 +3212,23 @@ app.post('/api/trivia/:eventId/reset', (req, res) => {
 });
 
 // Update config (background)
-app.put('/api/trivia/:eventId/config', (req, res) => {
+app.put('/api/trivia/:eventId/config', async (req, res) => {
     const { eventId } = req.params;
     const { backgroundUrl } = req.body;
-    const state = getTriviaState(eventId);
+    const state = await ensureTriviaState(eventId);
     if (backgroundUrl !== undefined) state.backgroundUrl = backgroundUrl;
     broadcastTriviaState(eventId);
     res.json(state);
 });
 
 // Join player
-app.post('/api/trivia/:eventId/join', (req, res) => {
+app.post('/api/trivia/:eventId/join', async (req, res) => {
     const { eventId } = req.params;
     const { playerId, name } = req.body;
 
-    const state = getTriviaState(eventId);
+    const state = await ensureTriviaState(eventId);
 
     if (!state.players[playerId]) {
-        // Check limits
         const currentCount = Object.keys(state.players).length;
         const limitCheck = checkLimit({
             plan: state.hostPlan || 'freemium',
@@ -3252,7 +3238,7 @@ app.post('/api/trivia/:eventId/join', (req, res) => {
 
         if (!limitCheck.allowed) {
             return res.status(403).json({
-                error: limitCheck.reason || 'LÃ­mite de participantes alcanzado (Plan Limit)',
+                error: limitCheck.reason || 'Límite de participantes alcanzado (Plan Limit)',
                 limitReached: true
             });
         }
@@ -3272,15 +3258,14 @@ app.post('/api/trivia/:eventId/join', (req, res) => {
 });
 
 // Submit answer
-app.post('/api/trivia/:eventId/answer', (req, res) => {
+app.post('/api/trivia/:eventId/answer', async (req, res) => {
     const { eventId } = req.params;
     const { playerId, questionId, answer } = req.body;
 
-    const state = getTriviaState(eventId);
+    const state = await ensureTriviaState(eventId);
     const player = state.players[playerId];
     const currentQuestion = state.questions[state.currentQuestionIndex];
 
-    // Validations
     if (!player) {
         return res.status(400).json({ error: 'Player not found' });
     }
@@ -3291,7 +3276,6 @@ app.post('/api/trivia/:eventId/answer', (req, res) => {
         return res.status(400).json({ error: 'Already answered' });
     }
 
-    // Record answer and calculate score
     player.answers[questionId] = answer;
     if (currentQuestion.correctOption === answer) {
         player.score += 1;
@@ -3489,8 +3473,30 @@ app.get('/api/bingo/:eventId/stream', async (req, res) => {
     }
     bingoClients[eventId].push(res);
 
+    let closed = false;
+    let keepAlive = null;
+    let state = null;
+
+    // Register close listener BEFORE any await to prevent interval/client leaks
+    req.on('close', () => {
+        closed = true;
+        console.log(`📸 [BINGO SSE] Client ${clientId || 'unknown'} disconnected from event ${eventId.substring(0, 8)}...`);
+        if (keepAlive) clearInterval(keepAlive);
+        if (bingoClients[eventId]) {
+            bingoClients[eventId] = bingoClients[eventId].filter(c => c !== res);
+        }
+
+        // Mark player as offline but persist data
+        if (clientId && state?.players?.[clientId]) {
+            state.players[clientId].online = false;
+            console.log(`👋 [BINGO] Player ${state.players[clientId].name} went offline (persisted)`);
+            broadcastBingoState(eventId, false);
+        }
+    });
+
     // Send current state immediately (hydrated from Supabase if needed)
-    const state = await ensureBingoState(eventId);
+    state = await ensureBingoState(eventId);
+    if (closed) return;
 
     // Update player presence if they are a participant
     if (clientId && state.players[clientId]) {
@@ -3500,34 +3506,31 @@ app.get('/api/bingo/:eventId/stream', async (req, res) => {
         broadcastBingoState(eventId, false);
     }
 
-    res.write(`data: ${JSON.stringify(createLightweightState(state))}\n\n`);
+    try {
+        res.write(`data: ${JSON.stringify(createLightweightState(state))}\n\n`);
+    } catch {
+        return;
+    }
 
     // Keep-alive ping every 30 seconds
-    const keepAlive = setInterval(() => {
-        res.write(': ping\n\n');
-        // Update presence if player exists
-        if (clientId && state.players[clientId]) {
-            state.players[clientId].lastSeen = Date.now();
-            if (!state.players[clientId].online) {
-                state.players[clientId].online = true;
-                broadcastBingoState(eventId, false);
+    keepAlive = setInterval(() => {
+        try {
+            res.write(': ping\n\n');
+            // Update presence if player exists
+            if (clientId && state.players[clientId]) {
+                state.players[clientId].lastSeen = Date.now();
+                if (!state.players[clientId].online) {
+                    state.players[clientId].online = true;
+                    broadcastBingoState(eventId, false);
+                }
+            }
+        } catch {
+            clearInterval(keepAlive);
+            if (bingoClients[eventId]) {
+                bingoClients[eventId] = bingoClients[eventId].filter(c => c !== res);
             }
         }
     }, 30000);
-
-    // Remove client on disconnect
-    req.on('close', () => {
-        console.log(`📸 [BINGO SSE] Client ${clientId || 'unknown'} disconnected from event ${eventId.substring(0, 8)}...`);
-        clearInterval(keepAlive);
-        bingoClients[eventId] = bingoClients[eventId].filter(c => c !== res);
-
-        // Mark player as offline but persist data
-        if (clientId && state.players[clientId]) {
-            state.players[clientId].online = false;
-            console.log(`👋 [BINGO] Player ${state.players[clientId].name} went offline (persisted)`);
-            broadcastBingoState(eventId, false);
-        }
-    });
 });
 
 // Garbage Collector: Cleanup inactive bingo players every minute
@@ -3891,14 +3894,24 @@ const raffleClients = {}; // eventId -> [res, res, ...]
 const broadcastRaffleState = (eventId) => {
     const clients = raffleClients[eventId] || [];
     const state = raffleGameService.getGame(eventId);
+    raffleGameService.persist(eventId);
     const data = `data: ${JSON.stringify(state)}\n\n`;
 
-    clients.forEach(client => client.write(data));
+    clients.forEach(client => {
+        try {
+            client.write(data);
+        } catch (e) {
+            console.error('Raffle SSE write error:', e);
+        }
+    });
 };
 
-app.get('/api/raffle/:eventId/stream', (req, res) => {
+app.get('/api/raffle/:eventId/stream', async (req, res) => {
     const { eventId } = req.params;
     const { clientId } = req.query;
+
+    let closed = false;
+    let keepAlive = null;
 
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -3909,45 +3922,73 @@ app.get('/api/raffle/:eventId/stream', (req, res) => {
     });
     res.write(': ok\n\n');
 
+    req.on('close', () => {
+        closed = true;
+        if (keepAlive) clearInterval(keepAlive);
+        if (raffleClients[eventId]) {
+            raffleClients[eventId] = raffleClients[eventId].filter(client => client !== res);
+        }
+        if (clientId) {
+            const updated = raffleGameService.setParticipantStatus(eventId, clientId, false);
+            if (updated) {
+                console.log(`[RAFFLE] Participant ${clientId} went offline`);
+                broadcastRaffleState(eventId);
+            }
+        }
+    });
+
+    const state = await raffleGameService.ensureGame(eventId);
+    if (closed) return;
+
     if (!raffleClients[eventId]) {
         raffleClients[eventId] = [];
     }
     raffleClients[eventId].push(res);
 
-    // Send initial state
-    const state = raffleGameService.getGame(eventId);
-    res.write(`data: ${JSON.stringify(state)}\n\n`);
+    if (clientId) {
+        const restored = raffleGameService.setParticipantStatus(eventId, clientId, true);
+        if (restored) broadcastRaffleState(eventId);
+    }
 
-    req.on('close', () => {
-        raffleClients[eventId] = raffleClients[eventId].filter(client => client !== res);
+    try {
+        res.write(`data: ${JSON.stringify(state)}\n\n`);
+    } catch {
+        // client already closed
+    }
 
-        // Mark participant as offline if disconnected
-        if (clientId) {
-            const updated = raffleGameService.setParticipantStatus(eventId, clientId, false);
-            if (updated) {
-                console.log(`ðŸ‘‹ [RAFFLE] Participant ${clientId} went offline`);
-                broadcastRaffleState(eventId);
+    keepAlive = setInterval(() => {
+        if (closed) {
+            clearInterval(keepAlive);
+            return;
+        }
+        try {
+            res.write(': ping\n\n');
+        } catch {
+            clearInterval(keepAlive);
+            if (raffleClients[eventId]) {
+                raffleClients[eventId] = raffleClients[eventId].filter(client => client !== res);
             }
         }
-    });
+    }, 30000);
 });
 
-app.get('/api/raffle/:eventId', (req, res) => {
+app.get('/api/raffle/:eventId', async (req, res) => {
     const { eventId } = req.params;
-    const state = raffleGameService.getGame(eventId);
+    const state = await raffleGameService.ensureGame(eventId);
     res.json(state);
 });
 
-app.put('/api/raffle/:eventId/config', (req, res) => {
+app.put('/api/raffle/:eventId/config', async (req, res) => {
     const { eventId } = req.params;
-    const config = req.body;
-    const state = raffleGameService.updateConfig(eventId, config);
+    await raffleGameService.ensureGame(eventId);
+    const state = raffleGameService.updateConfig(eventId, req.body);
     broadcastRaffleState(eventId);
     res.json(state);
 });
 
-app.post('/api/raffle/:eventId/start', (req, res) => {
+app.post('/api/raffle/:eventId/start', async (req, res) => {
     const { eventId } = req.params;
+    await raffleGameService.ensureGame(eventId);
     const state = raffleGameService.start(eventId);
     broadcastRaffleState(eventId);
     res.json(state);
@@ -3955,12 +3996,14 @@ app.post('/api/raffle/:eventId/start', (req, res) => {
 
 app.post('/api/raffle/:eventId/draw', async (req, res) => {
     const { eventId } = req.params;
+    await raffleGameService.ensureGame(eventId);
     const state = await raffleGameService.drawWinner(eventId, broadcastRaffleState);
     res.json(state);
 });
 
-app.post('/api/raffle/:eventId/reset', (req, res) => {
+app.post('/api/raffle/:eventId/reset', async (req, res) => {
     const { eventId } = req.params;
+    await raffleGameService.ensureGame(eventId);
     const state = raffleGameService.reset(eventId);
     broadcastRaffleState(eventId);
     res.json(state);
@@ -3973,6 +4016,7 @@ const confessionsClients = {}; // eventId -> [res, res, ...]
 const broadcastConfessionsState = (eventId) => {
     const clients = confessionsClients[eventId] || [];
     const state = confessionsGameService.getGame(eventId);
+    confessionsGameService.persist(eventId);
     const data = `data: ${JSON.stringify(state)}\n\n`;
 
     clients.forEach(client => {
@@ -3984,9 +4028,11 @@ const broadcastConfessionsState = (eventId) => {
     });
 };
 
-app.get('/api/confessions/:eventId/stream', (req, res) => {
+app.get('/api/confessions/:eventId/stream', async (req, res) => {
     const { eventId } = req.params;
-    const { clientId } = req.query;
+
+    let closed = false;
+    let keepAlive = null;
 
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -3997,29 +4043,47 @@ app.get('/api/confessions/:eventId/stream', (req, res) => {
     });
     res.write(': ok\n\n');
 
+    req.on('close', () => {
+        closed = true;
+        if (keepAlive) clearInterval(keepAlive);
+        if (confessionsClients[eventId]) {
+            confessionsClients[eventId] = confessionsClients[eventId].filter(client => client !== res);
+        }
+    });
+
+    const state = await confessionsGameService.ensureGame(eventId);
+    if (closed) return;
+
     if (!confessionsClients[eventId]) {
         confessionsClients[eventId] = [];
     }
     confessionsClients[eventId].push(res);
 
-    // Send initial state
-    const state = confessionsGameService.getGame(eventId);
-    res.write(`data: ${JSON.stringify(state)}\n\n`);
+    try {
+        res.write(`data: ${JSON.stringify(state)}\n\n`);
+    } catch {
+        // client closed
+    }
 
-    // Keep active
-    const keepAlive = setInterval(() => {
-        res.write(': ping\n\n');
+    keepAlive = setInterval(() => {
+        if (closed) {
+            clearInterval(keepAlive);
+            return;
+        }
+        try {
+            res.write(': ping\n\n');
+        } catch {
+            clearInterval(keepAlive);
+            if (confessionsClients[eventId]) {
+                confessionsClients[eventId] = confessionsClients[eventId].filter(client => client !== res);
+            }
+        }
     }, 30000);
-
-    req.on('close', () => {
-        clearInterval(keepAlive);
-        confessionsClients[eventId] = confessionsClients[eventId].filter(client => client !== res);
-    });
 });
 
-app.get('/api/confessions/:eventId', (req, res) => {
+app.get('/api/confessions/:eventId', async (req, res) => {
     const { eventId } = req.params;
-    const state = confessionsGameService.getGame(eventId);
+    const state = await confessionsGameService.ensureGame(eventId);
     res.json(state);
 });
 
@@ -4040,9 +4104,12 @@ const broadcastToEvent = (eventId, payload) => {
     });
 };
 
-app.get('/api/events/:eventId/stream', (req, res) => {
+app.get('/api/events/:eventId/stream', async (req, res) => {
     const { eventId } = req.params;
     const { clientId } = req.query;
+
+    let closed = false;
+    let keepAlive = null;
 
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -4053,56 +4120,83 @@ app.get('/api/events/:eventId/stream', (req, res) => {
     });
     res.write(': ok\n\n');
 
+    req.on('close', () => {
+        closed = true;
+        if (keepAlive) clearInterval(keepAlive);
+        if (eventClients[eventId]) {
+            eventClients[eventId] = eventClients[eventId].filter(client => client !== res);
+        }
+        if (clientId) {
+            const updated = impostorGameService.setPlayerStatus(eventId, clientId, false);
+            if (updated) {
+                console.log(`[IMPOSTOR] Player ${clientId} went offline`);
+                broadcastImpostorState(eventId);
+            }
+        }
+    });
+
+    await impostorGameService.ensureSession(eventId);
+    if (closed) return;
+
     if (!eventClients[eventId]) {
         eventClients[eventId] = [];
     }
     eventClients[eventId].push(res);
 
-    // Keep active
-    const keepAlive = setInterval(() => {
-        res.write(': ping\n\n');
-    }, 30000);
+    if (clientId) {
+        const restored = impostorGameService.setPlayerStatus(eventId, clientId, true);
+        if (restored) broadcastImpostorState(eventId);
+    }
 
-    req.on('close', () => {
-        clearInterval(keepAlive);
-        eventClients[eventId] = eventClients[eventId].filter(client => client !== res);
-
-        // Handle Impostor player offline
-        if (clientId) {
-            const updated = impostorGameService.setPlayerStatus(eventId, clientId, false);
-            if (updated) {
-                console.log(`ðŸ‘‹ [IMPOSTOR] Player ${clientId} went offline`);
-                broadcastImpostorState(eventId);
+    keepAlive = setInterval(() => {
+        if (closed) {
+            clearInterval(keepAlive);
+            return;
+        }
+        try {
+            res.write(': ping\n\n');
+        } catch {
+            clearInterval(keepAlive);
+            if (eventClients[eventId]) {
+                eventClients[eventId] = eventClients[eventId].filter(client => client !== res);
             }
         }
-    });
+    }, 30000);
 });
 
 // --- IMPOSTOR GAME ---
 const broadcastImpostorState = (eventId) => {
     const state = impostorGameService.getOrCreateSession(eventId);
+    impostorGameService.persist(eventId);
     broadcastToEvent(eventId, { type: 'IMPOSTOR_UPDATE', state });
 };
 
-app.get('/api/impostor/:eventId', (req, res) => {
-    const state = impostorGameService.getOrCreateSession(req.params.eventId);
+app.get('/api/impostor/:eventId', async (req, res) => {
+    const state = await impostorGameService.ensureSession(req.params.eventId);
     res.json(state);
 });
 
-app.post('/api/impostor/:eventId/join', (req, res) => {
-    const state = impostorGameService.joinSession(req.params.eventId, req.body);
-    broadcastImpostorState(req.params.eventId);
-    res.json(state);
+app.post('/api/impostor/:eventId/join', async (req, res) => {
+    try {
+        await impostorGameService.ensureSession(req.params.eventId);
+        const state = impostorGameService.joinSession(req.params.eventId, req.body);
+        broadcastImpostorState(req.params.eventId);
+        res.json(state);
+    } catch (error) {
+        res.status(403).json({ error: error.message });
+    }
 });
 
-app.put('/api/impostor/:eventId/config', (req, res) => {
+app.put('/api/impostor/:eventId/config', async (req, res) => {
+    await impostorGameService.ensureSession(req.params.eventId);
     const state = impostorGameService.updateConfig(req.params.eventId, req.body);
     broadcastImpostorState(req.params.eventId);
     res.json(state);
 });
 
-app.post('/api/impostor/:eventId/select-players', (req, res) => {
+app.post('/api/impostor/:eventId/select-players', async (req, res) => {
     try {
+        await impostorGameService.ensureSession(req.params.eventId);
         const { candidates } = req.body;
         const state = impostorGameService.selectPlayers(req.params.eventId, candidates || []);
         broadcastImpostorState(req.params.eventId);
@@ -4112,8 +4206,9 @@ app.post('/api/impostor/:eventId/select-players', (req, res) => {
     }
 });
 
-app.post('/api/impostor/:eventId/start', (req, res) => {
+app.post('/api/impostor/:eventId/start', async (req, res) => {
     try {
+        await impostorGameService.ensureSession(req.params.eventId);
         const state = impostorGameService.startRound(req.params.eventId);
         broadcastImpostorState(req.params.eventId);
         res.json(state);
@@ -4122,22 +4217,25 @@ app.post('/api/impostor/:eventId/start', (req, res) => {
     }
 });
 
-app.post('/api/impostor/:eventId/answer', (req, res) => {
+app.post('/api/impostor/:eventId/answer', async (req, res) => {
+    await impostorGameService.ensureSession(req.params.eventId);
     const { playerId, answer } = req.body;
     const state = impostorGameService.submitAnswer(req.params.eventId, playerId, answer);
     broadcastImpostorState(req.params.eventId);
     res.json(state);
 });
 
-app.post('/api/impostor/:eventId/vote', (req, res) => {
+app.post('/api/impostor/:eventId/vote', async (req, res) => {
+    await impostorGameService.ensureSession(req.params.eventId);
     const { voterId, targetId } = req.body;
     const state = impostorGameService.castVote(req.params.eventId, voterId, targetId);
     broadcastImpostorState(req.params.eventId);
     res.json(state);
 });
 
-app.post('/api/impostor/:eventId/next-round', (req, res) => {
+app.post('/api/impostor/:eventId/next-round', async (req, res) => {
     try {
+        await impostorGameService.ensureSession(req.params.eventId);
         const state = impostorGameService.nextRound(req.params.eventId);
         broadcastImpostorState(req.params.eventId);
         res.json(state);
@@ -4146,23 +4244,25 @@ app.post('/api/impostor/:eventId/next-round', (req, res) => {
     }
 });
 
-app.post('/api/impostor/:eventId/reveal', (req, res) => {
+app.post('/api/impostor/:eventId/reveal', async (req, res) => {
+    await impostorGameService.ensureSession(req.params.eventId);
     const state = impostorGameService.revealImpostor(req.params.eventId);
     broadcastImpostorState(req.params.eventId);
     res.json(state);
 });
 
-app.post('/api/impostor/:eventId/remove-player', (req, res) => {
+app.post('/api/impostor/:eventId/remove-player', async (req, res) => {
+    await impostorGameService.ensureSession(req.params.eventId);
     const { playerId } = req.body;
     const state = impostorGameService.removePlayer(req.params.eventId, playerId);
     broadcastImpostorState(req.params.eventId);
     res.json(state);
 });
 
-app.post('/api/impostor/:eventId/leave', (req, res) => {
+app.post('/api/impostor/:eventId/leave', async (req, res) => {
     const { playerId } = req.body || {};
     if (playerId) {
-        const session = impostorGameService.getOrCreateSession(req.params.eventId);
+        const session = await impostorGameService.ensureSession(req.params.eventId);
         if (session.status === 'WAITING') {
             impostorGameService.leaveSession(req.params.eventId, String(playerId));
         } else {
@@ -4173,7 +4273,8 @@ app.post('/api/impostor/:eventId/leave', (req, res) => {
     res.json({ success: true });
 });
 
-app.post('/api/impostor/:eventId/reset', (req, res) => {
+app.post('/api/impostor/:eventId/reset', async (req, res) => {
+    await impostorGameService.ensureSession(req.params.eventId);
     const state = impostorGameService.resetGame(req.params.eventId);
     broadcastImpostorState(req.params.eventId);
     res.json(state);
@@ -4181,19 +4282,19 @@ app.post('/api/impostor/:eventId/reset', (req, res) => {
 
 app.put('/api/confessions/:eventId/config', async (req, res) => {
     const { eventId } = req.params;
+    await confessionsGameService.ensureGame(eventId);
     let config = req.body;
 
-    // Handle Google Photos links automatically
     if (config.backgroundUrl && (config.backgroundUrl.includes('photos.app.goo.gl') || config.backgroundUrl.includes('google.com/photos'))) {
         try {
-            console.log("ðŸ“¸ [Confessions] Resolving Google Photos link:", config.backgroundUrl);
+            console.log("[Confessions] Resolving Google Photos link:", config.backgroundUrl);
             const photos = await googlePhotosService.getAlbumPhotos(config.backgroundUrl);
             if (photos && photos.length > 0) {
-                config.backgroundUrl = photos[0].src; // Use the first photo found
-                console.log("âœ… [Confessions] Resolved to direct URL:", config.backgroundUrl);
+                config.backgroundUrl = photos[0].src;
+                console.log("[Confessions] Resolved to direct URL:", config.backgroundUrl);
             }
         } catch (e) {
-            console.warn("âš ï¸ [Confessions] Failed to resolve Google Photos link (using original):", e.message);
+            console.warn("[Confessions] Failed to resolve Google Photos link (using original):", e.message);
         }
     }
 
@@ -4202,11 +4303,12 @@ app.put('/api/confessions/:eventId/config', async (req, res) => {
     res.json(state);
 });
 
-app.post('/api/confessions/:eventId/message', (req, res) => {
+app.post('/api/confessions/:eventId/message', async (req, res) => {
     const { eventId } = req.params;
     const { text, author } = req.body;
 
     try {
+        await confessionsGameService.ensureGame(eventId);
         const message = confessionsGameService.addMessage(eventId, { text, author });
         broadcastConfessionsState(eventId);
         res.json({ success: true, message });
@@ -4215,25 +4317,59 @@ app.post('/api/confessions/:eventId/message', (req, res) => {
     }
 });
 
-app.post('/api/confessions/:eventId/reset', (req, res) => {
+app.post('/api/confessions/:eventId/reset', async (req, res) => {
     const { eventId } = req.params;
+    await confessionsGameService.ensureGame(eventId);
     const state = confessionsGameService.reset(eventId);
     broadcastConfessionsState(eventId);
     res.json(state);
 });
 
-app.post('/api/raffle/:eventId/join', (req, res) => {
+app.post('/api/raffle/:eventId/join', async (req, res) => {
     const { eventId } = req.params;
     const { name, playerId } = req.body;
     if (!name) return res.status(400).json({ error: 'Name required' });
 
-    const participant = raffleGameService.joinParticipant(eventId, name, playerId);
-    broadcastRaffleState(eventId);
-    res.json({ success: true, participant });
+    try {
+        await raffleGameService.ensureGame(eventId);
+        const participant = raffleGameService.joinParticipant(eventId, name, playerId);
+        broadcastRaffleState(eventId);
+        res.json({ success: true, participant });
+    } catch (e) {
+        res.status(403).json({ error: e.message });
+    }
+});
+
+// --- AUTH: CURRENT USER PROFILE REFRESH ---
+app.get('/api/me', requireAuth, async (req, res) => {
+    try {
+        const { data: user, error } = await supabase
+            .from(TABLES.USERS)
+            .select('id, email, username, role, plan, avatar_url, permissions')
+            .eq('id', req.user.id)
+            .single();
+
+        if (error || !user) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        res.json({
+            id: user.id,
+            email: user.email,
+            name: user.username || user.email.split('@')[0],
+            role: user.role || 'subscriber',
+            plan: user.plan || 'freemium',
+            avatar: user.avatar_url || undefined,
+            permissions: user.permissions || undefined,
+        });
+    } catch (error) {
+        console.error('[GET /api/me] Error:', error.message);
+        res.status(500).json({ error: 'Error al consultar el perfil' });
+    }
 });
 
 // --- PAYMENTS ---
-import { createPaymentPreference, verifyPayment } from './services/paymentService.js';
+import { createPaymentPreference, verifyPayment, normalizePlanForDb } from './services/paymentService.js';
 
 app.post('/api/payments/create-preference', async (req, res) => {
     try {
@@ -4264,20 +4400,21 @@ app.post('/api/payments/webhook', async (req, res) => {
 
             if (paymentInfo && paymentInfo.status === 'approved') {
                 const userId = paymentInfo.external_reference || paymentInfo.metadata?.user_id;
-                const planId = paymentInfo.metadata?.plan_id;
+                const rawPlanId = paymentInfo.metadata?.plan_id;
+                const dbPlan = normalizePlanForDb(rawPlanId);
 
-                if (userId && planId) {
-                    console.log(`[Webhook] Payment approved for user ${userId}, upgrading to ${planId}`);
-                    // Upgrade user plan in Supabase
+                if (userId && dbPlan) {
+                    console.log(`[Webhook] Payment approved for user ${userId}, upgrading to ${dbPlan}`);
                     const { error } = await supabase
                         .from('users')
-                        .update({ plan: planId })
+                        .update({ plan: dbPlan })
                         .eq('id', userId);
 
                     if (error) {
                         console.error('[Webhook] Error updating user plan:', error);
+                        return res.status(500).send('DB Error');
                     } else {
-                        console.log(`[Webhook] User ${userId} successfully upgraded to ${planId}`);
+                        console.log(`[Webhook] User ${userId} successfully upgraded to ${dbPlan}`);
                     }
                 }
             }
@@ -4300,14 +4437,18 @@ app.get('/payment/:status', async (req, res) => {
 
             if (paymentInfo && paymentInfo.status === 'approved') {
                 const userId = paymentInfo.external_reference || paymentInfo.metadata?.user_id;
-                const planId = paymentInfo.metadata?.plan_id;
+                const rawPlanId = paymentInfo.metadata?.plan_id;
+                const dbPlan = normalizePlanForDb(rawPlanId);
 
-                if (userId && planId) {
-                    console.log(`[Frontend Fallback] Payment approved for user ${userId}, upgrading to ${planId}`);
-                    await supabase
+                if (userId && dbPlan) {
+                    console.log(`[Frontend Fallback] Payment approved for user ${userId}, upgrading to ${dbPlan}`);
+                    const { error } = await supabase
                         .from('users')
-                        .update({ plan: planId })
+                        .update({ plan: dbPlan })
                         .eq('id', userId);
+                    if (error) {
+                        console.error('[Frontend Fallback] Error updating user plan:', error);
+                    }
                 }
             }
         }
@@ -4327,13 +4468,36 @@ app.get(/.*/, (req, res) => {
 });
 
 // Start server
+let serverInstance = null;
+
+const gracefulShutdown = async (signal) => {
+    console.log(`[SHUTDOWN] Received ${signal}, flushing pending game sessions...`);
+    try {
+        await Promise.allSettled([
+            flushPendingBingoPersists(),
+            flushAllPendingGameSessions(),
+        ]);
+    } catch (err) {
+        console.error('[SHUTDOWN] Flush error:', err.message);
+    }
+    if (serverInstance) {
+        serverInstance.close(() => process.exit(0));
+        setTimeout(() => process.exit(0), 3000).unref();
+    } else {
+        process.exit(0);
+    }
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
 const start = async () => {
-    app.listen(PORT, '0.0.0.0', () => {
-        console.log(`-----------------------------------------`);
-        console.log(`ðŸš€ API Server running on port: ${PORT}`);
-        console.log(`ðŸ“¡ Environment: ${process.env.NODE_ENV || 'development'}`);
-        console.log(`ðŸ”‘ Supabase URL: ${process.env.SUPABASE_URL ? 'Present âœ…' : 'NOT FOUND âŒ'}`);
-        console.log(`-----------------------------------------`);
+    serverInstance = app.listen(PORT, '0.0.0.0', () => {
+        console.log('-----------------------------------------');
+        console.log(`API Server running on port: ${PORT}`);
+        console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`Supabase URL: ${process.env.SUPABASE_URL ? 'Present' : 'NOT FOUND'}`);
+        console.log('-----------------------------------------');
     });
 };
 

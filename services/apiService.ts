@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { InvitationData, Guest, Table } from '../types';
+import { getAuthHeaders } from './authHeaders';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -82,7 +83,7 @@ export const apiService = {
     async updateStaffPassword(staffId: string, newPasswordHash: string, ownerId: string) {
         const res = await fetch(`${API_URL}/staff-roster/${staffId}/password`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ newPassword: newPasswordHash, ownerId })
         });
         const data = await res.json();
@@ -409,8 +410,19 @@ export const apiService = {
 
     // === STAFF ASSIGNMENTS ===
     async getStaffAssignments(eventId: string) {
-        const res = await fetch(`${API_URL}/staff-assignments?eventId=${eventId}`);
+        const res = await fetch(`${API_URL}/staff-assignments?eventId=${encodeURIComponent(eventId)}`, {
+            headers: getAuthHeaders()
+        });
         if (!res.ok) throw new Error('Failed to fetch staff assignments');
+        return await res.json();
+    },
+
+    // === CURRENT USER PROFILE ===
+    async getCurrentUser() {
+        const res = await fetch(`${API_URL}/me`, {
+            headers: getAuthHeaders()
+        });
+        if (!res.ok) return null;
         return await res.json();
     },
 

@@ -66,14 +66,15 @@ const RaffleAdmin: React.FC<RaffleAdminProps> = ({ user }) => {
 
         setUploading(true);
         try {
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-                const base64 = reader.result as string;
-                const url = await apiService.uploadImage(base64);
-                setCustomImage(url);
-                await handleSaveConfig(url);
-            };
-            reader.readAsDataURL(file);
+            const base64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+                reader.readAsDataURL(file);
+            });
+            const url = await apiService.uploadImage(base64);
+            setCustomImage(url);
+            await handleSaveConfig(url);
         } catch (err) {
             console.error("Upload failed:", err);
             alert("Error al subir la imagen");

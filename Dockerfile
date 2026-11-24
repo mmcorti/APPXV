@@ -31,6 +31,7 @@ COPY server/ ./server/
 COPY --from=builder /app/dist/ ./dist/
 
 # Expose port (Cloud Run uses $PORT)
+ENV NODE_ENV=production
 ENV PORT=8080
 EXPOSE 8080
 

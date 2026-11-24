@@ -5,15 +5,12 @@ WORKDIR /app
 
 # Instalar dependencias primero para aprovechar el caché de capas
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
-# Copiar el código del servidor y archivos de configuración necesarios
+# Copiar el código del servidor
 COPY server/ ./server/
-COPY debug_pkg.js ./
-COPY .env.local* .env* ./
 
-# Puerto estándar para Cloud Run
-# Cloud Run inyecta la variable PORT, pero definimos un default
+ENV NODE_ENV=production
 ENV PORT=8080
 EXPOSE 8080
 

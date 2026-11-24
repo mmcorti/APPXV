@@ -7,7 +7,7 @@ import { StaffPermissions } from '../types';
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 interface LoginProps {
-  onLogin: (id: string, name: string, email: string, role?: string, permissions?: StaffPermissions, eventId?: string, plan?: string) => void;
+  onLogin: (id: string, name: string, email: string, role?: string, permissions?: StaffPermissions, eventId?: string, plan?: string, token?: string) => void;
 }
 
 const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
@@ -30,7 +30,7 @@ const LoginScreen: React.FC<LoginProps> = ({ onLogin }) => {
 
     try {
       const user = await apiService.login(email, password);
-      onLogin(user.id, user.name, user.email, user.role, user.permissions, user.eventId, user.plan);
+      onLogin(user.id, user.name, user.email, user.role, user.permissions, user.eventId, user.plan, user.token);
       navigate('/dashboard');
     } catch (err: any) {
       console.error(err);

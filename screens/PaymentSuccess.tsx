@@ -1,11 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-// import { useAuth } from '../hooks/useAuth'; // Note: Adjust import based on the actual path/context
+import { useNavigate } from 'react-router-dom';
 
-const PaymentSuccess: React.FC = () => {
+interface PaymentSuccessProps {
+    onRefreshUser?: () => Promise<void>;
+}
+
+const PaymentSuccess: React.FC<PaymentSuccessProps> = ({ onRefreshUser }) => {
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
     const [countdown, setCountdown] = useState(5);
+
+    useEffect(() => {
+        if (onRefreshUser) {
+            onRefreshUser().catch(err => console.warn('Could not refresh user plan after payment:', err));
+        }
+    }, [onRefreshUser]);
 
     useEffect(() => {
         const timer = setInterval(() => {

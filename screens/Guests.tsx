@@ -34,8 +34,6 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
   const [editingId, setEditingId] = useState<string | number | null>(null);
   const [searchQuery, setSearchQuery] = useState(''); // Search filter
 
-  if (!invitation) return <div className="p-10 text-center font-bold">Evento no encontrado</div>;
-
   /* Helper to get effective confirmed counts mainly for legacy data or errors */
   const getEffectiveConfirmed = (g: Guest) => {
     const allotted = g.allotted || { adults: 0, teens: 0, kids: 0, infants: 0 };
@@ -57,7 +55,7 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
     const catNo = { adults: 0, teens: 0, kids: 0, infants: 0 };
     const catPend = { adults: 0, teens: 0, kids: 0, infants: 0 };
 
-    (invitation.guests || []).forEach(g => {
+    (invitation?.guests || []).forEach(g => {
       const allotted = g.allotted || { adults: 0, teens: 0, kids: 0, infants: 0 };
       const confirmed = getEffectiveConfirmed(g);
 
@@ -103,6 +101,8 @@ const GuestsScreen: React.FC<GuestsScreenProps> = ({ invitations, onSaveGuest, o
   }, [invitation?.guests]);
 
   const limitCheck = checkLimit('maxGuestsPerEvent', stats.total);
+
+  if (!invitation) return <div className="p-10 text-center font-bold">Evento no encontrado</div>;
 
 
   const handleSendWhatsApp = (guest: Guest) => {

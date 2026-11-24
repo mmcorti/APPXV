@@ -57,8 +57,6 @@ const AddExpense: React.FC<AddExpenseProps> = ({ user }) => {
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [participants, setParticipants] = useState<Participant[]>([]);
     const [staffAssignments, setStaffAssignments] = useState<StaffAssignment[]>([]);
-    const [hasContract, setHasContract] = useState(false);
-    const [hasAdvance, setHasAdvance] = useState(false);
     const [saving, setSaving] = useState(false);
     const [loading, setLoading] = useState(isEditMode);
     const [isAddingNewSupplier, setIsAddingNewSupplier] = useState(false);
@@ -204,44 +202,55 @@ const AddExpense: React.FC<AddExpenseProps> = ({ user }) => {
                 paid: totalPaid,
                 status: getStatus(),
                 staff: staff,
-                userPlan: user?.plan || 'freemium'
+                userPlan: user?.plan || 'freemium',
+                userRole: user?.role || 'subscriber'
             };
 
             let expenseIdToUse = expenseId;
+            let oldPayments: any[] = [];
 
             if (isEditMode && expenseId) {
+                oldPayments = await apiService.getPayments(expenseId);
                 await apiService.updateExpense(expenseId, expenseData);
-                // Delete old payments (simpler strategy for now)
-                const oldPayments = await apiService.getPayments(expenseId);
-                for (const oldP of oldPayments) {
-                    await apiService.deletePayment(oldP.id);
-                }
             } else {
                 const newExpense = await apiService.createExpense(eventId, expenseData);
                 expenseIdToUse = newExpense.id;
             }
 
-            // Save payments
+            // Save new payments BEFORE deleting old ones to avoid data loss on failure
             if (expenseIdToUse) {
                 const paymentsToSave = payments.filter(p => p.amount > 0 && p.participantId);
-                for (const payment of paymentsToSave) {
-                    let finalReceiptUrl = payment.receiptUrl;
-                    if (payment.receiptUrl && payment.receiptUrl.startsWith('data:image')) {
-                        try {
-                            finalReceiptUrl = await apiService.uploadImage(payment.receiptUrl);
-                        } catch (err) {
-                            console.error('Receipt upload failed:', err);
-                            finalReceiptUrl = '';
-                        }
-                    }
+                const createdPaymentIds: string[] = [];
 
-                    await apiService.createPayment(expenseIdToUse, {
-                        participantId: payment.participantId,
-                        amount: payment.amount,
-                        date: payment.date,
-                        description: payment.description,
-                        receiptUrl: finalReceiptUrl
-                    });
+                try {
+                    for (const payment of paymentsToSave) {
+                        let finalReceiptUrl = payment.receiptUrl;
+                        if (payment.receiptUrl && payment.receiptUrl.startsWith('data:image')) {
+                            finalReceiptUrl = await apiService.uploadImage(payment.receiptUrl);
+                        }
+
+                        const created = await apiService.createPayment(expenseIdToUse, {
+                            participantId: payment.participantId,
+                            amount: payment.amount,
+                            date: payment.date,
+                            description: payment.description,
+                            receiptUrl: finalReceiptUrl
+                        });
+                        if (created?.id) createdPaymentIds.push(created.id);
+                    }
+                } catch (paymentErr) {
+                    // Roll back only the newly created payments so original payments remain intact
+                    for (const newId of createdPaymentIds) {
+                        await apiService.deletePayment(newId).catch(() => {});
+                    }
+                    throw paymentErr;
+                }
+
+                // Only after all new payments succeeded, remove the replaced old payments
+                for (const oldP of oldPayments) {
+                    await apiService.deletePayment(oldP.id).catch(err =>
+                        console.warn('Could not remove superseded payment:', oldP.id, err)
+                    );
                 }
             }
 
@@ -473,31 +482,6 @@ const AddExpense: React.FC<AddExpenseProps> = ({ user }) => {
                             </div>
                         </div>
                     </div>
-
-                    {/* Toggles */}
-                    <div className="bg-white dark:bg-[#193324] rounded-2xl p-4 space-y-4 border border-slate-100 dark:border-white/5 shadow-sm">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <span className="material-symbols-outlined text-primary">description</span>
-                                <span className="font-medium">Contrato Firmado</span>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" checked={hasContract} onChange={(e) => setHasContract(e.target.checked)} className="sr-only peer" />
-                                <div className="w-11 h-6 bg-slate-200 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                            </label>
-                        </div>
-                        <div className="h-px bg-slate-100 dark:bg-white/5 w-full"></div>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <span className="material-symbols-outlined text-primary">payments</span>
-                                <span className="font-medium">Adelanto Realizado</span>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" checked={hasAdvance} onChange={(e) => setHasAdvance(e.target.checked)} className="sr-only peer" />
-                                <div className="w-11 h-6 bg-slate-200 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                            </label>
-                        </div>
-                    </div>
                 </form>
             </main>
 
@@ -522,7 +506,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ user }) => {
                         disabled={saving || !category || !supplier || totalAmount <= 0}
                         className="w-full bg-primary hover:bg-primary/90 text-background-dark font-extrabold text-lg h-16 rounded-2xl transition-all shadow-lg shadow-primary/20 active:scale-[0.98] disabled:opacity-50"
                     >
-                        {saving ? 'Guardando...' : 'Registrar Gasto'}
+                        {saving ? 'Guardando...' : (isEditMode ? 'Guardar Cambios' : 'Registrar Gasto')}
                     </button>
                 </div>
             </footer>

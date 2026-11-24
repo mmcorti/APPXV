@@ -1,14 +1,39 @@
 import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 
+const PLAN_DB_MAP = {
+    especial: 'premium',
+    invitado_especial: 'premium',
+    'invitado especial': 'premium',
+    special: 'premium',
+    premium: 'premium',
+    vip: 'vip',
+    honor: 'honor',
+    freemium: 'freemium',
+    free: 'freemium',
+};
+
+export const normalizePlanForDb = (planId) => {
+    const key = String(planId || '').toLowerCase().trim();
+    return PLAN_DB_MAP[key] || null;
+};
+
 const PLAN_DETAILS = {
     especial: {
         title: 'Plan Especial - APPXV',
         price: 25,
+        dbPlan: 'premium',
+        description: 'Suscripción Plan Especial (5 eventos, 100 invitados)'
+    },
+    premium: {
+        title: 'Plan Especial - APPXV',
+        price: 25,
+        dbPlan: 'premium',
         description: 'Suscripción Plan Especial (5 eventos, 100 invitados)'
     },
     vip: {
         title: 'Plan VIP - APPXV',
         price: 75,
+        dbPlan: 'vip',
         description: 'Suscripción Plan VIP (20 eventos, 200 invitados)'
     }
 };
@@ -78,7 +103,7 @@ export const createPaymentPreference = async (planId, userEmail, userId, request
                 external_reference: userId,
                 metadata: {
                     user_id: userId,
-                    plan_id: planId
+                    plan_id: plan.dbPlan
                 }
             }
         });
@@ -101,8 +126,7 @@ export const createPaymentPreference = async (planId, userEmail, userId, request
 export const verifyPayment = async (paymentId) => {
     const accessToken = process.env.MP_ACCESS_TOKEN;
     if (!accessToken) {
-        console.warn('[PaymentService] MP_ACCESS_TOKEN not configured, mocking successful webhook check.');
-        return { status: 'approved', external_reference: 'mock_user_id', metadata: { plan_id: 'especial', user_id: 'mock_user_id' } };
+        throw new Error('MP_ACCESS_TOKEN no está configurado en el servidor');
     }
 
     try {

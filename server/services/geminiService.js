@@ -1,9 +1,100 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Verified models from user's AI Studio list (Jan 2026)
-// Verified models from user's AI Studio list (Jan 2026)
-const IMAGE_MODEL = 'gemini-2.0-flash-exp'; // Use experimental for better multimodal support
-const TEXT_MODEL = 'gemini-2.0-flash';
+// Current Gemini models (overridable via env vars)
+const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
+const TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-3.5-flash-lite';
+const TEXT_FALLBACK_MODELS = [
+    TEXT_MODEL,
+    'gemini-3.5-flash-lite',
+    'gemini-3.8-flash',
+    'gemini-3.1-flash-lite',
+].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
+const TEXT_TIMEOUT_MS = 45_000;
+const IMAGE_TIMEOUT_MS = 90_000;
+
+async function generateTextOpenAI(prompt, label) {
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey) return null;
+    console.log(`[GeminiService] Fallback: Generating ${label} with OpenAI gpt-4o-mini...`);
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(TEXT_TIMEOUT_MS),
+        body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+                { role: 'system', content: 'Return ONLY valid JSON matching the exact schema requested by the user. Do not wrap in markdown or add extra text.' },
+                { role: 'user', content: prompt }
+            ],
+            temperature: 0.7,
+        }),
+    });
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`OpenAI text fallback error ${response.status}: ${errText}`);
+    }
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) throw new Error('OpenAI text fallback returned empty content');
+    return content;
+}
+
+async function generateTextWithFallback(genAI, prompt, baseGenerationConfig, label) {
+    let lastError = null;
+    for (const modelName of TEXT_FALLBACK_MODELS) {
+        try {
+            const genConfig = { ...baseGenerationConfig };
+            if (modelName.includes('3.8')) {
+                genConfig.thinkingConfig = { thinkingLevel: 'LOW' };
+            }
+            const model = genAI.getGenerativeModel({
+                model: modelName,
+                generationConfig: genConfig,
+            });
+            const result = await withTimeout(
+                model.generateContent(prompt),
+                TEXT_TIMEOUT_MS,
+                `Gemini ${label} (${modelName})`
+            );
+            return result.response.text();
+        } catch (err) {
+            lastError = err;
+            console.warn(`[GeminiService] ${label} failed on ${modelName}: ${err.message}`);
+        }
+    }
+
+    if (process.env.OPENAI_API_KEY) {
+        try {
+            const fallbackText = await generateTextOpenAI(prompt, label);
+            if (fallbackText) return fallbackText;
+        } catch (fallbackErr) {
+            console.error(`[GeminiService] ${label} OpenAI fallback also failed:`, fallbackErr.message);
+        }
+    }
+
+    throw lastError || new Error(`Gemini ${label} failed on all candidate models`);
+}
+
+function withTimeout(promise, ms, label) {
+    let timer;
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+        })
+    ]).finally(() => clearTimeout(timer));
+}
+
+function parseDataUrl(input, fallbackMime = 'image/png') {
+    const match = typeof input === 'string' ? input.match(/^data:([^;]+);base64,(.+)$/s) : null;
+    if (match) {
+        return { mimeType: match[1].trim() || fallbackMime, data: match[2].trim() };
+    }
+    return { mimeType: fallbackMime, data: String(input || '').trim() };
+}
 
 /**
  * Fallback: Generate image using OpenAI DALL-E 3
@@ -19,6 +110,7 @@ async function generateImageOpenAI(prompt) {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json'
         },
+        signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
         body: JSON.stringify({
             model: 'dall-e-3',
             prompt: prompt,
@@ -50,6 +142,9 @@ export async function generateImage(prompt) {
 
     const apiKey = process.env.GEMINI_API_KEY?.trim();
     if (!apiKey) {
+        if (process.env.OPENAI_API_KEY) {
+            return await generateImageOpenAI(prompt);
+        }
         throw new Error('GEMINI_API_KEY not configured in environment');
     }
 
@@ -59,15 +154,19 @@ export async function generateImage(prompt) {
         // Use v1beta for newest multimodal features
         const model = genAI.getGenerativeModel({ model: IMAGE_MODEL }, { apiVersion: 'v1beta' });
 
-        const result = await model.generateContent({
-            contents: [{
-                role: 'user',
-                parts: [{ text: `Generate a high-quality image based on this description: ${prompt}. Output ONLY the image data.` }]
-            }],
-            generationConfig: {
-                responseModalities: ['image'], // Lowercase 'image' often preferred in newer SDKs
-            }
-        });
+        const result = await withTimeout(
+            model.generateContent({
+                contents: [{
+                    role: 'user',
+                    parts: [{ text: `Generate a high-quality image based on this description: ${prompt}. Output ONLY the image data.` }]
+                }],
+                generationConfig: {
+                    responseModalities: ['IMAGE'],
+                }
+            }),
+            IMAGE_TIMEOUT_MS,
+            'Gemini generateImage'
+        );
 
         const response = await result.response;
         console.log('[GeminiService] AI Response received');
@@ -114,6 +213,9 @@ export async function editImage(base64Image, prompt) {
 
     const apiKey = process.env.GEMINI_API_KEY?.trim();
     if (!apiKey) {
+        if (process.env.OPENAI_API_KEY) {
+            return await generateImageOpenAI(`Create an updated invitation image with these changes: ${prompt}`);
+        }
         throw new Error('GEMINI_API_KEY not configured in environment');
     }
 
@@ -121,25 +223,29 @@ export async function editImage(base64Image, prompt) {
 
     try {
         const model = genAI.getGenerativeModel({ model: IMAGE_MODEL }, { apiVersion: 'v1beta' });
-        const cleanBase64 = base64Image.split(',')[1] || base64Image;
+        const { mimeType, data: cleanBase64 } = parseDataUrl(base64Image, 'image/png');
 
-        const result = await model.generateContent({
-            contents: [{
-                role: 'user',
-                parts: [
-                    {
-                        inlineData: {
-                            mimeType: 'image/png',
-                            data: cleanBase64
-                        }
-                    },
-                    { text: `Edit this image based on these instructions: ${prompt}. Return ONLY the modified image.` }
-                ]
-            }],
-            generationConfig: {
-                responseModalities: ['image'],
-            }
-        });
+        const result = await withTimeout(
+            model.generateContent({
+                contents: [{
+                    role: 'user',
+                    parts: [
+                        {
+                            inlineData: {
+                                mimeType,
+                                data: cleanBase64
+                            }
+                        },
+                        { text: `Edit this image based on these instructions: ${prompt}. Return ONLY the modified image.` }
+                    ]
+                }],
+                generationConfig: {
+                    responseModalities: ['IMAGE'],
+                }
+            }),
+            IMAGE_TIMEOUT_MS,
+            'Gemini editImage'
+        );
 
         const response = await result.response;
         const candidate = response.candidates?.[0];
@@ -157,9 +263,13 @@ export async function editImage(base64Image, prompt) {
         console.warn('[GeminiService] Gemini edit failed:', error.message);
 
         // Fallback to generating a NEW image with the prompt + context of the old one if editing fails
-        if (process.env.OPENAI_API_KEY && (error.message.includes('modalities') || error.message.includes('support'))) {
-            console.log('[GeminiService] Fallback to DALL-E for "edit" (will generate fresh version)');
-            return await generateImageOpenAI(`Based on the previous scene, create a new image with these changes: ${prompt}`);
+        if (process.env.OPENAI_API_KEY) {
+            try {
+                console.log('[GeminiService] Fallback to DALL-E for "edit" (will generate fresh version)');
+                return await generateImageOpenAI(`Based on the previous scene, create a new image with these changes: ${prompt}`);
+            } catch (fallbackError) {
+                console.error('[GeminiService] Edit fallback also failed:', fallbackError.message);
+            }
         }
 
         throw new Error(`Edit Error: ${error.message}`);
@@ -194,13 +304,6 @@ export async function generateTriviaQuestions(theme, count = 5) {
     const genAI = new GoogleGenerativeAI(apiKey);
 
     try {
-        const model = genAI.getGenerativeModel({
-            model: TEXT_MODEL,
-            generationConfig: {
-                responseMimeType: "application/json",
-            }
-        });
-
         const prompt = `Generate ${count} trivia questions about the theme: "${theme}". 
         Language: Español Latino.
         Return ONLY a JSON array of objects. 
@@ -219,8 +322,12 @@ export async function generateTriviaQuestions(theme, count = 5) {
         The questions should be fun, varying in difficulty, and suitable for a general audience.
         Ensure one option is clearly correct.`;
 
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+        const responseText = await generateTextWithFallback(
+            genAI,
+            prompt,
+            { responseMimeType: "application/json" },
+            'generateTriviaQuestions'
+        );
         console.log('[GeminiService] AI Trivia raw response length:', responseText.length);
 
         const cleaned = cleanJsonResponse(responseText);
@@ -250,13 +357,6 @@ export async function generateBingoPrompts(theme, count = 9) {
     const genAI = new GoogleGenerativeAI(apiKey);
 
     try {
-        const model = genAI.getGenerativeModel({
-            model: TEXT_MODEL,
-            generationConfig: {
-                responseMimeType: "application/json",
-            }
-        });
-
         const prompt = `Generate ${count} Photo Bingo challenges about the theme: "${theme}". 
         Language: Español Latino.
         Return ONLY a JSON array of objects.
@@ -268,8 +368,12 @@ export async function generateBingoPrompts(theme, count = 9) {
         The challenges should be visual things people can take photos of at an event.
         Keep text short and fun.`;
 
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+        const responseText = await generateTextWithFallback(
+            genAI,
+            prompt,
+            { responseMimeType: "application/json" },
+            'generateBingoPrompts'
+        );
         console.log('[GeminiService] AI Bingo raw response length:', responseText.length);
 
         const cleaned = cleanJsonResponse(responseText);
@@ -298,21 +402,6 @@ export async function generateImpostorTasks(theme) {
     const genAI = new GoogleGenerativeAI(apiKey);
 
     try {
-        const model = genAI.getGenerativeModel({
-            model: TEXT_MODEL,
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: "object",
-                    properties: {
-                        mainPrompt: { type: "string", description: "Instructions for regular players (Civilians)" },
-                        impostorPrompt: { type: "string", description: "Instructions for the Impostor" }
-                    },
-                    required: ["mainPrompt", "impostorPrompt"]
-                }
-            }
-        });
-
         const prompt = `Genera un par de consignas para el juego "El Impostor" basado en la temática: "${theme}".
 
         MECÁNICA DEL JUEGO:
@@ -344,8 +433,22 @@ export async function generateImpostorTasks(theme) {
         Devolvé un JSON con exactamente estas dos claves: "mainPrompt" y "impostorPrompt".
         Idioma: Español Latino.`;
 
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+        const responseText = await generateTextWithFallback(
+            genAI,
+            prompt,
+            {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "object",
+                    properties: {
+                        mainPrompt: { type: "string", description: "Instructions for regular players (Civilians)" },
+                        impostorPrompt: { type: "string", description: "Instructions for the Impostor" }
+                    },
+                    required: ["mainPrompt", "impostorPrompt"]
+                }
+            },
+            'generateImpostorTasks'
+        );
         console.log('[GeminiService] AI Impostor raw response:', responseText);
 
         const cleaned = cleanJsonResponse(responseText);

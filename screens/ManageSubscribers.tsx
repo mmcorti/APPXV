@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StaffMember, StaffPermissions } from '../types';
+import { getAuthHeaders } from '../services/authHeaders';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 interface Subscriber extends StaffMember {
     plan?: 'freemium' | 'premium' | 'vip';
@@ -35,7 +36,7 @@ const ManageSubscribersScreen: React.FC = () => {
         setLoading(true);
         try {
             // Fetch ALL subscribers (no eventId filter)
-            const res = await fetch(`${API_URL}/subscribers`);
+            const res = await fetch(`${API_URL}/subscribers`, { headers: getAuthHeaders() });
             if (res.ok) {
                 const data = await res.json();
                 setSubscribers(data);
@@ -77,7 +78,7 @@ const ManageSubscribersScreen: React.FC = () => {
                 // UPDATE existing subscriber
                 const res = await fetch(`${API_URL}/subscribers/${editingId}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({
                         name: inviteName || inviteEmail.split('@')[0],
                         permissions: invitePermissions,
@@ -96,14 +97,13 @@ const ManageSubscribersScreen: React.FC = () => {
                 // CREATE new subscriber
                 const res = await fetch(`${API_URL}/subscribers`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({
                         name: inviteName || inviteEmail.split('@')[0],
                         email: inviteEmail,
                         password: invitePassword,
                         permissions: invitePermissions,
-                        plan: invitePlan,
-                        userRole: 'admin'
+                        plan: invitePlan
                     })
                 });
 
@@ -140,7 +140,7 @@ const ManageSubscribersScreen: React.FC = () => {
         try {
             await fetch(`${API_URL}/subscribers/${staffId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ permissions })
             });
             setSubscribers(prev => prev.map(s => s.id === staffId ? { ...s, permissions } : s));
@@ -163,7 +163,7 @@ const ManageSubscribersScreen: React.FC = () => {
     const deleteSubscriber = async (subscriberId: string) => {
         if (!confirm('¿Eliminar este suscriptor?')) return;
         try {
-            await fetch(`${API_URL}/subscribers/${subscriberId}`, { method: 'DELETE' });
+            await fetch(`${API_URL}/subscribers/${subscriberId}`, { method: 'DELETE', headers: getAuthHeaders() });
             setSubscribers(prev => prev.filter(s => s.id !== subscriberId));
         } catch (e) {
             console.error('Error deleting:', e);

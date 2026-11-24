@@ -5,6 +5,7 @@ import { User } from '../types';
 import { UpgradePrompt } from '../components/UpgradePrompt';
 import { usePlan } from '../hooks/usePlan';
 import { apiService } from '../services/apiService';
+import { getAuthHeaders } from '../services/authHeaders';
 
 interface StaffRosterProps {
     user: User;
@@ -100,7 +101,7 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
         try {
             const res = await fetch(`${API_URL}/staff-roster`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     name: newName,
                     email: formattedEmail,
@@ -131,7 +132,7 @@ const StaffRosterScreen: React.FC<StaffRosterProps> = ({ user }) => {
     const handleDelete = async (id: string) => {
         if (!confirm('¿Eliminar este miembro del staff permanentemente?')) return;
         try {
-            const res = await fetch(`${API_URL}/staff-roster/${id}`, { method: 'DELETE' });
+            const res = await fetch(`${API_URL}/staff-roster/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
             if (res.ok) {
                 setRoster(prev => prev.filter(m => m.id !== id));
             } else {

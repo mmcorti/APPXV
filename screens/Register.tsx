@@ -8,7 +8,7 @@ import { StaffPermissions } from '../types';
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '';
 
 interface RegisterProps {
-  onAuthSuccess: (id: string, name: string, email: string, role?: string, permissions?: StaffPermissions, eventId?: string, plan?: string) => void;
+  onAuthSuccess: (id: string, name: string, email: string, role?: string, permissions?: StaffPermissions, eventId?: string, plan?: string, token?: string) => void;
 }
 
 const RegisterScreen: React.FC<RegisterProps> = ({ onAuthSuccess }) => {
@@ -94,7 +94,7 @@ const RegisterScreen: React.FC<RegisterProps> = ({ onAuthSuccess }) => {
 
       // Auto-login after registration
       setTimeout(() => {
-        onAuthSuccess(user.id, user.name, user.email, user.role, user.permissions, user.eventId, user.plan);
+        onAuthSuccess(user.id, user.name, user.email, user.role, user.permissions, user.eventId, user.plan, user.token);
         navigate('/dashboard');
       }, 1500);
     } catch (err: any) {

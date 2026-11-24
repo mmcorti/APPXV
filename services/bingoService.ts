@@ -28,35 +28,56 @@ export const bingoService = {
     // Subscribe to real-time state updates via SSE
     subscribe: (eventId: string, callback: (state: BingoGameState) => void, playerId?: string) => {
         const url = playerId
-            ? `${API_BASE}/${eventId}/stream?clientId=${playerId}`
+            ? `${API_BASE}/${eventId}/stream?clientId=${encodeURIComponent(playerId)}`
             : `${API_BASE}/${eventId}/stream`;
 
-        // Create SSE connection
-        const eventSource = new EventSource(url);
+        let closed = false;
+        let eventSource: EventSource | null = null;
+        let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-        eventSource.onmessage = (event) => {
-            try {
-                const state = JSON.parse(event.data);
-                callback(state);
-            } catch (e) {
-                console.error('Failed to parse Bingo SSE data:', e);
-            }
-        };
+        const connect = () => {
+            if (closed) return;
+            eventSource = new EventSource(url);
 
-        eventSource.onerror = (error) => {
-            console.error('Bingo SSE connection error:', error);
-            // Reconnect after 3 seconds
-            setTimeout(() => {
-                if (eventSource.readyState === EventSource.CLOSED) {
-                    console.log('Bingo SSE reconnecting...');
-                    bingoService.subscribe(eventId, callback);
+            eventSource.onmessage = (event) => {
+                if (closed) return;
+                try {
+                    const state = JSON.parse(event.data);
+                    callback(state);
+                } catch (e) {
+                    console.error('Failed to parse Bingo SSE data:', e);
                 }
-            }, 3000);
+            };
+
+            eventSource.onerror = (error) => {
+                console.error('Bingo SSE connection error:', error);
+                if (closed) return;
+                if (eventSource && eventSource.readyState === EventSource.CLOSED) {
+                    if (reconnectTimer) clearTimeout(reconnectTimer);
+                    reconnectTimer = setTimeout(() => {
+                        reconnectTimer = null;
+                        if (!closed) {
+                            console.log('Bingo SSE reconnecting...');
+                            connect();
+                        }
+                    }, 3000);
+                }
+            };
         };
+
+        connect();
 
         // Return cleanup function
         return () => {
-            eventSource.close();
+            closed = true;
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+                reconnectTimer = null;
+            }
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
         };
     },
 
