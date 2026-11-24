@@ -544,7 +544,15 @@ const App: React.FC = () => {
           />
           <Route
             path="/fotowall/:id"
-            element={user ? <FotoWallConfigScreen invitations={invitations} user={user} /> : <Navigate to="/login" />}
+            element={user ? (
+              <FotoWallConfigScreen
+                invitations={invitations}
+                user={user}
+                onSaveSuccess={(eventId, fotowall) =>
+                  setInvitations(prev => prev.map(inv => inv.id === eventId ? { ...inv, fotowall } : inv))
+                }
+              />
+            ) : <Navigate to="/login" />}
           />
           <Route
             path="/fotowall-player/:id"

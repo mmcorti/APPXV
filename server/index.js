@@ -17,6 +17,7 @@ import { raffleGameService } from './services/raffleGameService.js';
 import { confessionsGameService } from './services/confessionsGameService.js';
 import { impostorGameService } from './services/impostorGameService.js';
 import { sendRecoveryEmail } from './services/emailService.js';
+import { uploadBingoPhoto, loadBingoSession, scheduleBingoPersist } from './bingoStorage.js';
 import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -542,13 +543,14 @@ app.get('/api/auth/google/callback', async (req, res) => {
             .eq('email', userEmail)
             .maybeSingle();
 
-        let userId, userName, userPlan;
+        let userId, userName, userPlan, userRole;
 
         if (existingUser) {
             // User exists - update GoogleId and AvatarUrl
             userId = existingUser.id;
             userName = existingUser.username || profile.name;
             userPlan = existingUser.plan || 'freemium';
+            userRole = existingUser.role || 'subscriber';
 
             await supabase
                 .from(TABLES.USERS)
@@ -650,6 +652,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
             userId = authId;
             userName = profile.name;
             userPlan = 'freemium';
+            userRole = 'subscriber';
         }
 
         // Redirect to frontend with user data
@@ -663,7 +666,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
             name: userName,
             email: profile.email,
             plan: userPlan,
-            role: 'subscriber',
+            role: userRole,
             avatar: profile.picture
         }));
 
@@ -3315,29 +3318,52 @@ const DEFAULT_BINGO_PROMPTS = [
     { id: 9, text: "Â¡Brindis!", icon: "celebration" },
 ];
 
-// In-memory bingo game state (per event)
+// In-memory bingo game state (per event), hydrated from Supabase
 const bingoGames = {};
+const bingoLoadPromises = new Map();
 
 // SSE clients for bingo (per event)
 const bingoClients = {};
 
-// Helper to get or create bingo game state
+const createDefaultBingoState = (eventId) => ({
+    eventId,
+    status: 'WAITING',
+    hostPlan: 'freemium', // Default
+    prompts: [...DEFAULT_BINGO_PROMPTS],
+    googlePhotosLink: '',
+    customImageUrl: 'https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png',
+    winner: null,
+    players: {},
+    cards: {},
+    submissions: []
+});
+
+// Synchronous accessor (returns existing in-memory state or initializes default)
 const getBingoState = (eventId) => {
     if (!bingoGames[eventId]) {
-        bingoGames[eventId] = {
-            eventId,
-            status: 'WAITING',
-            hostPlan: 'freemium', // Default
-            prompts: [...DEFAULT_BINGO_PROMPTS],
-            googlePhotosLink: '',
-            customImageUrl: 'https://res.cloudinary.com/djetzdm5n/image/upload/v1769432962/appxv-events/jp6fbqmcpg53lfbhtm42.png',
-            winner: null,
-            players: {},
-            cards: {},
-            submissions: []
-        };
+        bingoGames[eventId] = createDefaultBingoState(eventId);
     }
     return bingoGames[eventId];
+};
+
+// Async accessor that hydrates from Supabase on first access after cold start
+const ensureBingoState = async (eventId) => {
+    if (bingoGames[eventId]) return bingoGames[eventId];
+    if (!bingoLoadPromises.has(eventId)) {
+        const loadPromise = loadBingoSession(eventId, createDefaultBingoState)
+            .then((hydrated) => {
+                // Merge if any concurrent write happened while loading
+                if (!bingoGames[eventId]) {
+                    bingoGames[eventId] = hydrated;
+                }
+                return bingoGames[eventId];
+            })
+            .finally(() => {
+                bingoLoadPromises.delete(eventId);
+            });
+        bingoLoadPromises.set(eventId, loadPromise);
+    }
+    return bingoLoadPromises.get(eventId);
 };
 
 // Create lightweight state for broadcasts (without full Base64 photos in cards)
@@ -3367,21 +3393,23 @@ const createLightweightState = (state) => {
         }))
     };
 
-    // For cards (guest views), only send hasPhoto flag, NOT the Base64 data
-    // Guests already have their own photos cached locally in their browser
+    // For cards (guest views), include lightweight Storage URLs, omit any raw Base64 fallback
     for (const [playerId, card] of Object.entries(state.cards)) {
         lightState.cards[playerId] = {
             ...card,
             cells: Object.fromEntries(
-                Object.entries(card.cells).map(([promptId, cell]) => [
-                    promptId,
-                    {
-                        promptId: cell.promptId,
-                        timestamp: cell.timestamp,
-                        hasPhoto: !!cell.photoUrl
-                        // NO photoUrl here - saves ~80KB per photo per broadcast
-                    }
-                ])
+                Object.entries(card.cells).map(([promptId, cell]) => {
+                    const isBase64 = typeof cell.photoUrl === 'string' && cell.photoUrl.startsWith('data:');
+                    return [
+                        promptId,
+                        {
+                            promptId: cell.promptId,
+                            timestamp: cell.timestamp,
+                            hasPhoto: !!cell.photoUrl,
+                            ...(!isBase64 && cell.photoUrl ? { photoUrl: cell.photoUrl } : {})
+                        }
+                    ];
+                })
             )
         };
     }
@@ -3389,10 +3417,14 @@ const createLightweightState = (state) => {
     return lightState;
 };
 
-// Broadcast bingo state to all SSE clients for an event
-const broadcastBingoState = (eventId) => {
+// Broadcast bingo state to all SSE clients for an event (and persist to Supabase)
+const broadcastBingoState = (eventId, persist = true) => {
     const state = getBingoState(eventId);
     const clients = bingoClients[eventId] || [];
+
+    if (persist) {
+        scheduleBingoPersist(eventId, state);
+    }
 
     // Use lightweight state to reduce memory usage
     const lightState = createLightweightState(state);
@@ -3437,10 +3469,10 @@ const calculateBingoStatus = (card, prompts) => {
 };
 
 // --- BINGO SSE STREAM ---
-app.get('/api/bingo/:eventId/stream', (req, res) => {
+app.get('/api/bingo/:eventId/stream', async (req, res) => {
     const { eventId } = req.params;
     const { clientId } = req.query;
-    console.log(`ðŸ“¸ [BINGO SSE] Client ${clientId || 'unknown'} connected for event ${eventId.substring(0, 8)}...`);
+    console.log(`📸 [BINGO SSE] Client ${clientId || 'unknown'} connected for event ${eventId.substring(0, 8)}...`);
 
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
@@ -3457,15 +3489,15 @@ app.get('/api/bingo/:eventId/stream', (req, res) => {
     }
     bingoClients[eventId].push(res);
 
-    // Send current state immediately
-    const state = getBingoState(eventId);
+    // Send current state immediately (hydrated from Supabase if needed)
+    const state = await ensureBingoState(eventId);
 
     // Update player presence if they are a participant
     if (clientId && state.players[clientId]) {
         state.players[clientId].lastSeen = Date.now();
         state.players[clientId].online = true;
         // If they were offline, broadcast their return immediately
-        broadcastBingoState(eventId);
+        broadcastBingoState(eventId, false);
     }
 
     res.write(`data: ${JSON.stringify(createLightweightState(state))}\n\n`);
@@ -3478,22 +3510,22 @@ app.get('/api/bingo/:eventId/stream', (req, res) => {
             state.players[clientId].lastSeen = Date.now();
             if (!state.players[clientId].online) {
                 state.players[clientId].online = true;
-                broadcastBingoState(eventId);
+                broadcastBingoState(eventId, false);
             }
         }
     }, 30000);
 
     // Remove client on disconnect
     req.on('close', () => {
-        console.log(`ðŸ“¸ [BINGO SSE] Client ${clientId || 'unknown'} disconnected from event ${eventId.substring(0, 8)}...`);
+        console.log(`📸 [BINGO SSE] Client ${clientId || 'unknown'} disconnected from event ${eventId.substring(0, 8)}...`);
         clearInterval(keepAlive);
         bingoClients[eventId] = bingoClients[eventId].filter(c => c !== res);
 
         // Mark player as offline but persist data
         if (clientId && state.players[clientId]) {
             state.players[clientId].online = false;
-            console.log(`ðŸ‘‹ [BINGO] Player ${state.players[clientId].name} went offline (persisted)`);
-            broadcastBingoState(eventId);
+            console.log(`👋 [BINGO] Player ${state.players[clientId].name} went offline (persisted)`);
+            broadcastBingoState(eventId, false);
         }
     });
 });
@@ -3528,18 +3560,18 @@ setInterval(() => {
 }, 60 * 1000); // Run every minute
 
 // --- GET BINGO STATE ---
-app.get('/api/bingo/:eventId', (req, res) => {
+app.get('/api/bingo/:eventId', async (req, res) => {
     const { eventId } = req.params;
-    const state = getBingoState(eventId);
+    const state = await ensureBingoState(eventId);
     res.json(state);
 });
 
 // --- ADMIN: UPDATE PROMPTS ---
-app.put('/api/bingo/:eventId/prompts', (req, res) => {
+app.put('/api/bingo/:eventId/prompts', async (req, res) => {
     const { eventId } = req.params;
     const { prompts } = req.body;
 
-    const state = getBingoState(eventId);
+    const state = await ensureBingoState(eventId);
     if (prompts && Array.isArray(prompts) && prompts.length === 9) {
         state.prompts = prompts;
         broadcastBingoState(eventId);
@@ -3550,11 +3582,11 @@ app.put('/api/bingo/:eventId/prompts', (req, res) => {
 });
 
 // --- ADMIN: UPDATE SETTINGS (Google Photos link & Branding) ---
-app.put('/api/bingo/:eventId/settings', (req, res) => {
+app.put('/api/bingo/:eventId/settings', async (req, res) => {
     const { eventId } = req.params;
     const { googlePhotosLink, hostPlan, customImageUrl } = req.body;
 
-    const state = getBingoState(eventId);
+    const state = await ensureBingoState(eventId);
     if (googlePhotosLink !== undefined) state.googlePhotosLink = googlePhotosLink;
     if (hostPlan !== undefined) state.hostPlan = hostPlan;
     if (customImageUrl !== undefined) state.customImageUrl = customImageUrl;
@@ -3601,10 +3633,10 @@ app.post('/api/impostor/generate-tasks', async (req, res) => {
 });
 
 // --- ADMIN: START GAME ---
-app.post('/api/bingo/:eventId/start', (req, res) => {
+app.post('/api/bingo/:eventId/start', async (req, res) => {
     const { eventId } = req.params;
 
-    const state = getBingoState(eventId);
+    const state = await ensureBingoState(eventId);
     state.status = 'PLAYING';
     state.winner = null;
     state.submissions = [];
@@ -3613,20 +3645,20 @@ app.post('/api/bingo/:eventId/start', (req, res) => {
 });
 
 // --- ADMIN: STOP GAME (enter review mode) ---
-app.post('/api/bingo/:eventId/stop', (req, res) => {
+app.post('/api/bingo/:eventId/stop', async (req, res) => {
     const { eventId } = req.params;
 
-    const state = getBingoState(eventId);
+    const state = await ensureBingoState(eventId);
     state.status = 'REVIEW';
     broadcastBingoState(eventId);
     res.json({ success: true });
 });
 
 // --- ADMIN: FINISH GAME ---
-app.post('/api/bingo/:eventId/finish', (req, res) => {
+app.post('/api/bingo/:eventId/finish', async (req, res) => {
     const { eventId } = req.params;
 
-    const state = getBingoState(eventId);
+    const state = await ensureBingoState(eventId);
     state.status = 'WINNER';
 
     broadcastBingoState(eventId);
@@ -3634,10 +3666,10 @@ app.post('/api/bingo/:eventId/finish', (req, res) => {
 });
 
 // --- ADMIN: APPROVE SUBMISSION (mark as winner but don't end game) ---
-app.post('/api/bingo/:eventId/approve/:submissionId', (req, res) => {
+app.post('/api/bingo/:eventId/approve/:submissionId', async (req, res) => {
     const { eventId, submissionId } = req.params;
 
-    const state = getBingoState(eventId);
+    const state = await ensureBingoState(eventId);
     const submission = state.submissions.find(s => s.id === submissionId);
 
     if (!submission) {
@@ -3659,10 +3691,10 @@ app.post('/api/bingo/:eventId/approve/:submissionId', (req, res) => {
 });
 
 // --- ADMIN: REJECT SUBMISSION ---
-app.post('/api/bingo/:eventId/reject/:submissionId', (req, res) => {
+app.post('/api/bingo/:eventId/reject/:submissionId', async (req, res) => {
     const { eventId, submissionId } = req.params;
 
-    const state = getBingoState(eventId);
+    const state = await ensureBingoState(eventId);
     const submission = state.submissions.find(s => s.id === submissionId);
 
     if (!submission) {
@@ -3675,29 +3707,26 @@ app.post('/api/bingo/:eventId/reject/:submissionId', (req, res) => {
 });
 
 // --- ADMIN: RESET GAME ---
-app.post('/api/bingo/:eventId/reset', (req, res) => {
+app.post('/api/bingo/:eventId/reset', async (req, res) => {
     const { eventId } = req.params;
+    const prev = await ensureBingoState(eventId);
 
     bingoGames[eventId] = {
-        eventId,
-        status: 'WAITING',
-        prompts: [...DEFAULT_BINGO_PROMPTS],
-        googlePhotosLink: bingoGames[eventId]?.googlePhotosLink || '',
-        winner: null,
-        players: {},
-        cards: {},
-        submissions: []
+        ...createDefaultBingoState(eventId),
+        hostPlan: prev.hostPlan || 'freemium',
+        googlePhotosLink: prev.googlePhotosLink || '',
+        customImageUrl: prev.customImageUrl || createDefaultBingoState(eventId).customImageUrl
     };
     broadcastBingoState(eventId);
     res.json({ success: true });
 });
 
 // --- GUEST: JOIN GAME ---
-app.post('/api/bingo/:eventId/join', (req, res) => {
+app.post('/api/bingo/:eventId/join', async (req, res) => {
     const { eventId } = req.params;
     const { name, userPlan, userRole } = req.body;
 
-    const state = getBingoState(eventId);
+    const state = await ensureBingoState(eventId);
     const playerCount = Object.keys(state.players).length;
 
     // Plan limit check (admins bypass)
@@ -3722,7 +3751,7 @@ app.post('/api/bingo/:eventId/join', (req, res) => {
     const playerId = crypto.randomUUID();
     const player = {
         id: playerId,
-        name: name || 'Jugador AnÃ³nimo',
+        name: name || 'Jugador Anónimo',
         joinedAt: Date.now(),
         lastSeen: Date.now(),
         online: true
@@ -3743,11 +3772,11 @@ app.post('/api/bingo/:eventId/join', (req, res) => {
 });
 
 // --- GUEST: UPLOAD PHOTO ---
-app.post('/api/bingo/:eventId/upload', (req, res) => {
+app.post('/api/bingo/:eventId/upload', async (req, res) => {
     const { eventId } = req.params;
     const { playerId, promptId, photoUrl } = req.body;
 
-    const state = getBingoState(eventId);
+    const state = await ensureBingoState(eventId);
 
     if (state.status !== 'PLAYING') {
         return res.status(400).json({ error: 'Game is not in progress' });
@@ -3762,10 +3791,13 @@ app.post('/api/bingo/:eventId/upload', (req, res) => {
         return res.status(400).json({ error: 'Card already submitted' });
     }
 
-    // Update cell with photo
+    // Upload Base64 photo to Supabase Storage (with long Cache-Control); falls back safely if needed
+    const storedPhotoUrl = await uploadBingoPhoto({ eventId, playerId, promptId, photoUrl });
+
+    // Update cell with photo URL
     card.cells[promptId] = {
         promptId,
-        photoUrl,
+        photoUrl: storedPhotoUrl,
         timestamp: Date.now()
     };
 
@@ -3776,16 +3808,17 @@ app.post('/api/bingo/:eventId/upload', (req, res) => {
     res.json({
         success: true,
         completedLines: card.completedLines,
-        isFullHouse: card.isFullHouse
+        isFullHouse: card.isFullHouse,
+        photoUrl: storedPhotoUrl
     });
 });
 
 // --- GUEST: SUBMIT CARD ---
-app.post('/api/bingo/:eventId/submit', (req, res) => {
+app.post('/api/bingo/:eventId/submit', async (req, res) => {
     const { eventId } = req.params;
     const { playerId } = req.body;
 
-    const state = getBingoState(eventId);
+    const state = await ensureBingoState(eventId);
     const player = state.players[playerId];
     const card = state.cards[playerId];
 

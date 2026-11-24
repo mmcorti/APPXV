@@ -37,9 +37,10 @@ const DEFAULT_FILTERS: FilterSettings = {
 interface FotoWallConfigProps {
   invitations: InvitationData[];
   user: User | null;
+  onSaveSuccess?: (eventId: string, fotowall: NonNullable<InvitationData['fotowall']>) => void;
 }
 
-const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user }) => {
+const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user, onSaveSuccess }) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const event = invitations.find(i => i.id === id);
@@ -231,6 +232,8 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
       });
 
       if (!res.ok) throw new Error('Error al guardar en la base de datos');
+
+      onSaveSuccess?.(id, fotowall);
 
       // 2. Keep localStorage for immediate local access/player fallback
       localStorage.setItem(configKey, JSON.stringify({ albumUrl, interval: intervalValue, shuffle, overlayTitle }));

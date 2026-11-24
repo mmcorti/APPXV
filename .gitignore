@@ -27,3 +27,7 @@ dist-ssr
 .env
 server/config.local.js
 gcp-key.json
+
+# Local database backups & exports
+backups/
+zrdtwroevyrgguseesvs.storage.zip
