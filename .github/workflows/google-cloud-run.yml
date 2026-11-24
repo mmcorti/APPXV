@@ -9,7 +9,7 @@ on:
 env:
   PROJECT_ID: appxv-515413
   SERVICE_NAME: appxv
-  REGION: southamerica-east1
+  REGION: us-east1
 
 jobs:
   deploy:
