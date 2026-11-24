@@ -4,6 +4,8 @@ import { bingoService, BingoGameState, BingoPrompt, BingoSubmission } from '../s
 import { apiService } from '../services/apiService';
 import { User } from '../types';
 
+const API_URL = import.meta.env.VITE_API_URL || '/api';
+
 interface BingoAdminProps {
     user: User;
 }
@@ -12,11 +14,37 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
     const { id: eventId } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [state, setState] = useState<BingoGameState | null>(null);
-    const [activeTab, setActiveTab] = useState<'CONFIG' | 'LIVE'>('LIVE');
+    const [activeTab, setActiveTab] = useState<'CONFIG' | 'LIVE' | 'GALLERY'>('LIVE');
     const [editingPrompts, setEditingPrompts] = useState<BingoPrompt[]>([]);
     const [googlePhotosLink, setGooglePhotosLink] = useState('');
     const [customImage, setCustomImage] = useState('');
     const [uploading, setUploading] = useState(false);
+
+    // Gallery State (Bucket photos)
+    const [galleryPhotos, setGalleryPhotos] = useState<{ path: string; name: string; url: string; createdAt?: string }[]>([]);
+    const [loadingGallery, setLoadingGallery] = useState(false);
+
+    const loadGalleryPhotos = async () => {
+        if (!eventId) return;
+        setLoadingGallery(true);
+        try {
+            const res = await fetch(`${API_URL}/bingo/${eventId}/photos`);
+            const data = await res.json();
+            if (Array.isArray(data.photos)) {
+                setGalleryPhotos(data.photos);
+            }
+        } catch (err) {
+            console.error('Error loading Bingo gallery:', err);
+        } finally {
+            setLoadingGallery(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'GALLERY') {
+            loadGalleryPhotos();
+        }
+    }, [activeTab, eventId]);
 
     // AI State
     const [aiTheme, setAiTheme] = useState('');
@@ -217,71 +245,54 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
                     >
                         Configuración
                     </button>
+                    <button
+                        onClick={() => setActiveTab('GALLERY')}
+                        className={`pb-2 px-4 font-semibold flex items-center gap-1.5 ${activeTab === 'GALLERY' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500'}`}
+                    >
+                        <span className="material-symbols-outlined text-base">photo_library</span>
+                        Galería y Descarga
+                    </button>
                 </div>
 
                 {activeTab === 'CONFIG' && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
-                        {/* Left Column: Settings & Controls */}
+                        {/* Left Column: 9-prompt board -> AI generator -> Global Settings */}
                         <div className="lg:col-span-2 space-y-6">
-                            {/* Global Settings */}
-                            <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                                <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                    <span className="material-symbols-outlined">settings</span>
-                                    Configuración Global
-                                </h2>
-                                <div className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Link de Google Photos</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            className="flex-1 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
-                                            placeholder="https://photos.app.goo.gl/..."
-                                            value={googlePhotosLink}
-                                            onChange={(e) => setGooglePhotosLink(e.target.value)}
-                                        />
-                                        <button
-                                            onClick={() => handleSaveSettings()}
-                                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                                        >
-                                            Guardar
-                                        </button>
-                                    </div>
-                                    <p className="text-xs text-gray-500 mt-1">Las fotos se mostrarán aquí (backup simulado).</p>
+                            {/* Prompt Grid Editor */}
+                            <section>
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-lg font-bold flex items-center gap-2">
+                                        <span className="material-symbols-outlined">grid_on</span>
+                                        Tablero de Bingo (9 Consignas)
+                                    </h2>
+                                    <button
+                                        onClick={handleSavePrompts}
+                                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+                                    >
+                                        <span className="material-symbols-outlined">save</span>
+                                        Guardar Cambios
+                                    </button>
                                 </div>
-
-                                {/* Branding Image Input */}
-                                <div className="mb-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Imagen del Evento (Personalizada)</label>
-                                    <div className="flex flex-col gap-2">
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                className="flex-1 bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                                placeholder="URL de imagen..."
-                                                value={customImage}
-                                                onChange={e => setCustomImage(e.target.value)}
-                                            />
-                                            <label className="bg-white border-2 border-indigo-600 text-indigo-600 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-center min-w-[50px]">
-                                                <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
-                                                {uploading ? (
-                                                    <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                                                ) : (
-                                                    <span className="material-symbols-outlined">upload</span>
-                                                )}
-                                            </label>
-                                        </div>
-                                        {customImage && (
-                                            <div className="mt-2 relative group w-full h-32">
-                                                <img src={customImage} className="h-full w-full object-cover rounded-xl border border-gray-200" alt="Preview" />
-                                                <button
-                                                    onClick={() => { setCustomImage(''); handleSaveSettings(''); }}
-                                                    className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                                >
-                                                    <span className="material-symbols-outlined text-sm">close</span>
-                                                </button>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {editingPrompts.map((prompt, idx) => (
+                                        <div key={prompt.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative group">
+                                            <div className="absolute top-2 right-2 text-gray-300 font-mono text-xs">#{idx + 1}</div>
+                                            <div className="flex items-start gap-3">
+                                                <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600">
+                                                    <span className="material-symbols-outlined">{prompt.icon}</span>
+                                                </div>
+                                                <div className="w-full">
+                                                    <label className="text-xs font-bold text-gray-500 uppercase">Consigna</label>
+                                                    <textarea
+                                                        className="w-full text-sm border-gray-300 border-b focus:border-indigo-500 outline-none py-1 resize-none bg-transparent"
+                                                        rows={2}
+                                                        value={prompt.text}
+                                                        onChange={(e) => handlePromptChange(prompt.id, e.target.value)}
+                                                    />
+                                                </div>
                                             </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </section>
 
@@ -323,41 +334,66 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
                                 </p>
                             </section>
 
-                            {/* Prompt Grid Editor */}
-                            <section>
-                                <div className="flex justify-between items-center mb-4">
-                                    <h2 className="text-lg font-bold flex items-center gap-2">
-                                        <span className="material-symbols-outlined">grid_on</span>
-                                        Tablero de Bingo (9 Consignas)
-                                    </h2>
-                                    <button
-                                        onClick={handleSavePrompts}
-                                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
-                                    >
-                                        <span className="material-symbols-outlined">save</span>
-                                        Guardar Cambios
-                                    </button>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {editingPrompts.map((prompt, idx) => (
-                                        <div key={prompt.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative group">
-                                            <div className="absolute top-2 right-2 text-gray-300 font-mono text-xs">#{idx + 1}</div>
-                                            <div className="flex items-start gap-3">
-                                                <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600">
-                                                    <span className="material-symbols-outlined">{prompt.icon}</span>
-                                                </div>
-                                                <div className="w-full">
-                                                    <label className="text-xs font-bold text-gray-500 uppercase">Consigna</label>
-                                                    <textarea
-                                                        className="w-full text-sm border-gray-300 border-b focus:border-indigo-500 outline-none py-1 resize-none bg-transparent"
-                                                        rows={2}
-                                                        value={prompt.text}
-                                                        onChange={(e) => handlePromptChange(prompt.id, e.target.value)}
-                                                    />
-                                                </div>
-                                            </div>
+                            {/* Global Settings: Event Image & Google Photos */}
+                            <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                                <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                    <span className="material-symbols-outlined">settings</span>
+                                    Configuración Global
+                                </h2>
+
+                                {/* Branding Image Input */}
+                                <div className="mb-6">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Imagen del Evento (Personalizada)</label>
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                className="flex-1 bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                placeholder="URL de imagen..."
+                                                value={customImage}
+                                                onChange={e => setCustomImage(e.target.value)}
+                                            />
+                                            <label className="bg-white border-2 border-indigo-600 text-indigo-600 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-center min-w-[50px]">
+                                                <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
+                                                {uploading ? (
+                                                    <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                                                ) : (
+                                                    <span className="material-symbols-outlined">upload</span>
+                                                )}
+                                            </label>
                                         </div>
-                                    ))}
+                                        {customImage && (
+                                            <div className="mt-2 relative group w-full h-32">
+                                                <img src={customImage} className="h-full w-full object-cover rounded-xl border border-gray-200" alt="Preview" />
+                                                <button
+                                                    onClick={() => { setCustomImage(''); handleSaveSettings(''); }}
+                                                    className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">close</span>
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Link de Google Photos</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            className="flex-1 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            placeholder="https://photos.app.goo.gl/..."
+                                            value={googlePhotosLink}
+                                            onChange={(e) => setGooglePhotosLink(e.target.value)}
+                                        />
+                                        <button
+                                            onClick={() => handleSaveSettings()}
+                                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                                        >
+                                            Guardar
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">Las fotos del Bingo se guardan en Supabase Storage (Google Photos no permite subir por link compartido).</p>
                                 </div>
                             </section>
                         </div>
@@ -539,6 +575,73 @@ const BingoAdmin: React.FC<BingoAdminProps> = ({ user }) => {
                                 </div>
                             )}
                         </section>
+                    </div>
+                )}
+
+                {activeTab === 'GALLERY' && (
+                    <div className="space-y-6 animate-fade-in">
+                        <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-wrap items-center justify-between gap-4">
+                            <div>
+                                <h2 className="text-lg font-bold flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-indigo-600">photo_library</span>
+                                    Fotos del Evento ({galleryPhotos.length})
+                                </h2>
+                                <p className="text-sm text-gray-500">
+                                    Todas las fotos subidas por los invitados quedan guardadas como recuerdo para el organizador.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={loadGalleryPhotos}
+                                    disabled={loadingGallery}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 text-sm font-medium disabled:opacity-50"
+                                >
+                                    <span className="material-symbols-outlined text-base">refresh</span>
+                                    {loadingGallery ? 'Cargando...' : 'Actualizar'}
+                                </button>
+                                <a
+                                    href={galleryPhotos.length > 0 ? `${API_URL}/bingo/${eventId}/photos/zip` : undefined}
+                                    download
+                                    onClick={(e) => { if (galleryPhotos.length === 0) e.preventDefault(); }}
+                                    className={`px-5 py-2 rounded-lg font-semibold flex items-center gap-2 text-sm transition-colors ${galleryPhotos.length > 0
+                                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'
+                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                                >
+                                    <span className="material-symbols-outlined text-base">download</span>
+                                    Descargar todas (.zip)
+                                </a>
+                            </div>
+                        </section>
+
+                        {loadingGallery ? (
+                            <div className="bg-white rounded-xl p-12 text-center text-gray-400 border border-gray-100">
+                                Cargando galería...
+                            </div>
+                        ) : galleryPhotos.length === 0 ? (
+                            <div className="bg-white rounded-xl p-12 text-center text-gray-400 border border-dashed border-gray-300">
+                                <span className="material-symbols-outlined text-5xl mb-2 block">add_a_photo</span>
+                                Todavía no hay fotos subidas en este PhotoBingo.
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                {galleryPhotos.map((photo) => (
+                                    <a
+                                        key={photo.path}
+                                        href={photo.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="group relative aspect-square bg-gray-100 rounded-xl overflow-hidden border border-gray-200 shadow-sm"
+                                    >
+                                        <img
+                                            src={photo.url}
+                                            alt={photo.name}
+                                            loading="lazy"
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                        />
+                                    </a>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
             </main>

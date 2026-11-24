@@ -20,7 +20,7 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
     // UI Local State
     const [mainPrompt, setMainPrompt] = useState('');
     const [impostorPrompt, setImpostorPrompt] = useState('');
-    const [playerCount, setPlayerCount] = useState(5);
+    const [playerCount, setPlayerCount] = useState(20);
     const [impostorCount, setImpostorCount] = useState(1);
     const [customImage, setCustomImage] = useState('');
     const [uploading, setUploading] = useState(false);
@@ -117,17 +117,40 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
 
     const handleSelectPlayers = async () => {
         if (!eventId) return;
-        await impostorService.selectPlayers(eventId, []);
+        try {
+            await impostorService.selectPlayers(eventId, []);
+        } catch (err: any) {
+            alert(err.message || 'No se pudieron seleccionar jugadores');
+        }
     };
 
     const handleStart = async () => {
         if (!eventId) return;
-        await impostorService.startRound(eventId);
+        try {
+            await impostorService.startRound(eventId);
+        } catch (err: any) {
+            alert(err.message || 'No se pudo iniciar la ronda');
+        }
+    };
+
+    const handleNextRound = async () => {
+        if (!eventId) return;
+        try {
+            await impostorService.nextRound(eventId);
+        } catch (err: any) {
+            alert(err.message || 'No se pudo evaluar la ronda');
+        }
     };
 
     const handleReveal = async () => {
         if (!eventId) return;
         await impostorService.revealImpostor(eventId);
+    };
+
+    const handleRemovePlayer = async (playerId: string, playerName: string) => {
+        if (!eventId) return;
+        if (!confirm(`¿Desconectar y eliminar a "${playerName}" de la partida?`)) return;
+        await impostorService.removePlayer(eventId, playerId);
     };
 
     const handleReset = async () => {
@@ -221,72 +244,119 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
                 {/* LIVE TAB */}
                 {activeTab === 'LIVE' && (
                     <div className="space-y-6 animate-fade-in">
-                        {/* Game Control Panel - Status Module */}
-                        <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            <h3 className="text-xl font-bold mb-4 flex items-center gap-3">
-                                <span className={`w-3 h-3 rounded-full animate-pulse ${state.status === 'WAITING' ? 'bg-yellow-500' : state.status === 'REVEAL' ? 'bg-purple-500' : 'bg-green-500'}`}></span>
-                                Status: {state.status === 'WAITING' ? 'En Espera' :
-                                    state.status === 'SUBMITTING' ? 'Escribiendo Respuestas' :
-                                        state.status === 'VOTING' ? 'Votación Activa' :
-                                            state.status === 'REVEAL' ? 'Impostor Revelado' : state.status}
-                            </h3>
-
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                <button
-                                    onClick={handleSelectPlayers}
-                                    disabled={state.lobby.length < state.config.playerCount}
-                                    className="h-14 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-                                >
-                                    <span className="material-symbols-outlined">person_search</span>
-                                    Seleccionar ({state.lobby.length}/{state.config.playerCount})
-                                </button>
-
-                                <button
-                                    onClick={handleStart}
-                                    disabled={state.activePlayers.length === 0}
-                                    className="h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-indigo-200 disabled:opacity-50"
-                                >
-                                    <span className="material-symbols-outlined">play_arrow</span>
-                                    Iniciar Ronda
-                                </button>
-
-                                <button
-                                    onClick={handleReveal}
-                                    disabled={state.status !== 'VOTING'}
-                                    className="h-14 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-purple-200 disabled:opacity-50"
-                                >
-                                    <span className="material-symbols-outlined">visibility</span>
-                                    Revelar Impostor
-                                </button>
-
-                                <button
-                                    onClick={handleReset}
-                                    className="h-14 bg-red-100 text-red-700 hover:bg-red-200 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
-                                >
-                                    <span className="material-symbols-outlined">refresh</span>
-                                    Reiniciar
-                                </button>
+                        {/* Stats */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500">
+                                <div className="text-2xl font-bold">{state.lobby.length}</div>
+                                <div className="text-gray-500 text-sm">Conectados en Lobby</div>
                             </div>
-
-                            {/* Active Players Preview */}
-                            {state.activePlayers.length > 0 && (
-                                <div className="mt-6 pt-6 border-t border-gray-100">
-                                    <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">Jugadores Seleccionados</h4>
-                                    <div className="flex flex-wrap gap-3">
-                                        {state.activePlayers.map(p => (
-                                            <div key={p.id} className={`flex items-center gap-3 p-3 rounded-xl border ${p.role === 'IMPOSTOR' ? 'border-purple-300 bg-purple-50' : 'border-gray-200 bg-gray-50'}`}>
-                                                <img src={p.avatar} className="w-10 h-10 rounded-full bg-gray-200" />
-                                                <div>
-                                                    <p className="text-sm font-bold leading-tight">{p.name}</p>
-                                                    <p className={`text-xs font-bold uppercase ${p.role === 'IMPOSTOR' ? 'text-purple-600' : 'text-gray-400'}`}>{p.role}</p>
-                                                </div>
-                                                {p.answer && <span className="material-symbols-outlined text-green-500 text-sm">check_circle</span>}
-                                            </div>
-                                        ))}
-                                    </div>
+                            <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-purple-500">
+                                <div className="text-2xl font-bold">
+                                    {state.activePlayers.length} <span className="text-gray-400 text-lg font-normal">/ {state.config.playerCount} máx</span>
                                 </div>
+                                <div className="text-gray-500 text-sm">Activos (Ronda {state.round || 1})</div>
+                            </div>
+                            <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
+                                <div className="text-2xl font-bold">
+                                    {state.status === 'WAITING' ? 'En Espera' :
+                                        state.status === 'SUBMITTING' ? 'Escribiendo' :
+                                            state.status === 'VOTING' ? 'Votando' :
+                                                state.status === 'REVEAL' ? 'Revelado' : state.status}
+                                </div>
+                                <div className="text-gray-500 text-sm">Estado</div>
+                            </div>
+                        </div>
+
+                        {state.lastEliminated && state.status !== 'REVEAL' && (
+                            <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2">
+                                <span className="material-symbols-outlined text-amber-600">person_remove</span>
+                                Ronda {state.lastEliminated.round}: salió <b>{state.lastEliminated.name}</b> ({state.lastEliminated.role === 'IMPOSTOR' ? 'era Impostor, pero quedan más' : 'era Civil'}). ¡El juego continúa!
+                            </div>
+                        )}
+
+                        {/* Game Controls */}
+                        <div className="flex flex-wrap gap-3">
+                            <button
+                                onClick={handleSelectPlayers}
+                                disabled={state.lobby.length <= state.config.playerCount}
+                                className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 disabled:opacity-50"
+                            >
+                                <span className="material-symbols-outlined">person_search</span>
+                                Seleccionar ({Math.min(state.lobby.length, state.config.playerCount)}/{state.config.playerCount} máx)
+                            </button>
+
+                            <button
+                                onClick={handleStart}
+                                disabled={
+                                    state.status === 'SUBMITTING' ||
+                                    state.status === 'VOTING' ||
+                                    (state.activePlayers.length === 0 && state.lobby.length < Math.max(3, state.config.impostorCount + 1))
+                                }
+                                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 disabled:opacity-50"
+                            >
+                                <span className="material-symbols-outlined">play_arrow</span>
+                                Iniciar Ronda
+                            </button>
+
+                            {state.status === 'VOTING' && (
+                                <button
+                                    onClick={handleNextRound}
+                                    disabled={Object.keys(state.votes || {}).length === 0}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    <span className="material-symbols-outlined">how_to_vote</span>
+                                    Evaluar y Siguiente Ronda
+                                </button>
                             )}
-                        </section>
+
+                            <button
+                                onClick={handleReveal}
+                                disabled={state.status !== 'VOTING'}
+                                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 disabled:opacity-50"
+                            >
+                                <span className="material-symbols-outlined">visibility</span>
+                                Revelar Impostor
+                            </button>
+
+                            <button
+                                onClick={handleReset}
+                                className="bg-red-100 text-red-700 hover:bg-red-200 px-6 py-2 rounded-lg font-bold flex items-center gap-2"
+                            >
+                                <span className="material-symbols-outlined">restart_alt</span>
+                                Reiniciar Juego
+                            </button>
+                        </div>
+
+                        {/* Active Players Preview */}
+                        {state.activePlayers.length > 0 && (
+                            <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                                <h3 className="text-lg font-bold mb-4">Jugadores Seleccionados</h3>
+                                <div className="flex flex-wrap gap-3">
+                                    {state.activePlayers.map(p => (
+                                        <div key={p.id} className={`flex items-center gap-3 p-3 rounded-xl border ${p.online === false ? 'border-red-300 bg-red-50/70' : p.role === 'IMPOSTOR' ? 'border-purple-300 bg-purple-50' : 'border-gray-200 bg-gray-50'}`}>
+                                            <img src={p.avatar} className={`w-10 h-10 rounded-full bg-gray-200 ${p.online === false ? 'opacity-50 grayscale' : ''}`} />
+                                            <div>
+                                                <p className="text-sm font-bold leading-tight">{p.name}</p>
+                                                <div className="flex items-center gap-1.5">
+                                                    <p className={`text-xs font-bold uppercase ${p.role === 'IMPOSTOR' ? 'text-purple-600' : 'text-gray-400'}`}>{p.role}</p>
+                                                    {p.online === false && (
+                                                        <span className="text-[10px] font-bold text-red-600 uppercase">· Desconectado</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {p.answer && <span className="material-symbols-outlined text-green-500 text-sm">check_circle</span>}
+                                            <button
+                                                onClick={() => handleRemovePlayer(p.id, p.name)}
+                                                title="Desconectar y eliminar jugador"
+                                                className="ml-1 p-1 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-100 transition-colors"
+                                            >
+                                                <span className="material-symbols-outlined text-base">close</span>
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
 
                         {/* Lobby de Espera */}
                         <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -296,8 +366,15 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
                             </h3>
                             <div className="flex flex-wrap gap-4">
                                 {state.lobby.length > 0 ? state.lobby.map(p => (
-                                    <div key={p.id} className="flex flex-col items-center gap-2">
-                                        <img src={p.avatar} className="w-14 h-14 rounded-full bg-gray-200 border-2 border-gray-300" />
+                                    <div key={p.id} className="relative flex flex-col items-center gap-2 group">
+                                        <button
+                                            onClick={() => handleRemovePlayer(p.id, p.name)}
+                                            title="Eliminar del lobby"
+                                            className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                                        >
+                                            <span className="material-symbols-outlined text-xs">close</span>
+                                        </button>
+                                        <img src={p.avatar} className={`w-14 h-14 rounded-full bg-gray-200 border-2 ${p.online === false ? 'border-red-400 opacity-50 grayscale' : 'border-gray-300'}`} />
                                         <span className="text-xs font-bold uppercase truncate w-16 text-center text-gray-700">{p.name}</span>
                                     </div>
                                 )) : (
@@ -307,27 +384,6 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
                                     </div>
                                 )}
                             </div>
-
-                            {/* QR Code */}
-                            <div className="mt-6 pt-6 border-t border-gray-100 flex justify-center">
-                                <div className="text-center">
-                                    <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 inline-block">
-                                        <img
-                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/#/impostor/${eventId}/guest`)}`}
-                                            alt="QR para participar"
-                                            className="w-32 h-32"
-                                        />
-                                    </div>
-                                    <p className="text-xs text-gray-500 mt-2">Escanea para unirte</p>
-                                    <button
-                                        onClick={() => navigator.clipboard.writeText(`${window.location.origin}/#/impostor/${eventId}/guest`)}
-                                        className="mt-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1 mx-auto"
-                                    >
-                                        <span className="material-symbols-outlined text-sm">content_copy</span>
-                                        Copiar enlace
-                                    </button>
-                                </div>
-                            </div>
                         </section>
                     </div>
                 )}
@@ -335,52 +391,13 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
                 {/* CONFIG TAB */}
                 {activeTab === 'CONFIG' && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
-                        {/* Left Column: Game Settings */}
+                        {/* Left Column: Consignas -> AI Generator -> Global Settings */}
                         <div className="lg:col-span-2 space-y-6">
-
-                            {/* AI Generator */}
-                            <section className="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-xl shadow-sm border border-indigo-100">
-                                <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-900">
-                                    <span className="material-symbols-outlined">auto_awesome</span>
-                                    Generar con IA (Experimental)
-                                </h2>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        className="flex-1 border border-indigo-200 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                                        placeholder="Ej: Boda Elegante, Superhéroes, Oficina Loca..."
-                                        value={aiTheme}
-                                        onChange={(e) => setAiTheme(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleGenerateTasks()}
-                                    />
-                                    <button
-                                        onClick={handleGenerateTasks}
-                                        disabled={isGenerating}
-                                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2 font-medium shadow-md shadow-indigo-200"
-                                    >
-                                        {isGenerating ? (
-                                            <>
-                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                                Generando...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <span className="material-symbols-outlined text-sm">magic_button</span>
-                                                Generar
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                                <p className="text-xs text-indigo-400 mt-2">
-                                    <span className="font-bold">Nota:</span> Esto llenará las consignas de abajo. Podrás editarlas antes de guardar.
-                                </p>
-                            </section>
-
                             {/* Game Configuration */}
                             <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                                 <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                    <span className="material-symbols-outlined">settings</span>
-                                    Configuración del Juego
+                                    <span className="material-symbols-outlined">psychology</span>
+                                    Consignas del Juego
                                 </h2>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -390,7 +407,7 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
                                             value={mainPrompt}
                                             onChange={(e) => setMainPrompt(e.target.value)}
                                             className="w-full bg-gray-50 border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none min-h-[100px]"
-                                            placeholder="Ej: Describe a la cumpleañera..."
+                                            placeholder="Ej: Nombrá una canción que hace bailar a toda la fiesta"
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -399,7 +416,7 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
                                             value={impostorPrompt}
                                             onChange={(e) => setImpostorPrompt(e.target.value)}
                                             className="w-full bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none min-h-[100px]"
-                                            placeholder="Ej: Describe el salón de fiestas..."
+                                            placeholder="Ej: Nombrá una canción tranquila para escuchar manejando"
                                         />
                                     </div>
                                 </div>
@@ -407,7 +424,7 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
                                 <div className="flex items-end justify-between gap-4">
                                     <div className="flex gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Jugadores</label>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Máx. Jugadores</label>
                                             <input
                                                 type="number"
                                                 value={playerCount}
@@ -435,22 +452,61 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
                                 </div>
                             </section>
 
-                            {/* Background Image */}
+                            {/* AI Generator */}
+                            <section className="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-xl shadow-sm border border-indigo-100">
+                                <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-900">
+                                    <span className="material-symbols-outlined">auto_awesome</span>
+                                    Generar con IA
+                                </h2>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        className="flex-1 border border-indigo-200 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                                        placeholder="Ej: Boda Elegante, Superhéroes, Cumpleaños de 15..."
+                                        value={aiTheme}
+                                        onChange={(e) => setAiTheme(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleGenerateTasks()}
+                                    />
+                                    <button
+                                        onClick={handleGenerateTasks}
+                                        disabled={isGenerating}
+                                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2 font-medium shadow-md shadow-indigo-200"
+                                    >
+                                        {isGenerating ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                Generando...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="material-symbols-outlined text-sm">magic_button</span>
+                                                Generar
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                                <p className="text-xs text-indigo-400 mt-2">
+                                    <span className="font-bold">Nota:</span> Esto llenará las consignas de arriba. Podrás editarlas antes de guardar.
+                                </p>
+                            </section>
+
+                            {/* Global Settings (Background Image) */}
                             <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                                 <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                    <span className="material-symbols-outlined">image</span>
-                                    Imagen de Fondo
+                                    <span className="material-symbols-outlined">settings</span>
+                                    Configuración Global
                                 </h2>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Imagen del Evento (Personalizada)</label>
                                 <div className="flex flex-col gap-3">
                                     <div className="flex gap-2">
                                         <input
                                             type="text"
-                                            className="flex-1 bg-gray-50 border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            className="flex-1 bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                                             placeholder="URL de imagen..."
                                             value={customImage}
                                             onChange={e => setCustomImage(e.target.value)}
                                         />
-                                        <label className="bg-white border-2 border-indigo-600 text-indigo-600 px-4 py-3 rounded-lg cursor-pointer hover:bg-indigo-50 transition-colors flex items-center justify-center min-w-[50px]">
+                                        <label className="bg-white border-2 border-indigo-600 text-indigo-600 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-center min-w-[50px]">
                                             <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
                                             {uploading ? (
                                                 <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
@@ -458,9 +514,15 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
                                                 <span className="material-symbols-outlined">upload</span>
                                             )}
                                         </label>
+                                        <button
+                                            onClick={() => handleSaveConfigWithImage()}
+                                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+                                        >
+                                            Guardar
+                                        </button>
                                     </div>
                                     {customImage && (
-                                        <div className="relative group w-full h-40">
+                                        <div className="relative group w-full h-32">
                                             <img src={customImage} className="h-full w-full object-cover rounded-xl border border-gray-200" alt="Preview" />
                                             <button
                                                 onClick={() => { setCustomImage(''); handleSaveConfigWithImage(''); }}
@@ -474,25 +536,8 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
                             </section>
                         </div>
 
-                        {/* Right Column: Guest Simulation & QR */}
+                        {/* Right Column: QR Code & Links */}
                         <div className="space-y-6">
-                            {/* Guest Simulation */}
-                            <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
-                                <h2 className="text-lg font-bold mb-3 flex items-center justify-center gap-2">
-                                    <span className="material-symbols-outlined">cell_tower</span>
-                                    Guest Simulation
-                                </h2>
-                                <p className="text-sm text-gray-500 mb-4">Abre la vista de invitado para probar el flujo</p>
-                                <button
-                                    onClick={() => window.open(`#/impostor/${eventId}/guest`, '_blank')}
-                                    className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
-                                >
-                                    <span className="material-symbols-outlined">open_in_new</span>
-                                    Abrir Simulador
-                                </button>
-                            </section>
-
-                            {/* QR Code */}
                             <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
                                 <h2 className="text-lg font-bold mb-3 flex items-center justify-center gap-2">
                                     <span className="material-symbols-outlined">qr_code_2</span>
@@ -514,6 +559,13 @@ const ImpostorAdmin: React.FC<ImpostorAdminProps> = ({ user }) => {
                                 >
                                     <span className="material-symbols-outlined text-sm">content_copy</span>
                                     Copiar enlace
+                                </button>
+                                <button
+                                    onClick={() => window.open(`#/impostor/${eventId}/guest`, '_blank')}
+                                    className="mt-4 w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 text-sm transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-sm">open_in_new</span>
+                                    Probar como Invitado
                                 </button>
                             </section>
                         </div>

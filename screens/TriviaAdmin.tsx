@@ -265,9 +265,9 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
     }
 
     return (
-        <div className="min-h-screen bg-slate-950 text-white pb-20">
+        <div className="min-h-screen bg-gray-50 text-gray-900 pb-20">
             {/* Header */}
-            <header className="bg-slate-900/80 border-b border-slate-800 px-6 py-4 sticky top-0 z-50 backdrop-blur-md">
+            <header className="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-50">
                 <div className="max-w-6xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <button
@@ -278,26 +278,26 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
                         </button>
                         <div>
                             <h1 className="text-xl font-bold flex items-center gap-2">
-                                <span className="material-symbols-outlined text-pink-500">quiz</span>
-                                Trivia Admin
+                                <span className="material-symbols-outlined text-pink-400">quiz</span>
+                                Trivia - Admin
                             </h1>
                             <div className="flex items-center gap-2 text-sm">
                                 <span
-                                    className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${gameState.status === 'PLAYING' ? 'bg-green-600' :
-                                        gameState.status === 'FINISHED' ? 'bg-amber-600' : 'bg-slate-600'
+                                    className={`px-2 py-0.5 rounded text-xs font-bold ${gameState.status === 'PLAYING' ? 'bg-green-500' :
+                                        gameState.status === 'FINISHED' ? 'bg-purple-500' : 'bg-gray-600'
                                         }`}
                                 >
                                     {gameState.status === 'WAITING' ? 'EN ESPERA' :
                                         gameState.status === 'PLAYING' ? 'EN VIVO' : 'FINALIZADO'}
                                 </span>
-                                <span className="text-slate-400 font-medium">{totalPlayers} jugadores conectados</span>
+                                <span className="text-pink-400">{totalPlayers} jugadores</span>
                             </div>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => window.open(`#/trivia/${eventId}/screen`, '_blank')}
-                            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
+                            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg font-medium transition-colors"
                         >
                             <span className="material-symbols-outlined text-sm">tv</span>
                             Pantalla Gigante
@@ -307,447 +307,384 @@ const TriviaAdmin: React.FC<TriviaAdminProps> = ({ user }) => {
             </header>
 
             <main className="max-w-6xl mx-auto p-6">
-                {/* Tabs Navigation */}
-                <div className="flex gap-8 mb-8 border-b border-slate-800">
+                {/* Tabs */}
+                <div className="flex gap-4 mb-6 border-b border-gray-200">
                     <button
                         onClick={() => setActiveTab('LIVE')}
-                        className={`pb-4 px-2 font-bold transition-all relative ${activeTab === 'LIVE' ? 'text-pink-500' : 'text-slate-500 hover:text-white'}`}
+                        className={`pb-2 px-4 font-semibold ${activeTab === 'LIVE' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500'}`}
                     >
                         Juego en Vivo
-                        {activeTab === 'LIVE' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-pink-500 rounded-t-full" />}
                     </button>
                     <button
                         onClick={() => setActiveTab('CONFIG')}
-                        className={`pb-4 px-2 font-bold transition-all relative ${activeTab === 'CONFIG' ? 'text-pink-500' : 'text-slate-500 hover:text-white'}`}
+                        className={`pb-2 px-4 font-semibold ${activeTab === 'CONFIG' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500'}`}
                     >
                         Configuración
-                        {activeTab === 'CONFIG' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-pink-500 rounded-t-full" />}
                     </button>
                 </div>
 
                 {activeTab === 'LIVE' ? (
-                    <div className="animate-fade-in space-y-6">
-                        {/* Status Overview Card */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-2">Estado</p>
-                                <p className="text-2xl font-black italic uppercase">
-                                    {gameState.status === 'WAITING' && 'Esperando Inicio'}
-                                    {gameState.status === 'PLAYING' && 'Partida en Curso'}
-                                    {gameState.status === 'FINISHED' && 'Juego Finalizado'}
-                                </p>
+                    <div className="space-y-6 animate-fade-in">
+                        {/* Stats */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500">
+                                <div className="text-2xl font-bold">{totalPlayers}</div>
+                                <div className="text-gray-500 text-sm">Jugadores</div>
                             </div>
-                            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-2">Pregunta Actual</p>
-                                <p className="text-2xl font-black italic uppercase">
-                                    {gameState.currentQuestionIndex + 1} <span className="text-slate-600">/ {gameState.questions.length}</span>
-                                </p>
-                            </div>
-                            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-                                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-2">Jugadores</p>
-                                <p className="text-2xl font-black italic uppercase text-pink-500">{totalPlayers}</p>
-                            </div>
-                        </div>
-
-                        {/* Game Controls Section */}
-                        <div className="bg-slate-900 rounded-3xl border border-slate-800 p-8 shadow-2xl overflow-hidden relative">
-                            <div className="absolute top-0 right-0 p-8 opacity-5">
-                                <span className="material-symbols-outlined text-9xl">play_circle</span>
-                            </div>
-
-                            <div className="relative z-10">
-                                <h2 className="text-2xl font-black mb-8 flex items-center gap-3">
-                                    <span className="p-2 bg-pink-500/10 rounded-xl">
-                                        <span className="material-symbols-outlined text-pink-500">settings_remote</span>
-                                    </span>
-                                    Panel de Control
-                                </h2>
-
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 text-slate-100">
-                                    {/* Action Buttons */}
-                                    <div className="space-y-4">
-                                        {gameState.status === 'WAITING' && (
-                                            <button
-                                                onClick={handleStartGame}
-                                                disabled={gameState.questions.length === 0}
-                                                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 disabled:grayscale py-6 rounded-2xl font-black text-xl shadow-lg shadow-green-900/20 transition-all active:scale-95 flex items-center justify-center gap-3"
-                                            >
-                                                <span className="material-symbols-outlined text-3xl">play_arrow</span>
-                                                COMENZAR TRIVIA
-                                            </button>
-                                        )}
-
-                                        {gameState.status === 'PLAYING' && (
-                                            <div className="space-y-4">
-                                                {gameState.currentQuestionIndex === -1 ? (
-                                                    <button
-                                                        onClick={handleNextQuestion}
-                                                        className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 py-6 rounded-2xl font-black text-xl shadow-lg shadow-indigo-900/20 transition-all active:scale-95 flex items-center justify-center gap-3"
-                                                    >
-                                                        <span className="material-symbols-outlined text-3xl">rocket_launch</span>
-                                                        LANZAR PRIMERA PREGUNTA
-                                                    </button>
-                                                ) : (
-                                                    <div className="grid grid-cols-1 gap-4">
-                                                        <button
-                                                            onClick={handleRevealAnswer}
-                                                            disabled={gameState.isAnswerRevealed}
-                                                            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:from-orange-400 disabled:opacity-50 py-6 rounded-2xl font-black text-xl shadow-lg shadow-amber-900/20 transition-all active:scale-95 flex items-center justify-center gap-3"
-                                                        >
-                                                            <span className="material-symbols-outlined text-3xl">{gameState.isAnswerRevealed ? 'done_all' : 'visibility'}</span>
-                                                            {gameState.isAnswerRevealed ? 'RESPUESTA REVELADA' : 'REVELAR RESPUESTA'}
-                                                        </button>
-                                                        <button
-                                                            onClick={handleNextQuestion}
-                                                            className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 py-6 rounded-2xl font-black text-xl shadow-lg shadow-indigo-900/20 transition-all active:scale-95 flex items-center justify-center gap-3"
-                                                        >
-                                                            <span className="material-symbols-outlined text-3xl">skip_next</span>
-                                                            SIGUIENTE PREGUNTA
-                                                        </button>
-                                                    </div>
-                                                )}
-
-                                                <div className="pt-8 mt-8 border-t border-slate-800 space-y-4">
-                                                    <button
-                                                        onClick={() => setIsAutoEnabled(!isAutoEnabled)}
-                                                        className={`w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 border ${isAutoEnabled
-                                                            ? 'bg-pink-600/20 border-pink-500 text-pink-500 shadow-lg shadow-pink-500/20'
-                                                            : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
-                                                            }`}
-                                                    >
-                                                        <span className="material-symbols-outlined">{isAutoEnabled ? 'pause_circle' : 'autoplay'}</span>
-                                                        {isAutoEnabled ? 'MODO AUTOMÁTICO ACTIVO' : 'ACTIVAR MODO AUTOMÁTICO'}
-                                                    </button>
-
-                                                    <button
-                                                        onClick={handleEndGame}
-                                                        className="w-full bg-slate-800 hover:bg-slate-700 py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-white border border-slate-700"
-                                                    >
-                                                        <span className="material-symbols-outlined">analytics</span>
-                                                        Mostrar Resultados
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {gameState.status === 'FINISHED' && (
-                                            <div className="text-center space-y-6 py-8">
-                                                <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                                                    <span className="material-symbols-outlined text-4xl text-amber-500">emoji_events</span>
-                                                </div>
-                                                <h3 className="text-2xl font-black">¡Trivia Completada!</h3>
-                                                <p className="text-slate-400 max-w-xs mx-auto">Revisa el podio en la pantalla gigante.</p>
-                                                <button
-                                                    onClick={handleResetGame}
-                                                    className="w-full bg-red-600 hover:bg-red-500 py-4 rounded-xl font-black shadow-lg shadow-red-900/20 transition-all flex items-center justify-center gap-2"
-                                                >
-                                                    <span className="material-symbols-outlined">restart_alt</span>
-                                                    REINICIAR PARA NUEVA PARTIDA
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Info Panel / Current Question Preview */}
-                                    <div className="bg-slate-950/50 rounded-2xl border border-slate-800 p-6 flex flex-col justify-center">
-                                        {currentQuestion ? (
-                                            <div className="space-y-6">
-                                                <div>
-                                                    <span className="text-pink-500 text-[10px] font-black uppercase tracking-[0.2em]">En Pantalla</span>
-                                                    <h3 className="text-xl font-bold text-white mt-1 leading-tight">{currentQuestion.text}</h3>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    {currentQuestion.options.map((opt) => (
-                                                        <div
-                                                            key={opt.key}
-                                                            className={`p-3 rounded-xl border text-sm flex items-center gap-3 ${opt.key === currentQuestion.correctOption
-                                                                ? 'bg-green-500/10 border-green-500/50 text-green-400'
-                                                                : 'bg-slate-900 border-slate-800 text-slate-400'
-                                                                }`}
-                                                        >
-                                                            <span className="font-black opacity-50">{opt.key}</span>
-                                                            <span className="font-medium truncate">{opt.text}</span>
-                                                            {opt.key === currentQuestion.correctOption && (
-                                                                <span className="material-symbols-outlined text-xs ml-auto">check_circle</span>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="text-center py-12">
-                                                <span className="material-symbols-outlined text-5xl text-slate-800 mb-4">monitor</span>
-                                                <p className="text-slate-500 font-medium">No hay una pregunta activa en este momento.</p>
-                                            </div>
-                                        )}
-                                    </div>
+                            <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-indigo-500">
+                                <div className="text-2xl font-bold">
+                                    {Math.max(0, gameState.currentQuestionIndex + 1)} <span className="text-gray-400 text-lg font-normal">/ {gameState.questions.length}</span>
                                 </div>
+                                <div className="text-gray-500 text-sm">Pregunta Actual</div>
+                            </div>
+                            <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
+                                <div className="text-2xl font-bold">
+                                    {gameState.status === 'WAITING' ? 'En Espera' : gameState.status === 'PLAYING' ? 'En Vivo' : 'Finalizado'}
+                                </div>
+                                <div className="text-gray-500 text-sm">Estado</div>
                             </div>
                         </div>
-                    </div>
-                ) : (
-                    <div className="animate-fade-in space-y-8">
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                            {/* Questions Management Column */}
-                            <div className="lg:col-span-2 space-y-6">
-                                <div className="bg-slate-900 rounded-3xl border border-slate-800 p-6 shadow-xl">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <div>
-                                            <h2 className="text-xl font-black">Banco de Preguntas</h2>
-                                            <p className="text-slate-400 text-sm">{gameState.questions.length} preguntas disponibles</p>
-                                        </div>
+
+                        {/* Game Controls */}
+                        <div className="flex flex-wrap gap-3">
+                            {gameState.status === 'WAITING' && (
+                                <button
+                                    onClick={handleStartGame}
+                                    disabled={gameState.questions.length === 0}
+                                    className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined">play_arrow</span>
+                                    Iniciar Juego
+                                </button>
+                            )}
+
+                            {gameState.status === 'PLAYING' && (
+                                <>
+                                    {gameState.currentQuestionIndex === -1 ? (
                                         <button
-                                            onClick={() => {
-                                                resetForm();
-                                                setShowQuestionForm(true);
-                                            }}
-                                            className="flex items-center gap-2 bg-pink-600 hover:bg-pink-500 px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-pink-600/20 active:scale-95"
+                                            onClick={handleNextQuestion}
+                                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2"
                                         >
-                                            <span className="material-symbols-outlined text-sm">add</span>
-                                            Agregar Manual
+                                            <span className="material-symbols-outlined">rocket_launch</span>
+                                            Lanzar Primera Pregunta
                                         </button>
-                                    </div>
-
-                                    {/* AI Generator Block */}
-                                    <div className="mb-8 p-6 bg-indigo-600/10 border border-indigo-500/20 rounded-2xl">
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                                                <span className="material-symbols-outlined text-white text-sm">psychology</span>
-                                            </div>
-                                            <div>
-                                                <h3 className="text-sm font-black uppercase tracking-wider text-indigo-400">Generador con IA</h3>
-                                                <p className="text-[10px] text-slate-500 font-medium">Crea preguntas automáticas con Gemini AI</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-col md:flex-row gap-4 items-end">
-                                            <div className="flex-1 space-y-2">
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Temática del Evento / Trivia</label>
-                                                <input
-                                                    type="text"
-                                                    value={aiTheme}
-                                                    onChange={(e) => setAiTheme(e.target.value)}
-                                                    placeholder="Ej: Historia del Rock, Películas de Marvel, Cultura General..."
-                                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
-                                                />
-                                            </div>
-                                            <div className="w-full md:w-32 space-y-2">
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Cantidad</label>
-                                                <select
-                                                    value={aiCount}
-                                                    onChange={(e) => setAiCount(parseInt(e.target.value))}
-                                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500 transition-colors"
-                                                >
-                                                    {[1, 3, 5, 10, 15].map(n => (
-                                                        <option key={n} value={n}>{n} {n === 1 ? 'pregunta' : 'preguntas'}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
+                                    ) : (
+                                        <>
                                             <button
-                                                onClick={handleGenerateAI}
-                                                disabled={isGeneratingAI || !aiTheme.trim()}
-                                                className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
+                                                onClick={handleRevealAnswer}
+                                                disabled={gameState.isAnswerRevealed}
+                                                className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2"
                                             >
-                                                {isGeneratingAI ? (
-                                                    <>
-                                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                                        <span>Generando...</span>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <span className="material-symbols-outlined text-sm">auto_awesome</span>
-                                                        Generar con IA
-                                                    </>
-                                                )}
+                                                <span className="material-symbols-outlined">{gameState.isAnswerRevealed ? 'done_all' : 'visibility'}</span>
+                                                {gameState.isAnswerRevealed ? 'Respuesta Revelada' : 'Revelar Respuesta'}
                                             </button>
-                                        </div>
-                                    </div>
+                                            <button
+                                                onClick={handleNextQuestion}
+                                                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2"
+                                            >
+                                                <span className="material-symbols-outlined">skip_next</span>
+                                                Siguiente Pregunta
+                                            </button>
+                                        </>
+                                    )}
+                                    <button
+                                        onClick={() => setIsAutoEnabled(!isAutoEnabled)}
+                                        className={`px-5 py-2 rounded-lg font-bold flex items-center gap-2 border ${isAutoEnabled
+                                            ? 'bg-pink-50 border-pink-400 text-pink-700'
+                                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                                    >
+                                        <span className="material-symbols-outlined">{isAutoEnabled ? 'pause_circle' : 'autoplay'}</span>
+                                        {isAutoEnabled ? 'Auto Activo' : 'Modo Automático'}
+                                    </button>
+                                    <button
+                                        onClick={handleEndGame}
+                                        className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2"
+                                    >
+                                        <span className="material-symbols-outlined">flag</span>
+                                        Finalizar Juego
+                                    </button>
+                                </>
+                            )}
 
-                                    {/* Questions List */}
-                                    <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                                        {gameState.questions.map((q, idx) => (
+                            <button
+                                onClick={handleResetGame}
+                                className="bg-red-100 text-red-700 hover:bg-red-200 px-6 py-2 rounded-lg font-bold flex items-center gap-2"
+                            >
+                                <span className="material-symbols-outlined">restart_alt</span>
+                                Reiniciar Juego
+                            </button>
+                        </div>
+
+                        {/* Finished Banner */}
+                        {gameState.status === 'FINISHED' && (
+                            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-8 rounded-2xl text-center">
+                                <h2 className="text-3xl font-bold mb-2">🎉 ¡Trivia Completada!</h2>
+                                <p className="text-white/90">Revisa el podio final en la Pantalla Gigante o reinicia para una nueva partida.</p>
+                            </div>
+                        )}
+
+                        {/* Current Question Preview */}
+                        <section>
+                            <h2 className="text-xl font-bold mb-4">Pregunta en Pantalla</h2>
+                            {currentQuestion ? (
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+                                    <h3 className="text-lg font-bold text-gray-900">{currentQuestion.text}</h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {currentQuestion.options.map((opt) => (
                                             <div
-                                                key={q.id}
-                                                className={`p-4 rounded-2xl border transition-all group ${gameState.currentQuestionIndex === idx
-                                                    ? 'border-pink-500 bg-pink-500/5'
-                                                    : 'border-slate-800 bg-slate-900/50 hover:border-slate-700'
+                                                key={opt.key}
+                                                className={`p-3 rounded-lg border text-sm flex items-center gap-3 ${opt.key === currentQuestion.correctOption
+                                                    ? 'bg-green-50 border-green-400 text-green-800 font-semibold'
+                                                    : 'bg-gray-50 border-gray-200 text-gray-700'
                                                     }`}
                                             >
-                                                <div className="flex justify-between items-start">
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-3 mb-1">
-                                                            <span className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center text-[10px] font-black text-slate-500">#{idx + 1}</span>
-                                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{q.durationSeconds}s de tiempo</span>
-                                                        </div>
-                                                        <h4 className="font-bold text-slate-200">{q.text}</h4>
-                                                    </div>
-                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button
-                                                            onClick={() => handleEditQuestion(q)}
-                                                            className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
-                                                        >
-                                                            <span className="material-symbols-outlined text-sm">edit</span>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteQuestion(q.id)}
-                                                            className="p-2 hover:bg-red-500/20 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
-                                                        >
-                                                            <span className="material-symbols-outlined text-sm">delete</span>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <div className="mt-4 grid grid-cols-2 gap-2">
-                                                    {q.options.map((opt) => (
-                                                        <div
-                                                            key={opt.key}
-                                                            className={`text-[11px] px-3 py-1.5 rounded-lg flex items-center gap-2 ${opt.key === q.correctOption
-                                                                ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                                                                : 'bg-slate-950/50 text-slate-500'
-                                                                }`}
-                                                        >
-                                                            <span className="font-black opacity-50">{opt.key}</span>
-                                                            <span className="truncate">{opt.text}</span>
-                                                            {opt.key === q.correctOption && <span className="material-symbols-outlined text-[10px] ml-auto">check</span>}
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                                <span className="font-bold opacity-60">{opt.key}</span>
+                                                <span className="truncate">{opt.text}</span>
+                                                {opt.key === currentQuestion.correctOption && (
+                                                    <span className="material-symbols-outlined text-sm ml-auto">check_circle</span>
+                                                )}
                                             </div>
                                         ))}
-
-                                        {gameState.questions.length === 0 && (
-                                            <div className="text-center py-16 bg-slate-950/30 rounded-3xl border border-dashed border-slate-800">
-                                                <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-4">
-                                                    <span className="material-symbols-outlined text-3xl text-slate-700">quiz</span>
-                                                </div>
-                                                <p className="text-slate-500 font-medium">Aún no hay preguntas cargadas</p>
-                                                <button
-                                                    onClick={() => setShowQuestionForm(true)}
-                                                    className="mt-4 text-pink-500 font-bold text-sm hover:underline"
-                                                >
-                                                    Agregar mi primera pregunta
-                                                </button>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* Sidebar Configuration */}
-                            <div className="space-y-6">
-                                {/* Guest Simulations / QR */}
-                                <div className="bg-slate-900 rounded-3xl border border-slate-800 p-6 shadow-xl">
-                                    <h2 className="text-xl font-black mb-6 flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-pink-500">qr_code_2</span>
-                                        Acceso Invitados
-                                    </h2>
-                                    <div className="bg-white p-4 rounded-3xl inline-block mx-auto mb-6 shadow-2xl shadow-indigo-500/20">
-                                        <img
-                                            src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrUrl)}`}
-                                            alt="QR Access"
-                                            className="w-full aspect-square max-w-[180px]"
-                                        />
+                            ) : (
+                                <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300 text-gray-400">
+                                    <span className="material-symbols-outlined text-4xl mb-2">monitor</span>
+                                    <p>No hay una pregunta activa en este momento.</p>
+                                </div>
+                            )}
+                        </section>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
+                        {/* Left Column: Questions -> AI Generator -> Global Settings */}
+                        <div className="lg:col-span-2 space-y-6">
+                            {/* Questions List */}
+                            <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                                <div className="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h2 className="text-lg font-bold flex items-center gap-2">
+                                            <span className="material-symbols-outlined">quiz</span>
+                                            Banco de Preguntas ({gameState.questions.length})
+                                        </h2>
                                     </div>
-                                    <div className="space-y-4">
-                                        <button
-                                            onClick={() => window.open(qrUrl, '_blank')}
-                                            className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 py-4 rounded-2xl font-bold text-sm transition-all"
+                                    <button
+                                        onClick={() => {
+                                            resetForm();
+                                            setShowQuestionForm(true);
+                                        }}
+                                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 text-sm font-medium"
+                                    >
+                                        <span className="material-symbols-outlined text-sm">add</span>
+                                        Agregar Manual
+                                    </button>
+                                </div>
+
+                                <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+                                    {gameState.questions.map((q, idx) => (
+                                        <div
+                                            key={q.id}
+                                            className={`p-4 rounded-xl border transition-all group ${gameState.currentQuestionIndex === idx
+                                                ? 'border-indigo-500 bg-indigo-50/40'
+                                                : 'border-gray-200 bg-gray-50/60 hover:border-gray-300'
+                                                }`}
                                         >
-                                            <span className="material-symbols-outlined text-sm">open_in_new</span>
-                                            Probar como Invitado
-                                        </button>
-                                        <p className="text-[10px] text-slate-500 text-center uppercase tracking-widest font-black">
-                                            Escanea o usa el botón para simular
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Global Time Config */}
-                                <div className="bg-slate-900 rounded-3xl border border-slate-800 p-6 shadow-xl">
-                                    <h2 className="text-xl font-black mb-6 flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-pink-500">timer</span>
-                                        Tiempo Global
-                                    </h2>
-                                    <div className="space-y-4">
-                                        <p className="text-[10px] text-slate-400 font-medium">
-                                            Establece el tiempo de respuesta para <b>todas</b> las preguntas actuales.
-                                            Esto sobrescribirá las configuraciones individuales.
-                                        </p>
-                                        <div className="flex gap-4 items-end">
-                                            <div className="flex-1 space-y-2">
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Segundos por pregunta</label>
-                                                <input
-                                                    type="number"
-                                                    value={duration}
-                                                    onChange={(e) => setDuration(Math.max(5, parseInt(e.target.value) || 10))}
-                                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500 transition-colors font-bold"
-                                                />
+                                            <div className="flex justify-between items-start gap-2">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="px-2 py-0.5 rounded bg-gray-200 text-gray-700 text-xs font-bold">#{idx + 1}</span>
+                                                        <span className="text-xs font-medium text-gray-500">{q.durationSeconds}s</span>
+                                                    </div>
+                                                    <h4 className="font-semibold text-gray-900">{q.text}</h4>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <button
+                                                        onClick={() => handleEditQuestion(q)}
+                                                        className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 hover:text-gray-900 transition-colors"
+                                                    >
+                                                        <span className="material-symbols-outlined text-sm">edit</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteQuestion(q.id)}
+                                                        className="p-1.5 hover:bg-red-100 rounded-lg text-gray-500 hover:text-red-600 transition-colors"
+                                                    >
+                                                        <span className="material-symbols-outlined text-sm">delete</span>
+                                                    </button>
+                                                </div>
                                             </div>
+                                            <div className="mt-3 grid grid-cols-2 gap-2">
+                                                {q.options.map((opt) => (
+                                                    <div
+                                                        key={opt.key}
+                                                        className={`text-xs px-3 py-1.5 rounded-lg flex items-center gap-2 ${opt.key === q.correctOption
+                                                            ? 'bg-green-100 text-green-800 font-medium'
+                                                            : 'bg-white border border-gray-200 text-gray-600'
+                                                            }`}
+                                                    >
+                                                        <span className="font-bold opacity-60">{opt.key}</span>
+                                                        <span className="truncate">{opt.text}</span>
+                                                        {opt.key === q.correctOption && <span className="material-symbols-outlined text-xs ml-auto">check</span>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {gameState.questions.length === 0 && (
+                                        <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-gray-400">
+                                            <span className="material-symbols-outlined text-4xl mb-2 block">quiz</span>
+                                            <p>Aún no hay preguntas cargadas</p>
                                             <button
-                                                onClick={async () => {
-                                                    if (window.confirm(`¿Estás seguro de cambiar el tiempo a ${duration} segundos para TODAS las ${gameState.questions.length} preguntas?`)) {
-                                                        await triviaService.updateAllDurations(eventId!, duration);
-                                                        alert('¡Tiempos actualizados correctamente!');
-                                                    }
-                                                }}
-                                                className="bg-indigo-600 hover:bg-indigo-500 px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-600/20 active:scale-95 whitespace-nowrap"
+                                                onClick={() => setShowQuestionForm(true)}
+                                                className="mt-3 text-indigo-600 font-semibold text-sm hover:underline"
                                             >
-                                                APLICAR A TODAS
+                                                Agregar mi primera pregunta
                                             </button>
                                         </div>
+                                    )}
+                                </div>
+                            </section>
+
+                            {/* AI Generator */}
+                            <section className="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-xl shadow-sm border border-indigo-100">
+                                <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-900">
+                                    <span className="material-symbols-outlined">auto_awesome</span>
+                                    Generar con IA
+                                </h2>
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                    <input
+                                        type="text"
+                                        value={aiTheme}
+                                        onChange={(e) => setAiTheme(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && aiTheme.trim() && handleGenerateAI()}
+                                        placeholder="Ej: Historia del Rock, Películas, Cumpleaños de 15..."
+                                        className="flex-1 border border-indigo-200 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                                    />
+                                    <select
+                                        value={aiCount}
+                                        onChange={(e) => setAiCount(parseInt(e.target.value))}
+                                        className="border border-indigo-200 rounded-lg p-2 bg-white text-sm"
+                                    >
+                                        {[1, 3, 5, 10, 15].map(n => (
+                                            <option key={n} value={n}>{n} {n === 1 ? 'pregunta' : 'preguntas'}</option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        onClick={handleGenerateAI}
+                                        disabled={isGeneratingAI || !aiTheme.trim()}
+                                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2 font-medium shadow-md shadow-indigo-200"
+                                    >
+                                        {isGeneratingAI ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                Generando...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="material-symbols-outlined text-sm">magic_button</span>
+                                                Generar
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </section>
+
+                            {/* Global Settings */}
+                            <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-6">
+                                <h2 className="text-lg font-bold flex items-center gap-2">
+                                    <span className="material-symbols-outlined">settings</span>
+                                    Configuración Global
+                                </h2>
+
+                                {/* Global Time */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tiempo Global (segundos por pregunta)</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="number"
+                                            value={duration}
+                                            onChange={(e) => setDuration(Math.max(5, parseInt(e.target.value) || 10))}
+                                            className="w-28 border border-gray-300 rounded-lg p-2 text-center font-bold"
+                                        />
+                                        <button
+                                            onClick={async () => {
+                                                if (window.confirm(`¿Cambiar el tiempo a ${duration} segundos para TODAS las ${gameState.questions.length} preguntas?`)) {
+                                                    await triviaService.updateAllDurations(eventId!, duration);
+                                                    alert('¡Tiempos actualizados correctamente!');
+                                                }
+                                            }}
+                                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+                                        >
+                                            Aplicar a Todas
+                                        </button>
                                     </div>
                                 </div>
 
-                                {/* Background Config */}
-                                <div className="bg-slate-900 rounded-3xl border border-slate-800 p-6 shadow-xl">
-                                    <h2 className="text-xl font-black mb-6 flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-pink-500">image</span>
-                                        Personalización
-                                    </h2>
-                                    <div className="space-y-4">
-                                        <div className="aspect-video bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 relative group">
-                                            {bgUrl ? (
-                                                <img src={bgUrl} alt="Preview" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                                {/* Background Image */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Imagen del Evento (Personalizada)</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={bgUrl}
+                                            onChange={(e) => setBgUrl(e.target.value)}
+                                            placeholder="URL de imagen..."
+                                            className="flex-1 bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        />
+                                        <label className="bg-white border-2 border-indigo-600 text-indigo-600 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-center min-w-[50px]">
+                                            <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
+                                            {uploading ? (
+                                                <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                                             ) : (
-                                                <div className="w-full h-full flex flex-col items-center justify-center text-slate-700 italic text-sm">
-                                                    <span className="material-symbols-outlined text-4xl mb-2 opacity-20">add_photo_alternate</span>
-                                                    Sin fondo personalizado
-                                                </div>
+                                                <span className="material-symbols-outlined">upload</span>
                                             )}
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                <label className="bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 text-white px-4 py-2 rounded-xl text-xs font-black cursor-pointer transition-all flex items-center gap-2">
-                                                    <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
-                                                    {uploading ? (
-                                                        <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                                    ) : (
-                                                        <span className="material-symbols-outlined text-sm">upload</span>
-                                                    )}
-                                                    {uploading ? 'Subiendo...' : 'SUBIR IMAGEN'}
-                                                </label>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">URL Directa</label>
-                                            <div className="relative">
-                                                <input
-                                                    type="text"
-                                                    value={bgUrl}
-                                                    onChange={(e) => setBgUrl(e.target.value)}
-                                                    placeholder="https://..."
-                                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-4 pr-24 py-3 text-sm focus:outline-none focus:border-pink-500 transition-colors font-mono"
-                                                />
-                                                <button
-                                                    onClick={() => handleSaveBackground()}
-                                                    className="absolute right-2 top-1.5 h-9 px-4 bg-slate-800 hover:bg-white hover:text-slate-950 text-[10px] font-black rounded-lg transition-all"
-                                                >
-                                                    APLICAR
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <p className="text-[10px] text-slate-600 leading-relaxed italic px-1">
-                                            Sugerencia: Usa una imagen oscura de 1920x1080 para que las preguntas resalten en la pantalla.
-                                        </p>
+                                        </label>
+                                        <button
+                                            onClick={() => handleSaveBackground()}
+                                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+                                        >
+                                            Guardar
+                                        </button>
                                     </div>
+                                    {bgUrl && (
+                                        <div className="mt-2 relative group w-full h-32">
+                                            <img src={bgUrl} alt="Preview" className="h-full w-full object-cover rounded-xl border border-gray-200" />
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
+                            </section>
+                        </div>
+
+                        {/* Right Column: QR Code & Links */}
+                        <div className="space-y-6">
+                            <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
+                                <h2 className="text-lg font-bold mb-3 flex items-center justify-center gap-2">
+                                    <span className="material-symbols-outlined">qr_code_2</span>
+                                    Enlace para Jugadores
+                                </h2>
+                                <div className="bg-gray-50 p-4 rounded-lg inline-block">
+                                    <img
+                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUrl)}`}
+                                        alt="QR Access"
+                                        className="w-44 h-44 mx-auto"
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-500 mt-3 break-all px-2">{qrUrl}</p>
+                                <button
+                                    onClick={() => navigator.clipboard.writeText(qrUrl)}
+                                    className="mt-3 text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1 mx-auto"
+                                >
+                                    <span className="material-symbols-outlined text-sm">content_copy</span>
+                                    Copiar enlace
+                                </button>
+                                <button
+                                    onClick={() => window.open(qrUrl, '_blank')}
+                                    className="mt-4 w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 text-sm transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-sm">open_in_new</span>
+                                    Probar como Invitado
+                                </button>
+                            </section>
                         </div>
                     </div>
                 )}

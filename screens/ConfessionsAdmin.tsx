@@ -94,31 +94,35 @@ const ConfessionsAdmin: React.FC<ConfessionsAdminProps> = ({ user }) => {
     const messageCount = state.messages.length;
 
     return (
-        <div className="min-h-screen bg-[#020617] text-slate-100 font-sans selection:bg-pink-500/30">
-            {/* Nav Header */}
-            <header className="sticky top-0 z-[60] bg-[#020617]/80 backdrop-blur-xl border-b border-white/5 px-8 py-4">
-                <div className="max-w-7xl mx-auto flex items-center justify-between">
-                    <div className="flex items-center gap-6">
+        <div className="min-h-screen bg-gray-50 text-gray-900 pb-20">
+            {/* Header */}
+            <header className="bg-slate-900 text-white p-4 shadow-md sticky top-0 z-50">
+                <div className="max-w-6xl mx-auto flex items-center justify-between">
+                    <div className="flex items-center gap-4">
                         <button
                             onClick={() => navigate(`/games/${id}`)}
-                            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5 transition-all active:scale-90"
+                            className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
                         >
-                            <span className="material-symbols-outlined text-slate-400">arrow_back</span>
+                            <span className="material-symbols-outlined">arrow_back</span>
                         </button>
                         <div>
-                            <div className="flex items-center gap-3">
-                                <h1 className="text-xl font-black tracking-tight">Confesiones</h1>
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-widest uppercase ${state.status === 'ACTIVE' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                    {state.status === 'ACTIVE' ? 'En Vivo' : 'Detenido'}
+                            <h1 className="text-xl font-bold flex items-center gap-2">
+                                <span className="material-symbols-outlined text-pink-400">chat_bubble</span>
+                                Confesiones - Admin
+                            </h1>
+                            <div className="flex items-center gap-2 text-sm">
+                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${state.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-600'}`}>
+                                    {state.status === 'ACTIVE' ? 'EN VIVO' : 'DETENIDO'}
                                 </span>
+                                <span className="text-pink-400">{messageCount} mensajes</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                         <button
                             onClick={() => window.open(`#/confessions/${id}/screen`, '_blank')}
-                            className="flex items-center gap-2 bg-slate-900 border border-white/10 hover:bg-white/10 px-5 py-2.5 rounded-xl font-black text-xs transition-all uppercase tracking-widest"
+                            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-lg font-medium transition-colors"
                         >
                             <span className="material-symbols-outlined text-sm">tv</span>
                             Pantalla Gigante
@@ -127,204 +131,159 @@ const ConfessionsAdmin: React.FC<ConfessionsAdminProps> = ({ user }) => {
                 </div>
             </header>
 
-            {/* Tab Navigation */}
-            <div className="max-w-4xl mx-auto px-8 mt-8">
-                <div className="flex gap-2 p-1.5 bg-slate-900/50 rounded-2xl border border-white/5 w-fit">
+            <main className="max-w-6xl mx-auto p-6">
+                {/* Tabs */}
+                <div className="flex gap-4 mb-6 border-b border-gray-200">
                     <button
                         onClick={() => setActiveTab('LIVE')}
-                        className={`px-6 py-2.5 rounded-xl text-xs font-black tracking-widest uppercase transition-all ${activeTab === 'LIVE' ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/20' : 'text-slate-400 hover:text-white'}`}
+                        className={`pb-2 px-4 font-semibold ${activeTab === 'LIVE' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500'}`}
                     >
                         Juego en Vivo
                     </button>
                     <button
                         onClick={() => setActiveTab('CONFIG')}
-                        className={`px-6 py-2.5 rounded-xl text-xs font-black tracking-widest uppercase transition-all ${activeTab === 'CONFIG' ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/20' : 'text-slate-400 hover:text-white'}`}
+                        className={`pb-2 px-4 font-semibold ${activeTab === 'CONFIG' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500'}`}
                     >
                         Configuración
                     </button>
                 </div>
-            </div>
 
-            <main className="max-w-4xl mx-auto p-8 pt-6 space-y-8">
                 {activeTab === 'LIVE' ? (
-                    <div className="space-y-8 animate-fade-in">
-                        {/* Stats & Status Block */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-[#0f172a] rounded-[2rem] p-8 border border-white/5 shadow-2xl relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/5 blur-[50px] rounded-full transition-all group-hover:bg-pink-500/10"></div>
-                                <div className="relative z-10">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mensajes</span>
-                                        <div className="w-10 h-10 bg-pink-500/10 rounded-xl flex items-center justify-center text-pink-500">
-                                            <span className="material-symbols-outlined">chat_bubble</span>
-                                        </div>
-                                    </div>
-                                    <p className="text-5xl font-black tracking-tighter">{messageCount}</p>
-                                    <p className="text-sm text-slate-400 mt-2 font-medium">Confesiones recibidas</p>
-                                </div>
+                    <div className="space-y-6 animate-fade-in">
+                        {/* Stats */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500">
+                                <div className="text-2xl font-bold">{messageCount}</div>
+                                <div className="text-gray-500 text-sm">Mensajes Recibidos</div>
                             </div>
-
-                            <div className="bg-[#0f172a] rounded-[2rem] p-8 border border-white/5 shadow-2xl">
-                                <div className="flex justify-between items-center mb-6">
-                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Estado</span>
-                                    <label className="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" checked={state.status === 'ACTIVE'} onChange={toggleStatus} className="sr-only peer" />
-                                        <div className="w-14 h-7 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                                    </label>
-                                </div>
-                                <p className={`text-2xl font-black uppercase tracking-tight ${state.status === 'ACTIVE' ? 'text-green-500' : 'text-slate-400'}`}>
-                                    {state.status === 'ACTIVE' ? 'Recibiendo' : 'Detenido'}
-                                </p>
-                                <p className="text-sm text-slate-400 mt-2 font-medium">Controla si los invitados pueden enviar mensajes</p>
+                            <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
+                                <div className="text-2xl font-bold">{state.status === 'ACTIVE' ? 'Recibiendo' : 'Detenido'}</div>
+                                <div className="text-gray-500 text-sm">Estado</div>
                             </div>
                         </div>
 
-                        {/* Recent Messages */}
-                        <div className="bg-[#0f172a] rounded-[2.5rem] p-8 border border-white/5 shadow-2xl overflow-hidden relative">
-                            <div className="flex justify-between items-center mb-8">
-                                <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">
-                                    Recent Confessions
-                                    <span className="text-xs bg-white/5 px-3 py-1 rounded-full text-slate-500 font-black tracking-widest">LIVE</span>
-                                </h3>
-                                <button
-                                    onClick={resetGame}
-                                    className="p-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-2xl transition-all"
-                                    title="Limpiar Mensajes"
-                                >
-                                    <span className="material-symbols-outlined">delete_sweep</span>
-                                </button>
-                            </div>
+                        {/* Game Controls */}
+                        <div className="flex flex-wrap gap-3">
+                            <button
+                                onClick={toggleStatus}
+                                className={`px-6 py-2 rounded-lg font-bold flex items-center gap-2 text-white ${state.status === 'ACTIVE' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-600 hover:bg-green-700'}`}
+                            >
+                                <span className="material-symbols-outlined">{state.status === 'ACTIVE' ? 'pause' : 'play_arrow'}</span>
+                                {state.status === 'ACTIVE' ? 'Pausar Recepción' : 'Activar Recepción'}
+                            </button>
+                            <button
+                                onClick={resetGame}
+                                className="bg-red-100 text-red-700 hover:bg-red-200 px-6 py-2 rounded-lg font-bold flex items-center gap-2"
+                            >
+                                <span className="material-symbols-outlined">restart_alt</span>
+                                Reiniciar Juego
+                            </button>
+                        </div>
 
-                            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
+                        {/* Recent Messages */}
+                        <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h2 className="text-lg font-bold mb-4">Mensajes Recientes</h2>
+                            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                                 {state.messages.slice().reverse().map((msg) => (
                                     <div
                                         key={msg.id}
-                                        className="bg-slate-900/50 p-6 rounded-3xl border border-white/5 flex gap-5 animate-scale-in"
+                                        className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex gap-4"
                                     >
                                         <div className="w-1.5 self-stretch rounded-full" style={{ backgroundColor: msg.color }}></div>
                                         <div className="flex-1">
-                                            <p className="text-lg font-medium text-slate-200 leading-relaxed italic">"{msg.text}"</p>
-                                            <div className="flex items-center justify-between mt-4">
-                                                <span className="text-[10px] font-black tracking-wider text-slate-500 uppercase">
-                                                    {msg.author || 'Anónimo'}
-                                                </span>
-                                                <span className="text-[10px] font-black tracking-wider text-slate-600 uppercase">
-                                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
+                                            <p className="text-base font-medium text-gray-800 italic">"{msg.text}"</p>
+                                            <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                                                <span className="font-semibold uppercase">{msg.author || 'Anónimo'}</span>
+                                                <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                             </div>
                                         </div>
                                     </div>
                                 ))}
                                 {state.messages.length === 0 && (
-                                    <div className="text-center py-20">
-                                        <div className="w-20 h-20 bg-slate-900 rounded-full flex items-center justify-center mx-auto mb-6">
-                                            <span className="material-symbols-outlined text-4xl text-slate-700">chat_bubble_outline</span>
-                                        </div>
-                                        <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">No hay mensajes todavía</p>
-                                        <p className="text-slate-600 text-xs mt-2 font-medium">Los mensajes aparecerán aquí cuando los invitados comiencen a enviarlos</p>
+                                    <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-gray-400">
+                                        <span className="material-symbols-outlined text-4xl mb-2 block">chat_bubble_outline</span>
+                                        <p>No hay mensajes todavía.</p>
                                     </div>
                                 )}
                             </div>
-                        </div>
+                        </section>
                     </div>
                 ) : (
-                    <div className="space-y-8 animate-fade-in">
-                        {/* Background Configuration */}
-                        <div className="bg-[#0f172a] rounded-[2.5rem] p-10 border border-white/5 shadow-2xl">
-                            <div className="flex items-center gap-4 mb-8">
-                                <div className="w-12 h-12 bg-pink-500/10 rounded-2xl flex items-center justify-center text-pink-500">
-                                    <span className="material-symbols-outlined">image</span>
-                                </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
+                        {/* Left Column: Global Settings */}
+                        <div className="lg:col-span-2 space-y-6">
+                            <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
+                                <h2 className="text-lg font-bold flex items-center gap-2">
+                                    <span className="material-symbols-outlined">settings</span>
+                                    Configuración Global
+                                </h2>
                                 <div>
-                                    <h3 className="text-2xl font-black tracking-tight">Imagen del Evento</h3>
-                                    <p className="text-slate-500 text-sm font-medium">Personaliza el fondo de la pantalla gigante</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-                                <div className="aspect-video bg-slate-950 rounded-[2rem] overflow-hidden border border-white/10 relative group">
-                                    <img
-                                        src={bgUrl || 'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=800&q=80'}
-                                        alt="Fondo"
-                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-60"
-                                    />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent flex items-end p-6">
-                                        <span className="bg-white/10 backdrop-blur-md text-white px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase">Vista Previa</span>
-                                    </div>
-                                    {uploading && (
-                                        <div className="absolute inset-0 bg-[#020617]/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
-                                            <div className="w-8 h-8 border-4 border-pink-500/20 border-t-pink-500 rounded-full animate-spin"></div>
-                                            <p className="text-xs font-black tracking-widest text-slate-400 uppercase">Subiendo...</p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="space-y-6">
-                                    <div>
-                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">Cargar Imagen</label>
-                                        <label className="flex flex-col items-center justify-center w-full h-32 bg-slate-900/50 border-2 border-dashed border-white/10 rounded-[1.5rem] cursor-pointer hover:bg-slate-800/50 hover:border-pink-500/50 transition-all group">
-                                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                                <span className="material-symbols-outlined text-3xl text-slate-500 group-hover:text-pink-500 transition-colors mb-2">cloud_upload</span>
-                                                <p className="text-xs font-black tracking-wider text-slate-500 group-hover:text-slate-300">SUBIR ARCHIVO</p>
-                                            </div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Imagen del Evento (Fondo Pantalla Gigante)</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            value={bgUrl}
+                                            onChange={(e) => setBgUrl(e.target.value)}
+                                            className="flex-1 bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            placeholder="https://..."
+                                        />
+                                        <label className="bg-white border-2 border-indigo-600 text-indigo-600 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-center min-w-[50px]">
                                             <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
+                                            {uploading ? (
+                                                <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                                            ) : (
+                                                <span className="material-symbols-outlined">upload</span>
+                                            )}
                                         </label>
+                                        <button
+                                            onClick={() => handleSaveBackground(bgUrl)}
+                                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+                                        >
+                                            Guardar
+                                        </button>
                                     </div>
-
-                                    <div>
-                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block">O pegar URL directa / Google Photos</label>
-                                        <div className="flex gap-3">
-                                            <input
-                                                value={bgUrl}
-                                                onChange={(e) => setBgUrl(e.target.value)}
-                                                className="flex-1 bg-slate-950 border border-white/10 rounded-2xl px-5 py-3.5 text-sm font-medium focus:ring-2 focus:ring-pink-500 outline-none transition-all"
-                                                placeholder="https://images.unsplash..."
-                                            />
-                                            <button
-                                                onClick={() => handleSaveBackground(bgUrl)}
-                                                className="bg-slate-800 hover:bg-slate-700 text-white px-6 rounded-2xl font-black text-[10px] tracking-widest uppercase transition-all"
-                                            >
-                                                Aplicar
-                                            </button>
-                                        </div>
+                                    <div className="mt-3 relative group w-full h-40">
+                                        <img
+                                            src={bgUrl || 'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=800&q=80'}
+                                            alt="Fondo"
+                                            className="h-full w-full object-cover rounded-xl border border-gray-200"
+                                        />
                                     </div>
                                 </div>
-                            </div>
+                            </section>
                         </div>
 
-                        {/* Guest Simulation Block */}
-                        <div className="bg-[#0f172a] rounded-[2.5rem] p-10 border border-white/5 shadow-2xl overflow-hidden relative group">
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-[80px] rounded-full"></div>
-
-                            <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
-                                <div>
-                                    <div className="flex items-center gap-4 mb-6">
-                                        <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-400">
-                                            <span className="material-symbols-outlined">qr_code_2</span>
-                                        </div>
-                                        <h3 className="text-2xl font-black tracking-tight uppercase">Simulación</h3>
-                                    </div>
-                                    <p className="text-slate-400 font-medium leading-relaxed mb-8">
-                                        Prueba la experiencia de los invitados. Escanea el código QR para enviar mensajes desde tu celular o usa el botón de abajo.
-                                    </p>
-                                    <button
-                                        onClick={() => window.open(`#/confessions/${id}/guest`, '_blank')}
-                                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-3 transition-all shadow-xl shadow-indigo-600/20 active:scale-95 text-xs tracking-widest uppercase"
-                                    >
-                                        <span className="material-symbols-outlined text-sm">open_in_new</span>
-                                        Probar como Invitado
-                                    </button>
-                                </div>
-
-                                <div className="flex flex-col items-center justify-center bg-white p-6 rounded-[2rem] shadow-2xl">
+                        {/* Right Column: QR Code & Links */}
+                        <div className="space-y-6">
+                            <section className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 text-center">
+                                <h2 className="text-lg font-bold mb-3 flex items-center justify-center gap-2">
+                                    <span className="material-symbols-outlined">qr_code_2</span>
+                                    Enlace para Jugadores
+                                </h2>
+                                <div className="bg-gray-50 p-4 rounded-lg inline-block">
                                     <img
-                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`${window.location.origin}/#/confessions/${id}/guest`)}`}
+                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`${window.location.origin}/#/confessions/${id}/guest`)}`}
                                         alt="Guest QR"
-                                        className="w-48 h-48"
+                                        className="w-44 h-44 mx-auto"
                                     />
-                                    <p className="text-[#020617] font-black text-[10px] tracking-widest uppercase mt-4">Escanea para jugar</p>
                                 </div>
-                            </div>
+                                <p className="text-xs text-gray-500 mt-3 break-all px-2">
+                                    {`${window.location.origin}/#/confessions/${id}/guest`}
+                                </p>
+                                <button
+                                    onClick={() => navigator.clipboard.writeText(`${window.location.origin}/#/confessions/${id}/guest`)}
+                                    className="mt-3 text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1 mx-auto"
+                                >
+                                    <span className="material-symbols-outlined text-sm">content_copy</span>
+                                    Copiar enlace
+                                </button>
+                                <button
+                                    onClick={() => window.open(`#/confessions/${id}/guest`, '_blank')}
+                                    className="mt-4 w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 text-sm transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-sm">open_in_new</span>
+                                    Probar como Invitado
+                                </button>
+                            </section>
                         </div>
                     </div>
                 )}

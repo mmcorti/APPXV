@@ -5,6 +5,7 @@ export interface ImpostorPlayer {
     role: 'CIVILIAN' | 'IMPOSTOR';
     answer: string;
     avatar: string;
+    online?: boolean;
 }
 
 export interface ImpostorState {
@@ -17,8 +18,11 @@ export interface ImpostorState {
         knowsRole: boolean;
         customImageUrl?: string;
     };
+    round?: number;
     activePlayers: ImpostorPlayer[];
-    lobby: { id: string, name: string, avatar: string }[];
+    eliminatedPlayers?: ImpostorPlayer[];
+    lastEliminated?: { id: string; name: string; role: 'CIVILIAN' | 'IMPOSTOR'; round: number; disconnected?: boolean } | null;
+    lobby: { id: string, name: string, avatar: string, online?: boolean }[];
     votes: Record<string, string>;
     winner: 'PUBLIC' | 'IMPOSTOR' | null;
 }
@@ -69,14 +73,18 @@ export const impostorService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ candidates })
         });
-        return res.json();
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al seleccionar jugadores');
+        return data;
     },
 
     async startRound(eventId: string): Promise<ImpostorState> {
         const res = await fetch(`${API_URL}/impostor/${eventId}/start`, {
             method: 'POST'
         });
-        return res.json();
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al iniciar la ronda');
+        return data;
     },
 
     async submitAnswer(eventId: string, playerId: string, answer: string): Promise<ImpostorState> {
@@ -97,9 +105,27 @@ export const impostorService = {
         return res.json();
     },
 
+    async nextRound(eventId: string): Promise<ImpostorState> {
+        const res = await fetch(`${API_URL}/impostor/${eventId}/next-round`, {
+            method: 'POST'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al pasar a la siguiente ronda');
+        return data;
+    },
+
     async revealImpostor(eventId: string): Promise<ImpostorState> {
         const res = await fetch(`${API_URL}/impostor/${eventId}/reveal`, {
             method: 'POST'
+        });
+        return res.json();
+    },
+
+    async removePlayer(eventId: string, playerId: string): Promise<ImpostorState> {
+        const res = await fetch(`${API_URL}/impostor/${eventId}/remove-player`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playerId })
         });
         return res.json();
     },

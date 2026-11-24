@@ -139,6 +139,14 @@ const ImpostorBigScreen: React.FC = () => {
                 {state.status === 'SUBMITTING' && (
                     <div className="text-center space-y-12">
                         <div className="space-y-4">
+                            <span className="inline-block px-4 py-1.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-sm font-black uppercase tracking-widest">
+                                Ronda {state.round || 1}
+                            </span>
+                            {state.lastEliminated && (
+                                <div className="max-w-xl mx-auto bg-amber-500/15 border border-amber-400/30 text-amber-200 px-6 py-3 rounded-2xl text-lg font-bold">
+                                    Ronda {state.lastEliminated.round}: Salió {state.lastEliminated.name} ({state.lastEliminated.role === 'IMPOSTOR' ? '¡Era Impostor, pero queda otro!' : 'Era Civil — ¡El Impostor sigue oculto!'})
+                                </div>
+                            )}
                             <h2 className="text-6xl font-black uppercase tracking-tighter italic">Escribiendo respuestas...</h2>
                             <p className="text-2xl text-slate-500 drop-shadow-lg">Los jugadores están recibiendo sus consignas secretas</p>
                         </div>
@@ -224,7 +232,7 @@ const ImpostorBigScreen: React.FC = () => {
                         >
                             <h2 className="text-4xl font-black text-slate-400 uppercase tracking-widest">El Impostor era...</h2>
 
-                            {state.activePlayers.filter(p => p.role === 'IMPOSTOR').map(impostor => (
+                            {[...state.activePlayers, ...(state.eliminatedPlayers || [])].filter(p => p.role === 'IMPOSTOR').map(impostor => (
                                 <div key={impostor.id} className="flex flex-col items-center gap-6">
                                     <div className="relative">
                                         <div className="absolute inset-0 bg-red-500/50 blur-[100px] rounded-full scale-150 animate-pulse" />

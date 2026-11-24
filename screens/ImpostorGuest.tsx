@@ -15,9 +15,15 @@ const ImpostorGuest: React.FC<ImpostorGuestProps> = ({ user }) => {
     const [myPlayer, setMyPlayer] = useState<ImpostorPlayer | null>(null);
     const [playerName, setPlayerName] = useState(localStorage.getItem('imp_name') || '');
     const [isJoined, setIsJoined] = useState(false);
+    const [gameEnded, setGameEnded] = useState(false);
     const [answer, setAnswer] = useState('');
     const [selectedVote, setSelectedVote] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const isJoinedRef = React.useRef(false);
+
+    useEffect(() => {
+        isJoinedRef.current = isJoined;
+    }, [isJoined]);
 
     const guestId = user?.id || localStorage.getItem('imp_id') || 'guest-' + Math.random().toString(36).substr(2, 9);
 
@@ -33,15 +39,42 @@ const ImpostorGuest: React.FC<ImpostorGuestProps> = ({ user }) => {
         loadInitial();
 
         const unsubscribe = impostorService.subscribe(eventId, (newState) => {
-            setState(newState);
+            setState(prev => {
+                if (prev && (prev.round !== newState.round || (newState.status === 'SUBMITTING' && prev.status !== 'SUBMITTING'))) {
+                    setAnswer('');
+                    setSelectedVote(null);
+                }
+                return newState;
+            });
             updateRole(newState);
-            // Auto-detect if joined
-            if (newState.lobby.some(p => p.id === String(guestId))) {
+
+            const inLobby = newState.lobby.some(p => p.id === String(guestId));
+            const inActive = newState.activePlayers.some(p => p.id === String(guestId));
+            const inEliminated = (newState.eliminatedPlayers || []).some(p => p.id === String(guestId));
+
+            if (inLobby || inActive || inEliminated) {
                 setIsJoined(true);
+                setGameEnded(false);
+            } else if (isJoinedRef.current) {
+                setIsJoined(false);
+                setGameEnded(true);
+                setAnswer('');
+                setSelectedVote(null);
             }
         }, String(guestId));
 
-        return () => unsubscribe();
+        const handlePageHide = () => {
+            if (!isJoinedRef.current) return;
+            const apiUrl = import.meta.env.VITE_API_URL || '/api';
+            const payload = new Blob([JSON.stringify({ playerId: String(guestId) })], { type: 'application/json' });
+            navigator.sendBeacon(`${apiUrl}/impostor/${eventId}/leave`, payload);
+        };
+        window.addEventListener('pagehide', handlePageHide);
+
+        return () => {
+            window.removeEventListener('pagehide', handlePageHide);
+            unsubscribe();
+        };
     }, [eventId, guestId]);
 
     const loadInitial = async () => {
@@ -96,6 +129,7 @@ const ImpostorGuest: React.FC<ImpostorGuestProps> = ({ user }) => {
 
     const isPlayer = !!myPlayer;
     const hasAnswered = !!myPlayer?.answer;
+    const isEliminated = (state.eliminatedPlayers || []).some(p => p.id === String(guestId));
 
     return (
         <div className="min-h-screen bg-slate-950 text-white font-display p-4 pb-20 overflow-x-hidden">
@@ -111,10 +145,42 @@ const ImpostorGuest: React.FC<ImpostorGuestProps> = ({ user }) => {
             </div>
 
             <main className="max-w-md mx-auto">
+                {isEliminated && state.status !== 'REVEAL' && (
+                    <div className="mb-6 bg-red-950/70 border border-red-500/40 rounded-2xl p-5 text-center space-y-1 shadow-xl">
+                        <span className="material-symbols-outlined text-4xl text-red-400 block">person_off</span>
+                        <h3 className="text-xl font-black uppercase text-red-400">Has sido eliminado</h3>
+                        <p className="text-xs text-slate-300">Podés seguir viendo cómo continúa la partida como espectador.</p>
+                    </div>
+                )}
+
                 <AnimatePresence mode="wait">
 
+                    {/* CASE: GAME RESET / ENDED BY ADMIN */}
+                    {gameEnded && !isJoined && !isPlayer && (
+                        <motion.div
+                            key="game-ended"
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center space-y-6 shadow-2xl"
+                        >
+                            <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mx-auto text-slate-300">
+                                <span className="material-symbols-outlined text-4xl">flag</span>
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-2xl font-black italic uppercase tracking-tighter">El juego finalizó</h3>
+                                <p className="text-slate-400 text-sm">El organizador finalizó o reinició la partida.</p>
+                            </div>
+                            <button
+                                onClick={() => setGameEnded(false)}
+                                className="w-full bg-primary hover:bg-primary/90 text-white font-black py-4 rounded-2xl transition-all uppercase tracking-widest text-sm"
+                            >
+                                Unirse a la nueva partida
+                            </button>
+                        </motion.div>
+                    )}
+
                     {/* CASE: JOIN LOBBY */}
-                    {!isJoined && !isPlayer && (
+                    {!gameEnded && !isJoined && !isPlayer && (
                         <motion.div
                             key="join-lobby"
                             initial={{ opacity: 0, y: 20 }}
@@ -243,7 +309,7 @@ const ImpostorGuest: React.FC<ImpostorGuestProps> = ({ user }) => {
                         >
                             <h3 className="text-2xl font-black italic uppercase">FIN DE LA RONDA</h3>
 
-                            {state.activePlayers.filter(p => p.role === 'IMPOSTOR').map(imp => (
+                            {[...state.activePlayers, ...(state.eliminatedPlayers || [])].filter(p => p.role === 'IMPOSTOR').map(imp => (
                                 <div key={imp.id} className="flex flex-col items-center gap-4">
                                     <img src={imp.avatar} className="w-32 h-32 rounded-full border-4 border-red-500 shadow-2xl" />
                                     <p className="text-slate-400 text-sm uppercase font-bold tracking-widest">El Impostor era</p>
@@ -259,12 +325,14 @@ const ImpostorGuest: React.FC<ImpostorGuestProps> = ({ user }) => {
                         </motion.div>
                     )}
 
-                    {/* CASE: WAITING PHASE (Spectator) */}
-                    {isJoined && state.status === 'WAITING' && !isPlayer && (
+                    {/* CASE: WAITING OR SPECTATING SUBMITTING */}
+                    {isJoined && (state.status === 'WAITING' || state.status === 'SUBMITTING') && !isPlayer && (
                         <div className="text-center p-12 space-y-4">
                             <span className="material-symbols-outlined text-6xl text-slate-800 animate-spin">search_check</span>
-                            <p className="text-xl font-bold italic text-slate-500">Preparando ronda...</p>
-                            <p className="text-sm text-slate-700">Mirá la pantalla gigante para conocer a los jugadores.</p>
+                            <p className="text-xl font-bold italic text-slate-500">
+                                {state.status === 'SUBMITTING' ? 'Ronda en curso...' : 'Preparando ronda...'}
+                            </p>
+                            <p className="text-sm text-slate-600">Mirá la pantalla gigante para seguir el juego.</p>
                         </div>
                     )}
 

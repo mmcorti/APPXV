@@ -17,7 +17,7 @@ import { raffleGameService } from './services/raffleGameService.js';
 import { confessionsGameService } from './services/confessionsGameService.js';
 import { impostorGameService } from './services/impostorGameService.js';
 import { sendRecoveryEmail } from './services/emailService.js';
-import { uploadBingoPhoto, loadBingoSession, scheduleBingoPersist } from './bingoStorage.js';
+import { uploadBingoPhoto, loadBingoSession, scheduleBingoPersist, listBingoPhotos, buildBingoPhotosZip } from './bingoStorage.js';
 import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -3855,6 +3855,34 @@ app.post('/api/bingo/:eventId/submit', async (req, res) => {
     res.json({ success: true, submissionId: submission.id });
 });
 
+// --- ADMIN: LIST & DOWNLOAD ALL BINGO PHOTOS (FROM SUPABASE STORAGE) ---
+app.get('/api/bingo/:eventId/photos', async (req, res) => {
+    try {
+        const photos = await listBingoPhotos(req.params.eventId);
+        res.json({ photos });
+    } catch (error) {
+        console.error('❌ [BINGO] List photos error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/bingo/:eventId/photos/zip', async (req, res) => {
+    try {
+        const { eventId } = req.params;
+        const { buffer, count } = await buildBingoPhotosZip(eventId);
+        if (count === 0) {
+            return res.status(404).json({ error: 'No hay fotos guardadas para este evento todavía.' });
+        }
+        const safeName = String(eventId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 12);
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="fotobingo-${safeName}.zip"`);
+        res.send(buffer);
+    } catch (error) {
+        console.error('❌ [BINGO] Zip photos error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // --- RAFFLE GAME ROUTES ---
 
 // Helper for Raffle SSE
@@ -4074,19 +4102,24 @@ app.put('/api/impostor/:eventId/config', (req, res) => {
 });
 
 app.post('/api/impostor/:eventId/select-players', (req, res) => {
-    // In a real scenario, we'd get connected guests. 
-    // For now, we simulation with a list or get them from existing logic if available.
-    // For this MVP, let's assume the admin sends a list of candidate players or we fetch from active guests.
-    const { candidates } = req.body;
-    const state = impostorGameService.selectPlayers(req.params.eventId, candidates || []);
-    broadcastImpostorState(req.params.eventId);
-    res.json(state);
+    try {
+        const { candidates } = req.body;
+        const state = impostorGameService.selectPlayers(req.params.eventId, candidates || []);
+        broadcastImpostorState(req.params.eventId);
+        res.json(state);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
 });
 
 app.post('/api/impostor/:eventId/start', (req, res) => {
-    const state = impostorGameService.startRound(req.params.eventId);
-    broadcastImpostorState(req.params.eventId);
-    res.json(state);
+    try {
+        const state = impostorGameService.startRound(req.params.eventId);
+        broadcastImpostorState(req.params.eventId);
+        res.json(state);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
 });
 
 app.post('/api/impostor/:eventId/answer', (req, res) => {
@@ -4103,10 +4136,41 @@ app.post('/api/impostor/:eventId/vote', (req, res) => {
     res.json(state);
 });
 
+app.post('/api/impostor/:eventId/next-round', (req, res) => {
+    try {
+        const state = impostorGameService.nextRound(req.params.eventId);
+        broadcastImpostorState(req.params.eventId);
+        res.json(state);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
 app.post('/api/impostor/:eventId/reveal', (req, res) => {
     const state = impostorGameService.revealImpostor(req.params.eventId);
     broadcastImpostorState(req.params.eventId);
     res.json(state);
+});
+
+app.post('/api/impostor/:eventId/remove-player', (req, res) => {
+    const { playerId } = req.body;
+    const state = impostorGameService.removePlayer(req.params.eventId, playerId);
+    broadcastImpostorState(req.params.eventId);
+    res.json(state);
+});
+
+app.post('/api/impostor/:eventId/leave', (req, res) => {
+    const { playerId } = req.body || {};
+    if (playerId) {
+        const session = impostorGameService.getOrCreateSession(req.params.eventId);
+        if (session.status === 'WAITING') {
+            impostorGameService.leaveSession(req.params.eventId, String(playerId));
+        } else {
+            impostorGameService.setPlayerStatus(req.params.eventId, String(playerId), false);
+        }
+        broadcastImpostorState(req.params.eventId);
+    }
+    res.json({ success: true });
 });
 
 app.post('/api/impostor/:eventId/reset', (req, res) => {
