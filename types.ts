@@ -73,7 +73,7 @@ export interface InvitationData {
     filters: any;
   };
   permissions?: StaffPermissions;
-  ownerPlan?: 'freemium' | 'premium' | 'vip'; // Plan del suscriptor propietario (para Staff)
+  ownerPlan?: 'freemium' | 'premium' | 'vip' | 'honor'; // Plan del suscriptor propietario (para Staff)
 }
 
 export interface StaffPermissions {

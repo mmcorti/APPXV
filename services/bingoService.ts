@@ -8,6 +8,7 @@ import {
     BingoSubmission,
     DEFAULT_BINGO_PROMPTS
 } from '../game-types/bingoTypes';
+import { getAuthHeaders } from './authHeaders';
 
 const API_BASE = '/api/bingo';
 
@@ -102,7 +103,7 @@ export const bingoService = {
     generatePrompts: async (theme: string, count: number = 9): Promise<{ prompts: BingoPrompt[] }> => {
         const response = await fetch(`${API_BASE}/generate-prompts`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
             body: JSON.stringify({ theme, count }),
         });
         if (!response.ok) {

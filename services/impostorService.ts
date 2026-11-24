@@ -1,4 +1,6 @@
 
+import { getAuthHeaders } from './authHeaders';
+
 export interface ImpostorPlayer {
     id: string;
     name: string;
@@ -56,7 +58,7 @@ export const impostorService = {
     async generateTasks(theme: string): Promise<{ mainPrompt: string, impostorPrompt: string }> {
         const res = await fetch(`${API_URL}/impostor/generate-tasks`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
             body: JSON.stringify({ theme })
         });
         if (!res.ok) {

@@ -8,7 +8,6 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { checkLimit, isAdmin, DEFAULT_PLAN, getUsageSummary, getPlanLimits } from './planLimits.js';
-import bcrypt from 'bcryptjs';
 import { supabase, TABLES } from './supabase.js';
 import { googlePhotosService } from './services/googlePhotos.js';
 import googleAuth from './services/googleAuth.js';
@@ -104,7 +103,19 @@ const {
     generateTriviaQuestions
 } = geminiService;
 
-app.post('/api/trivia/generate-questions', async (req, res) => {
+const requireGameAi = (req, res, next) => {
+    if (isAdmin(req.user?.role)) return next();
+    const limits = getPlanLimits(req.user?.plan || DEFAULT_PLAN);
+    if (!limits.gameAi) {
+        return res.status(403).json({
+            error: 'La generación con IA requiere un plan Premium, VIP u Honor.',
+            limitReached: true,
+        });
+    }
+    return next();
+};
+
+app.post('/api/trivia/generate-questions', requireAuth, requireGameAi, async (req, res) => {
     try {
         const { theme, count } = req.body;
         if (!theme) {
@@ -1056,12 +1067,11 @@ function companionNamesFromDb(dbValue, allotted) {
 app.get('/api/guests', async (req, res) => {
     try {
         const { eventId } = req.query;
-        // console.log(`ðŸ“ [GET /api/guests] Fetching guests for event: ${eventId}`); // Verbose log
-
-        let query = supabase.from('guests').select('*');
-        if (eventId) {
-            query = query.eq('event_id', eventId);
+        if (!eventId) {
+            return res.status(400).json({ error: 'eventId requerido' });
         }
+
+        const query = supabase.from('guests').select('*').eq('event_id', eventId);
 
         const { data: guestsData, error } = await query;
         if (error) {
@@ -3601,7 +3611,7 @@ app.put('/api/bingo/:eventId/settings', async (req, res) => {
 
 // --- AI GENERATION ENDPOINTS ---
 
-app.post('/api/bingo/generate-prompts', async (req, res) => {
+app.post('/api/bingo/generate-prompts', requireAuth, requireGameAi, async (req, res) => {
     try {
         const { theme, count } = req.body;
         if (!theme) return res.status(400).json({ error: 'Theme is required' });
@@ -3614,7 +3624,7 @@ app.post('/api/bingo/generate-prompts', async (req, res) => {
     }
 });
 
-app.post('/api/impostor/generate-tasks', async (req, res) => {
+app.post('/api/impostor/generate-tasks', requireAuth, requireGameAi, async (req, res) => {
     try {
         const { theme } = req.body;
         if (!theme) return res.status(400).json({ error: 'Theme is required' });

@@ -1,53 +1,60 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import WelcomeScreen from './screens/Welcome';
 import LoginScreen from './screens/Login';
-import UpdatePasswordScreen from './screens/UpdatePassword';
-import RegisterScreen from './screens/Register';
 import DashboardScreen from './screens/Dashboard';
-import InvitationEditor from './screens/InvitationEditor';
-import GuestsScreen from './screens/Guests';
-import LocationScreen from './screens/Location';
-import GuestRSVPScreen from './screens/GuestRSVP';
-import TablesScreen from './screens/Tables';
-import FotoWallConfigScreen from './screens/FotoWallConfig';
-import FotoWallPlayerScreen from './screens/FotoWallPlayer';
-import FotoWallAdminScreen from './screens/FotoWallAdmin';
-import FotoWallModerationSettingsScreen from './screens/FotoWallModerationSettings';
-import ManageSubscribersScreen from './screens/ManageSubscribers';
-import StaffRosterScreen from './screens/StaffRoster';
-import EventStaffAssignmentsScreen from './screens/EventStaffAssignments';
-import CostControl from './screens/CostControl';
-import AddExpense from './screens/AddExpense';
-import Suppliers from './screens/Suppliers';
-import ExpenseCategories from './screens/ExpenseCategories';
-import Participants from './screens/Participants';
-import BalanceSummary from './screens/BalanceSummary';
-import GamesDashboard from './screens/GamesDashboard';
-import TriviaAdmin from './screens/TriviaAdmin';
-import TriviaBigScreen from './screens/TriviaBigScreen';
-import TriviaGuest from './screens/TriviaGuest';
-import BingoAdmin from './screens/BingoAdmin';
-import BingoBigScreen from './screens/BingoBigScreen';
-import BingoGuest from './screens/BingoGuest';
-import RaffleAdmin from './screens/RaffleAdmin';
-import RaffleBigScreen from './screens/RaffleBigScreen';
-import RaffleGuest from './screens/RaffleGuest';
-import ConfessionsAdmin from './screens/ConfessionsAdmin';
-import ConfessionsBigScreen from './screens/ConfessionsBigScreen';
-import ConfessionsGuest from './screens/ConfessionsGuest';
-import ImpostorAdmin from './screens/ImpostorAdmin';
-import ImpostorBigScreen from './screens/ImpostorBigScreen';
-import ImpostorGuest from './screens/ImpostorGuest';
-import GoogleCallbackScreen from './screens/GoogleCallback';
-import PaymentSuccess from './screens/PaymentSuccess';
-import PaymentFailure from './screens/PaymentFailure';
-import PaymentPending from './screens/PaymentPending';
-import PricesScreen from './screens/Prices';
 import { InvitationData, User, Guest, Table, SeatedGuest, StaffPermissions } from './types';
 import { apiService } from './services/apiService';
 import { PlanProvider } from './hooks/usePlan';
+
+const UpdatePasswordScreen = lazy(() => import('./screens/UpdatePassword'));
+const RegisterScreen = lazy(() => import('./screens/Register'));
+const InvitationEditor = lazy(() => import('./screens/InvitationEditor'));
+const GuestsScreen = lazy(() => import('./screens/Guests'));
+const LocationScreen = lazy(() => import('./screens/Location'));
+const GuestRSVPScreen = lazy(() => import('./screens/GuestRSVP'));
+const TablesScreen = lazy(() => import('./screens/Tables'));
+const FotoWallConfigScreen = lazy(() => import('./screens/FotoWallConfig'));
+const FotoWallPlayerScreen = lazy(() => import('./screens/FotoWallPlayer'));
+const FotoWallAdminScreen = lazy(() => import('./screens/FotoWallAdmin'));
+const FotoWallModerationSettingsScreen = lazy(() => import('./screens/FotoWallModerationSettings'));
+const ManageSubscribersScreen = lazy(() => import('./screens/ManageSubscribers'));
+const StaffRosterScreen = lazy(() => import('./screens/StaffRoster'));
+const EventStaffAssignmentsScreen = lazy(() => import('./screens/EventStaffAssignments'));
+const CostControl = lazy(() => import('./screens/CostControl'));
+const AddExpense = lazy(() => import('./screens/AddExpense'));
+const Suppliers = lazy(() => import('./screens/Suppliers'));
+const ExpenseCategories = lazy(() => import('./screens/ExpenseCategories'));
+const Participants = lazy(() => import('./screens/Participants'));
+const BalanceSummary = lazy(() => import('./screens/BalanceSummary'));
+const GamesDashboard = lazy(() => import('./screens/GamesDashboard'));
+const TriviaAdmin = lazy(() => import('./screens/TriviaAdmin'));
+const TriviaBigScreen = lazy(() => import('./screens/TriviaBigScreen'));
+const TriviaGuest = lazy(() => import('./screens/TriviaGuest'));
+const BingoAdmin = lazy(() => import('./screens/BingoAdmin'));
+const BingoBigScreen = lazy(() => import('./screens/BingoBigScreen'));
+const BingoGuest = lazy(() => import('./screens/BingoGuest'));
+const RaffleAdmin = lazy(() => import('./screens/RaffleAdmin'));
+const RaffleBigScreen = lazy(() => import('./screens/RaffleBigScreen'));
+const RaffleGuest = lazy(() => import('./screens/RaffleGuest'));
+const ConfessionsAdmin = lazy(() => import('./screens/ConfessionsAdmin'));
+const ConfessionsBigScreen = lazy(() => import('./screens/ConfessionsBigScreen'));
+const ConfessionsGuest = lazy(() => import('./screens/ConfessionsGuest'));
+const ImpostorAdmin = lazy(() => import('./screens/ImpostorAdmin'));
+const ImpostorBigScreen = lazy(() => import('./screens/ImpostorBigScreen'));
+const ImpostorGuest = lazy(() => import('./screens/ImpostorGuest'));
+const GoogleCallbackScreen = lazy(() => import('./screens/GoogleCallback'));
+const PaymentSuccess = lazy(() => import('./screens/PaymentSuccess'));
+const PaymentFailure = lazy(() => import('./screens/PaymentFailure'));
+const PaymentPending = lazy(() => import('./screens/PaymentPending'));
+const PricesScreen = lazy(() => import('./screens/Prices'));
+
+const RouteLoader: React.FC = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark text-slate-500">
+    <div className="size-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+  </div>
+);
 
 const INITIAL_INVITATION: InvitationData = {
   id: '1',
@@ -547,6 +554,12 @@ const App: React.FC = () => {
     }
   }, [invitations.length, user]);
 
+  const isOwnerOrAdmin = !!user && user.role !== 'staff' && user.role !== 'event_staff';
+  const requireOwner = (el: React.ReactElement) => {
+    if (!user) return <Navigate to="/login" />;
+    return isOwnerOrAdmin ? el : <Navigate to="/dashboard" />;
+  };
+
   return (
     <PlanProvider userPlan={
       (user?.role === 'staff' || user?.role === 'event_staff')
@@ -554,6 +567,7 @@ const App: React.FC = () => {
         : user?.plan
     }>
       <HashRouter>
+        <Suspense fallback={<RouteLoader />}>
         <Routes>
           <Route path="/" element={<WelcomeScreen />} />
           <Route path="/login" element={<LoginScreen onLogin={handleAuthSuccess} />} />
@@ -572,7 +586,7 @@ const App: React.FC = () => {
           />
           <Route
             path="/edit/:id"
-            element={user ? <InvitationEditor invitations={invitations} onSave={handleUpdateInvitation} user={user} /> : <Navigate to="/login" />}
+            element={requireOwner(<InvitationEditor invitations={invitations} onSave={handleUpdateInvitation} user={user!} />)}
           />
           <Route
             path="/guests/:id"
@@ -612,43 +626,43 @@ const App: React.FC = () => {
           />
           <Route
             path="/staff-roster"
-            element={user ? <StaffRosterScreen user={user} /> : <Navigate to="/login" />}
+            element={requireOwner(<StaffRosterScreen user={user!} />)}
           />
           <Route
             path="/event-staff/:id"
-            element={user ? <EventStaffAssignmentsScreen user={user} invitations={invitations} /> : <Navigate to="/login" />}
+            element={requireOwner(<EventStaffAssignmentsScreen user={user!} invitations={invitations} />)}
           />
           <Route
             path="/prices"
-            element={user ? <PricesScreen user={user} /> : <Navigate to="/login" />}
+            element={requireOwner(<PricesScreen user={user!} />)}
           />
           <Route
             path="/costs/:id"
-            element={user ? <CostControl invitations={invitations} /> : <Navigate to="/login" />}
+            element={requireOwner(<CostControl invitations={invitations} />)}
           />
           <Route
             path="/costs/:id/add"
-            element={user ? <AddExpense user={user} /> : <Navigate to="/login" />}
+            element={requireOwner(<AddExpense user={user} />)}
           />
           <Route
             path="/costs/:id/edit/:expenseId"
-            element={user ? <AddExpense user={user} /> : <Navigate to="/login" />}
+            element={requireOwner(<AddExpense user={user} />)}
           />
           <Route
             path="/costs/:id/suppliers"
-            element={user ? <Suppliers /> : <Navigate to="/login" />}
+            element={requireOwner(<Suppliers user={user} />)}
           />
           <Route
             path="/costs/:id/categories"
-            element={user ? <ExpenseCategories /> : <Navigate to="/login" />}
+            element={requireOwner(<ExpenseCategories />)}
           />
           <Route
             path="/costs/:id/participants"
-            element={user ? <Participants /> : <Navigate to="/login" />}
+            element={requireOwner(<Participants user={user} />)}
           />
           <Route
             path="/costs/:id/balances"
-            element={user ? <BalanceSummary /> : <Navigate to="/login" />}
+            element={requireOwner(<BalanceSummary />)}
           />
           <Route
             path="/games/:id"
@@ -826,6 +840,7 @@ const App: React.FC = () => {
           }} />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
+        </Suspense>
       </HashRouter>
     </PlanProvider>
   );

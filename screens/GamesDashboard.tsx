@@ -81,62 +81,96 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
     const { limits } = usePlan();
     const [games] = useState<Game[]>(DEFAULT_GAMES);
     const [connectedDevices, setConnectedDevices] = useState(0);
-    const [currentMode] = useState<'Lobby / Idle' | 'Game Active'>('Lobby / Idle');
+    const [bingoPhotosCount, setBingoPhotosCount] = useState(0);
+    const [activeGamesCount, setActiveGamesCount] = useState(0);
+    const [stoppingAll, setStoppingAll] = useState(false);
 
     const invitation = invitations.find(inv => inv.id === id);
+    const currentMode = activeGamesCount > 0 ? 'Juego Activo' : 'En Espera';
 
     useEffect(() => {
         if (!id) return;
 
-        // Subscribe to event SSE to get real connected device count
         const API_URL = import.meta.env.VITE_API_URL || '/api';
-        const eventSource = new EventSource(`${API_URL}/events/${id}/stream`);
 
-        eventSource.onopen = () => {
-            // We're connected — at least 1 device
-            setConnectedDevices(prev => Math.max(prev, 1));
-        };
-
-        eventSource.addEventListener('CONNECTED_COUNT', (event: any) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (typeof data.count === 'number') {
-                    setConnectedDevices(data.count);
-                }
-            } catch (e) {
-                // ignore parse errors
-            }
-        });
-
-        // Fallback: fetch counts from individual game states
         const fetchCounts = async () => {
             try {
-                const [triviaRes, bingoRes] = await Promise.allSettled([
+                const [triviaRes, bingoRes, impostorRes, raffleRes] = await Promise.allSettled([
                     fetch(`${API_URL}/trivia/${id}`).then(r => r.json()),
                     fetch(`${API_URL}/bingo/${id}`).then(r => r.json()),
+                    fetch(`${API_URL}/impostor/${id}`).then(r => r.json()),
+                    fetch(`${API_URL}/raffle/${id}`).then(r => r.json()),
                 ]);
 
                 let total = 0;
-                if (triviaRes.status === 'fulfilled' && triviaRes.value?.players) {
-                    total += Object.values(triviaRes.value.players).filter((p: any) => p.online !== false).length;
+                let active = 0;
+                let photos = 0;
+
+                if (triviaRes.status === 'fulfilled' && triviaRes.value) {
+                    if (triviaRes.value.players) {
+                        total += Object.values(triviaRes.value.players).filter((p: any) => p.online !== false).length;
+                    }
+                    if (triviaRes.value.status === 'PLAYING') active += 1;
                 }
-                if (bingoRes.status === 'fulfilled' && bingoRes.value?.players) {
-                    total += Object.values(bingoRes.value.players).filter((p: any) => p.online !== false).length;
+                if (bingoRes.status === 'fulfilled' && bingoRes.value) {
+                    if (bingoRes.value.players) {
+                        total += Object.values(bingoRes.value.players).filter((p: any) => p.online !== false).length;
+                    }
+                    if (Array.isArray(bingoRes.value.submissions)) {
+                        photos = bingoRes.value.submissions.length;
+                    }
+                    if (bingoRes.value.status === 'PLAYING') active += 1;
                 }
+                if (impostorRes.status === 'fulfilled' && impostorRes.value) {
+                    if (Array.isArray(impostorRes.value.lobby)) {
+                        total += impostorRes.value.lobby.filter((p: any) => p.online !== false).length;
+                    }
+                    if (impostorRes.value.status === 'SUBMITTING' || impostorRes.value.status === 'VOTING') active += 1;
+                }
+                if (raffleRes.status === 'fulfilled' && raffleRes.value) {
+                    if (raffleRes.value.participants) {
+                        total += Object.values(raffleRes.value.participants).filter((p: any) => p.online !== false).length;
+                    }
+                    if (raffleRes.value.status === 'WAITING' || raffleRes.value.status === 'COUNTDOWN') active += 1;
+                }
+
                 setConnectedDevices(total);
+                setBingoPhotosCount(photos);
+                setActiveGamesCount(active);
             } catch {
                 // Silently fail
             }
         };
 
         fetchCounts();
-        const interval = setInterval(fetchCounts, 15000); // Refresh every 15s
+        const interval = setInterval(fetchCounts, 15000);
 
         return () => {
-            eventSource.close();
             clearInterval(interval);
         };
     }, [id]);
+
+    const handleStopAllGames = async () => {
+        if (!id || stoppingAll) return;
+        if (!confirm('¿Detener todos los juegos en curso para este evento?')) return;
+        setStoppingAll(true);
+        const API_URL = import.meta.env.VITE_API_URL || '/api';
+        try {
+            await Promise.allSettled([
+                fetch(`${API_URL}/trivia/${id}/end`, { method: 'POST' }),
+                fetch(`${API_URL}/bingo/${id}/stop`, { method: 'POST' }),
+                fetch(`${API_URL}/raffle/${id}/reset`, { method: 'POST' }),
+                fetch(`${API_URL}/confessions/${id}/config`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'STOPPED' }),
+                }),
+            ]);
+            setActiveGamesCount(0);
+        } finally {
+            setStoppingAll(false);
+        }
+    };
 
     const handleStartGame = (gameId: string) => {
         let path = '';
@@ -179,9 +213,13 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Modo Actual</p>
                         <p className="text-sm font-bold text-slate-200">{currentMode}</p>
                     </div>
-                    <button className="flex items-center gap-2 bg-slate-900 border border-white/10 hover:bg-red-950/20 hover:border-red-500/50 hover:text-red-500 px-5 py-2.5 rounded-xl font-black text-xs transition-all uppercase tracking-widest group">
+                    <button
+                        onClick={handleStopAllGames}
+                        disabled={stoppingAll}
+                        className="flex items-center gap-2 bg-slate-900 border border-white/10 hover:bg-red-950/20 hover:border-red-500/50 hover:text-red-500 disabled:opacity-50 px-5 py-2.5 rounded-xl font-black text-xs transition-all uppercase tracking-widest group"
+                    >
                         <span className="material-symbols-outlined text-sm group-hover:animate-pulse">stop_circle</span>
-                        Detener Todo
+                        {stoppingAll ? 'Deteniendo...' : 'Detener Todo'}
                     </button>
                 </div>
             </header>
@@ -288,18 +326,21 @@ const GamesDashboard: React.FC<GamesDashboardProps> = ({ invitations, user }) =>
 
                         <div className="flex items-center gap-8">
                             <div className="flex items-center gap-4 bg-white/5 px-5 py-2 rounded-2xl border border-white/5">
-                                <span className="text-xl font-black text-white">0</span>
-                                <span className="text-[10px] font-bold text-slate-500 leading-tight uppercase tracking-wider">fotos subidas en el <br /> último min</span>
+                                <span className="text-xl font-black text-white">{bingoPhotosCount}</span>
+                                <span className="text-[10px] font-bold text-slate-500 leading-tight uppercase tracking-wider">fotos subidas <br /> en Photo Bingo</span>
                             </div>
                             <div className="flex items-center gap-4 bg-white/5 px-5 py-2 rounded-2xl border border-white/5">
-                                <span className="text-xl font-black text-pink-500">0%</span>
-                                <span className="text-[10px] font-bold text-slate-500 leading-tight uppercase tracking-wider">tasa de <br /> participación</span>
+                                <span className="text-xl font-black text-pink-500">{activeGamesCount}</span>
+                                <span className="text-[10px] font-bold text-slate-500 leading-tight uppercase tracking-wider">juegos activos <br /> en este momento</span>
                             </div>
                         </div>
                     </div>
 
-                    <button className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors group">
-                        <span className="text-[10px] font-black uppercase tracking-widest">Ver analíticas completas</span>
+                    <button
+                        onClick={() => navigate(`/bingo/${id}/admin`)}
+                        className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors group"
+                    >
+                        <span className="text-[10px] font-black uppercase tracking-widest">Galería Photo Bingo</span>
                         <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">chevron_right</span>
                     </button>
                 </div>

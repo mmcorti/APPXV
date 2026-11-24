@@ -1,7 +1,0 @@
-{
-  "name": "Live Photo Bingo",
-  "description": "Interactive real-time Photo Bingo game for social events with big screen display and mobile guest participation.",
-  "requestFramePermissions": [
-    "camera"
-  ]
-}

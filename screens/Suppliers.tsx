@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { apiService } from '../services/apiService';
 import { UpgradePrompt } from '../components/UpgradePrompt';
 import { usePlan } from '../hooks/usePlan';
+import { User } from '../types';
 
 interface Supplier {
     id: string;
@@ -19,7 +20,11 @@ interface ExpenseCategory {
     subtitle: string;
 }
 
-const Suppliers: React.FC = () => {
+interface SuppliersProps {
+    user?: User | null;
+}
+
+const Suppliers: React.FC<SuppliersProps> = ({ user }) => {
     const { id: eventId } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -76,7 +81,7 @@ const Suppliers: React.FC = () => {
             if (editingId) {
                 await apiService.updateSupplier(editingId, formData);
             } else {
-                await apiService.createSupplier(eventId, formData, { userPlan: currentPlan });
+                await apiService.createSupplier(eventId, formData, { userPlan: currentPlan, userRole: user?.role });
             }
             setShowForm(false);
             setFormData({ name: '', category: '', phone: '', email: '' });
@@ -120,7 +125,7 @@ const Suppliers: React.FC = () => {
                             if (!limitCheck.allowed) alert(`Límite de ${limitCheck.limit} proveedores alcanzado.`);
                             else { setShowForm(true); setEditingId(null); setFormData({ name: '', category: '', phone: '', email: '' }); }
                         }}
-                        className={`flex cursor-pointer items-center justify-center rounded-full h-10 w-10 text-background-dark shadow-lg active:scale-95 transition-transform ${limitCheck.allowed ? 'bg-primary' : 'bg-slate-300 cursor-not-allowed'}`}
+                        className={`flex cursor-pointer items-center justify-center rounded-full h-10 w-10 text-white shadow-lg active:scale-95 transition-transform ${limitCheck.allowed ? 'bg-primary' : 'bg-slate-400 cursor-not-allowed'}`}
                     >
                         <span className="material-symbols-outlined text-2xl">add</span>
                     </button>
@@ -256,7 +261,7 @@ const Suppliers: React.FC = () => {
                             <button
                                 type="submit"
                                 disabled={saving || !formData.name}
-                                className="w-full bg-primary text-background-dark font-bold h-14 rounded-xl disabled:opacity-50"
+                                className="w-full bg-primary text-white font-bold h-14 rounded-xl disabled:opacity-50"
                             >
                                 {saving ? 'Guardando...' : (editingId ? 'Actualizar' : 'Agregar')}
                             </button>

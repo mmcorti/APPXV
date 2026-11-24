@@ -504,7 +504,7 @@ const AddExpense: React.FC<AddExpenseProps> = ({ user }) => {
                         type="submit"
                         onClick={handleSubmit}
                         disabled={saving || !category || !supplier || totalAmount <= 0}
-                        className="w-full bg-primary hover:bg-primary/90 text-background-dark font-extrabold text-lg h-16 rounded-2xl transition-all shadow-lg shadow-primary/20 active:scale-[0.98] disabled:opacity-50"
+                        className="w-full bg-primary hover:bg-primary/90 text-white font-extrabold text-lg h-16 rounded-2xl transition-all shadow-lg shadow-primary/20 active:scale-[0.98] disabled:opacity-50"
                     >
                         {saving ? 'Guardando...' : (isEditMode ? 'Guardar Cambios' : 'Registrar Gasto')}
                     </button>

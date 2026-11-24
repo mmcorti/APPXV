@@ -504,7 +504,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
                     </div>
                     {statusMessage.includes('⚠') && (
                       <button
-                        onClick={() => alert('¡Hazte Premium para mostrar todas las fotos!')}
+                        onClick={() => navigate('/prices')}
                         className="text-[10px] font-black text-pink-600 dark:text-pink-400 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg shadow-sm self-start border border-pink-100 dark:border-pink-900/50 hover:bg-pink-50 transition-colors uppercase tracking-wider"
                       >
                         Pasar a Plan {userPlan === 'freemium' ? 'Premium' : 'VIP'}
@@ -561,7 +561,7 @@ const FotoWallConfigScreen: React.FC<FotoWallConfigProps> = ({ invitations, user
                     {(userPlan === 'freemium' && !isAdmin) && (
                       <div className="mt-2 px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-xl flex items-center justify-between">
                         <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400">Actualiza para usar IA</span>
-                        <button onClick={() => alert('¡Hazte Premium!')} className="text-[10px] font-black text-pink-600 hover:text-pink-700 underline">VER PLANES</button>
+                        <button onClick={() => navigate('/prices')} className="text-[10px] font-black text-pink-600 hover:text-pink-700 underline">VER PLANES</button>
                       </div>
                     )}
                   </div>

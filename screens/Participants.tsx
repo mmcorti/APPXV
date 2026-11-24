@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { apiService } from '../services/apiService';
 import { UpgradePrompt } from '../components/UpgradePrompt';
 import { usePlan } from '../hooks/usePlan';
+import { User } from '../types';
 
 interface Participant {
     id: string;
@@ -11,11 +12,15 @@ interface Participant {
     weight: number;
 }
 
-const Participants: React.FC = () => {
+interface ParticipantsProps {
+    user?: User | null;
+}
+
+const Participants: React.FC<ParticipantsProps> = ({ user }) => {
     const { id: eventId } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [participants, setParticipants] = useState<Participant[]>([]);
-    const { checkLimit } = usePlan();
+    const { checkLimit, currentPlan } = usePlan();
     const limitCheck = checkLimit('maxParticipants', participants.length);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -48,7 +53,7 @@ const Participants: React.FC = () => {
             if (editingId) {
                 await apiService.updateParticipant(editingId, formData);
             } else {
-                await apiService.createParticipant(eventId, formData);
+                await apiService.createParticipant(eventId, formData, { userPlan: currentPlan, userRole: user?.role });
             }
             setShowForm(false);
             setFormData({ name: '', weight: 1 });
@@ -91,7 +96,7 @@ const Participants: React.FC = () => {
                             if (!limitCheck.allowed) alert(`Límite de ${limitCheck.limit} participantes alcanzado.`);
                             else { setShowForm(true); setEditingId(null); setFormData({ name: '', weight: 1 }); }
                         }}
-                        className={`flex cursor-pointer items-center justify-center rounded-full h-10 w-10 text-background-dark shadow-lg active:scale-95 transition-transform ${limitCheck.allowed ? 'bg-primary' : 'bg-slate-300 cursor-not-allowed'}`}
+                        className={`flex cursor-pointer items-center justify-center rounded-full h-10 w-10 text-white shadow-lg active:scale-95 transition-transform ${limitCheck.allowed ? 'bg-primary' : 'bg-slate-400 cursor-not-allowed'}`}
                     >
                         <span className="material-symbols-outlined text-2xl">add</span>
                     </button>
@@ -104,7 +109,7 @@ const Participants: React.FC = () => {
                                 const staff = await apiService.getStaffAssignments(eventId!);
                                 for (const member of staff) {
                                     if (!participants.find(p => p.name === member.name)) {
-                                        await apiService.createParticipant(eventId!, { name: member.name, weight: 0 });
+                                        await apiService.createParticipant(eventId!, { name: member.name, weight: 0 }, { userPlan: currentPlan, userRole: user?.role });
                                     }
                                 }
                                 loadParticipants();
@@ -213,7 +218,7 @@ const Participants: React.FC = () => {
                                 <button
                                     type="submit"
                                     disabled={saving || !formData.name}
-                                    className="w-full bg-primary text-background-dark font-bold h-14 rounded-xl disabled:opacity-50"
+                                    className="w-full bg-primary text-white font-bold h-14 rounded-xl disabled:opacity-50"
                                 >
                                     {saving ? 'Guardando...' : (editingId ? 'Actualizar' : 'Agregar')}
                                 </button>

@@ -93,6 +93,20 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
         return icons[category] || 'receipt_long';
     };
 
+    const handleShareSummary = async () => {
+        const text = `Resumen de gastos — ${event?.eventName || 'Evento'}\nPresupuesto total: $${budget.toLocaleString('es-AR')}\nPagado: $${totalPaid.toLocaleString('es-AR')} (${percentagePaid}%)\nPendiente: $${totalPending.toLocaleString('es-AR')} (${percentagePending}%)`;
+        try {
+            if (navigator.share) {
+                await navigator.share({ title: `Gastos — ${event?.eventName || 'Evento'}`, text });
+            } else if (navigator.clipboard) {
+                await navigator.clipboard.writeText(text);
+                alert('Resumen de gastos copiado al portapapeles.');
+            }
+        } catch {
+            // user cancelled share sheet
+        }
+    };
+
     return (
         <div className="flex flex-col min-h-screen bg-background-light dark:bg-background-dark text-slate-900 dark:text-white">
             <nav className="sticky top-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-white/10">
@@ -102,7 +116,11 @@ const CostControl: React.FC<CostControlProps> = ({ invitations }) => {
                     </button>
                     <h2 className="text-lg font-bold leading-tight tracking-tight flex-1 text-center">Control de Gastos</h2>
                     <div className="flex w-12 items-center justify-end">
-                        <button className="flex items-center justify-center rounded-lg h-12 bg-transparent p-0">
+                        <button
+                            onClick={handleShareSummary}
+                            title="Compartir resumen"
+                            className="flex items-center justify-center rounded-lg h-12 bg-transparent p-0 hover:opacity-80 transition-opacity"
+                        >
                             <span className="material-symbols-outlined">ios_share</span>
                         </button>
                     </div>

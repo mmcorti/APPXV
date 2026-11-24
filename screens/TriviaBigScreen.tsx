@@ -66,7 +66,7 @@ const TriviaBigScreen: React.FC = () => {
     const renderWaitingScreen = () => (
         <div className="flex flex-col items-center justify-center h-full animate-fade-in space-y-12">
             <h1 className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-pink-500 tracking-tighter drop-shadow-2xl">
-                TRIVIA TIME
+                HORA DE TRIVIA
             </h1>
 
             <div className="flex items-center gap-12 bg-white/5 p-12 rounded-3xl backdrop-blur-sm border border-white/10 shadow-2xl">

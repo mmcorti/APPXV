@@ -1,5 +1,6 @@
 // Event-aware Trivia Game Service
 // Uses SSE (Server-Sent Events) for real-time cross-device sync
+import { getAuthHeaders } from './authHeaders';
 
 const API_BASE = '/api/trivia';
 
@@ -195,7 +196,7 @@ export const triviaService = {
     generateQuestions: async (theme: string, count: number) => {
         const response = await fetch(`${API_BASE}/generate-questions`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
             body: JSON.stringify({ theme, count }),
         });
         if (!response.ok) {

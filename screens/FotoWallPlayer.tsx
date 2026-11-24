@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { InvitationData } from '../types';
+import { PLAN_LIMITS_FE } from '../hooks/usePlan';
 
 // Use the same API URL pattern as the rest of the app
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -325,8 +326,8 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations, user
 
         {/* Photo Count with Plan Limit */}
         {(() => {
-          const PHOTO_LIMITS = { freemium: 20, premium: 200, vip: 1000 };
-          const limit = PHOTO_LIMITS[plan] || 20;
+          const planKey = (plan || 'freemium').toLowerCase() as keyof typeof PLAN_LIMITS_FE;
+          const limit = PLAN_LIMITS_FE[planKey]?.maxPhotosPerEvent ?? PLAN_LIMITS_FE.freemium.maxPhotosPerEvent;
           const nearLimit = photos.length >= limit * 0.8;
           return (
             <div className="mb-4">
@@ -335,7 +336,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations, user
                 <span className="text-lg text-white/50">/{limit}</span>
               </p>
               <p className="text-white/60 text-xs">Fotos</p>
-              {nearLimit && plan !== 'vip' && (
+              {nearLimit && planKey !== 'vip' && planKey !== 'honor' && (
                 <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
                   <span className="material-symbols-outlined text-sm">warning</span>
                   {photos.length >= limit ? 'Límite alcanzado' : 'Cerca del límite'}
@@ -355,7 +356,7 @@ const FotoWallPlayerScreen: React.FC<FotoWallPlayerProps> = ({ invitations, user
                 className="w-16 h-16"
               />
             </div>
-            <p className="text-white/60 text-[10px] mt-1">Scan to Upload</p>
+            <p className="text-white/60 text-[10px] mt-1">Escaneá para subir</p>
           </div>
         )}
 

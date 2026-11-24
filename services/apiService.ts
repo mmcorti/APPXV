@@ -290,11 +290,11 @@ export const apiService = {
         if (!res.ok) throw new Error('Failed to fetch suppliers');
         return await res.json();
     },
-    async createSupplier(eventId: string, supplier: { name: string; category: string; phone: string; email: string }, options?: { userPlan?: string }) {
+    async createSupplier(eventId: string, supplier: { name: string; category: string; phone: string; email: string }, options?: { userPlan?: string; userRole?: string }) {
         const res = await fetch(`${API_URL}/events/${eventId}/suppliers`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...supplier, userPlan: options?.userPlan })
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ ...supplier, userPlan: options?.userPlan, userRole: options?.userRole })
         });
         if (!res.ok) {
             const errorData = await res.json().catch(() => ({}));
@@ -353,13 +353,16 @@ export const apiService = {
         if (!res.ok) throw new Error('Failed to fetch participants');
         return await res.json();
     },
-    async createParticipant(eventId: string, participant: { name: string; weight?: number }) {
+    async createParticipant(eventId: string, participant: { name: string; weight?: number }, options?: { userPlan?: string; userRole?: string }) {
         const res = await fetch(`${API_URL}/events/${eventId}/participants`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(participant)
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ ...participant, userPlan: options?.userPlan, userRole: options?.userRole })
         });
-        if (!res.ok) throw new Error('Failed to create participant');
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to create participant');
+        }
         return await res.json();
     },
     async updateParticipant(id: string, participant: Partial<{ name: string; weight: number }>) {

@@ -18,12 +18,12 @@ const ConfessionsGuest: React.FC = () => {
         setError('');
 
         try {
-            await confessionsService.sendMessage(id, text, author || 'Anonymous');
+            await confessionsService.sendMessage(id, text, author || 'Anónimo');
             setSubmitted(true);
             setText('');
             setAuthor('');
         } catch (e: any) {
-            setError(e.message || 'Error sending message');
+            setError(e.message || 'Error al enviar el mensaje');
         } finally {
             setLoading(false);
         }

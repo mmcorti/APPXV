@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StaffMember, StaffPermissions } from '../types';
 import { getAuthHeaders } from '../services/authHeaders';
+import { PLAN_LIMITS_FE } from '../hooks/usePlan';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -253,9 +254,11 @@ const ManageSubscribersScreen: React.FC = () => {
                                 ))}
                             </div>
                             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                                {invitePlan === 'freemium' && '1 evento, 50 invitados, 20 fotos'}
-                                {invitePlan === 'premium' && '10 eventos, 200 invitados, 200 fotos'}
-                                {invitePlan === 'vip' && 'Eventos ilimitados, invitados y fotos ilimitados'}
+                                {(() => {
+                                    const l = PLAN_LIMITS_FE[invitePlan];
+                                    const fmt = (n: number) => (n === Infinity ? 'ilimitados' : n);
+                                    return `${fmt(l.maxEvents)} evento${l.maxEvents === 1 ? '' : 's'}, ${fmt(l.maxGuestsPerEvent)} invitados, ${fmt(l.maxPhotosPerEvent)} fotos`;
+                                })()}
                             </p>
                         </div>
 

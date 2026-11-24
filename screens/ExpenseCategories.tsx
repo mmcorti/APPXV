@@ -169,7 +169,7 @@ const ExpenseCategories: React.FC = () => {
                     <button
                         onClick={handleAdd}
                         disabled={saving || !newCategoryName.trim()}
-                        className="bg-primary text-background-dark font-bold px-4 py-3 rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
+                        className="bg-primary text-white font-bold px-4 py-3 rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
                     >
                         <span className="material-symbols-outlined">add</span>
                         <span className="hidden sm:inline">Agregar</span>

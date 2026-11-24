@@ -60,7 +60,7 @@ const ConfessionsBigScreen: React.FC = () => {
         return () => unsubscribe();
     }, [id]);
 
-    if (!state) return <div className="bg-black h-screen w-screen flex items-center justify-center text-white">Loading...</div>;
+    if (!state) return <div className="bg-black h-screen w-screen flex items-center justify-center text-white">Cargando...</div>;
 
     // Get Guest URL (current URL replace /confessions/ID/screen with /confessions/ID/guest)
     const guestUrl = window.location.href.replace('screen', 'guest');
@@ -117,7 +117,7 @@ const ConfessionsBigScreen: React.FC = () => {
                                     {msg.text}
                                 </p>
                                 <p className="text-xs font-mono uppercase tracking-widest opacity-60 mt-2">
-                                    - {msg.author || 'Anonymous'}
+                                    - {msg.author || 'Anónimo'}
                                 </p>
                             </div>
                         );
@@ -129,7 +129,7 @@ const ConfessionsBigScreen: React.FC = () => {
 
                     {/* QR Card */}
                     <div className="bg-white/10 backdrop-blur-xl p-6 rounded-3xl border border-white/20 flex flex-col items-center flex-shrink-0 shadow-2xl">
-                        <h2 className="text-pink-400 font-bold uppercase tracking-widest text-sm mb-4 animate-pulse">Scan to Confess</h2>
+                        <h2 className="text-pink-400 font-bold uppercase tracking-widest text-sm mb-4 animate-pulse">Escaneá para confesar</h2>
                         <div className="bg-white p-3 rounded-2xl shadow-lg">
                             <img
                                 src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(guestUrl)}`}
@@ -137,7 +137,7 @@ const ConfessionsBigScreen: React.FC = () => {
                                 className="w-full h-full"
                             />
                         </div>
-                        <p className="text-white/60 text-xs mt-4 text-center">No login required. 100% Anonymous.</p>
+                        <p className="text-white/60 text-xs mt-4 text-center">Sin registro. 100% Anónimo.</p>
                     </div>
 
                     {/* Chat Feed */}

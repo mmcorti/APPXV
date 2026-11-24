@@ -14,7 +14,7 @@ const PaymentFailure: React.FC = () => {
                 </p>
                 <div className="flex flex-col gap-4">
                     <button
-                        onClick={() => navigate('/login', { replace: true })}
+                        onClick={() => navigate('/prices', { replace: true })}
                         className="w-full bg-slate-700 hover:bg-slate-600 text-white font-black py-4 px-8 rounded-full transition-all shadow-xl active:scale-95 uppercase tracking-wide"
                     >
                         Intentar de nuevo
